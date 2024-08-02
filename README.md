@@ -1,4 +1,4 @@
-# LLM Chatter, v0.0.2
+# LLM Chatter, v0.0.3
 
 Single HTML file interface to chat with Ollama local large language models (LLMs) or OpenAI.com LLMs.
 
