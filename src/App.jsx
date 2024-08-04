@@ -12,13 +12,14 @@ function App() {
   const [advancedSetting, setAdvancedSetting] = useState(false);
   const [serverCheck, setServerCheck] = useState(false);
   const [samplingType, setSamplingType] = useState("temperature");
-  const [responseType, setResponseType] = useState("OpenAI Chat");
+  const [responseType, setResponseType] = useState("OpenAI: Chat (Text)");
   const [temperature, setTemperature] = useState("1.0");
   const [model, setModel] = useState("gpt-4o-mini");
   const [topp, setTopp] = useState("1.0");
   const [localModels, setLocalModels] = useState({});
   const [apiKey, setApiKey] = useState("");
   const [langchainURL, setLangchainURL] = useState("https://");
+  const [mediaURL, setMediaURL] = useState("http://localhost");
   const [urlValid, setUrlValid] = useState(false);
   const [chosenOpenAI, setChosenOpenAI] = useState("gpt-4o-mini");
   const [chosenOllama, setChosenOllama] = useState("");
@@ -26,13 +27,13 @@ function App() {
   const makeNewComponent = () => {
     const newChat = { 
       id: Date.now(), 
-      numba: contactCount, 
-      systemMessage: sysMsg, 
-      responseType: responseType, 
-      model: model, 
-      samplingType: samplingType, 
-      temperature: temperature, 
-      topp: topp, 
+      numba: contactCount,
+      systemMessage: sysMsg,
+      responseType: responseType,
+      model: model,
+      samplingType: samplingType,
+      temperature: temperature,
+      topp: topp,
       localModels: localModels,
       apiKey: apiKey,
       langchainURL: langchainURL
@@ -78,14 +79,14 @@ function App() {
   }
 
   function handleRespChange(e) {
-    console.log(e.target.value);
-    //console.log(modelOptions[e.target.value]);
-
     setResponseType(e.target.value);
     switch (e.target.value) {
-      case "OpenAI Chat" : 
+      case "OpenAI: Chat (Text)" : 
         setModel(chosenOpenAI);
       break;
+      case "OpenAI: Chat (Voice)" : 
+      setModel(chosenOpenAI);
+    break;
       default : 
         setModel(chosenOllama);
     }
@@ -105,7 +106,10 @@ function App() {
     setModel(e.target.value);
 
     switch (responseType) {
-      case "OpenAI Chat" : 
+      case "OpenAI: Chat (Text)" : 
+        setChosenOpenAI(e.target.value);
+      break;
+      case "OpenAI: Chat (Voice)" : 
         setChosenOpenAI(e.target.value);
       break;
       default : 
@@ -120,23 +124,28 @@ function App() {
     if (!checkedYes) {
       setTemperature("1.0");
       setTopp("1.0");
-      setResponseType("OpenAI Chat");
+      setResponseType("OpenAI: Chat (Text)");
       setSamplingType("temperature");
     }
 
     setAdvancedSetting(checkedYes);
   };
 
+  const openAImodels = [
+    { name: "gpt-3.5-turbo" },
+    { name: "gpt-4" },
+    { name: "gpt-4-turbo" },
+    { name: "gpt-4o" },
+    { name: "gpt-4o-mini" }
+  ];
+
   const modelOptions = {
-    "OpenAI Chat": [
-      { name: "gpt-3.5-turbo" },
-      { name: "gpt-4" },
-      { name: "gpt-4-turbo" },
-      { name: "gpt-4o" },
-      { name: "gpt-4o-mini" }
-    ],
-    "Ollama Chat": localModels,
-    "Ollama LangChain": localModels
+    "OpenAI: Chat (Text)": openAImodels,
+    "OpenAI: Chat (Voice)": openAImodels,
+    "Ollama: Chat (Text)": localModels,
+    "Ollama: Chat (Voice)": localModels,
+    "Ollama: LangChain (Text)": localModels,
+    "Ollama: LangChain (Voice)": localModels,
   };
 
   const checkModels = async () => {
@@ -145,15 +154,17 @@ function App() {
       setLocalModels(response.data.models);
 
       switch (responseType) {
-        case "OpenAI Chat" : 
+        case "OpenAI: Chat (Text)" : 
+          setModel("gpt-4o-mini");
+        break;
+        case "OpenAI: Chat (Voice)" : 
           setModel("gpt-4o-mini");
         break;
         default : 
           setModel(response.data.models[0].name);
-          setChosenOllama(response.data.models[0].name);
       }
       
-      //console.log(response.data.models);
+      setChosenOllama(response.data.models[0].name);
     } catch (error) { console.log(error); }
   };
 
@@ -162,14 +173,14 @@ function App() {
   }, []);
 
   useEffect(() => {
-    //Check for LangChain server 2.5 seconds
+    //Check for server every 2.5 seconds
     const checkLangchain = setInterval(async () => {
-      if (responseType != "Ollama LangChain") { return; }
+      //if (responseType == "Ollama: Chat (Text)" || responseType == "OpenAI: Chat (Text)") { return; }
       let chainServerCheck = false;
       try {
         chainServerCheck = await axios.post("http://localhost:8080/check");
       } catch (error) {
-        console.clear();
+        console.log(error);
       }
 
       if (chainServerCheck) {
@@ -219,7 +230,7 @@ function App() {
                           <input className="w-8 h-8 cursor-pointer mb-4" type="checkbox" name="advancedSetting" checked={advancedSetting} onChange={handleCheckboxChange} /> <label className="cursor-pointer leading-6"> Advanced Settings</label> 
                         </td>
                       </tr>
-                      { responseType != "Ollama LangChain" &&
+                      { !responseType.includes("LangChain") &&
                         <tr>
                           <td className="pb-4">
                             System Message
@@ -232,37 +243,45 @@ function App() {
                     { advancedSetting && 
                       <>
                         <tr>
-                          <td className="pb-4">Chat Source</td>
+                          <td className="pb-4">Input Type</td>
                           <td className="pb-4 tracking-wide text-center font-bold text-nosferatu-900">
                             <select name="responseType" id="responseType" className="hover:bg-nosferatu-400 cursor-pointer mb-2 p-4 min-w-full bg-nosferatu-100 font-mono rounded-xl text-black ring-1 hover:ring-2 ring-vonCount-900" onChange = {(e) => handleRespChange(e)} value={responseType}>
-                                <option value="OpenAI Chat">OpenAI Chat</option>
-                                <option value="Ollama Chat">Ollama Chat</option>
-                                <option value="Ollama LangChain">Ollama LangChain</option>
+                                <option value="OpenAI: Chat (Text)">OpenAI: Chat (Text)</option>
+                                <option value="OpenAI: Chat (Voice)">OpenAI: Chat (Voice)</option>
+                                <option value="Ollama: Chat (Text)">Ollama: Chat (Text)</option>
+                                <option value="Ollama: Chat (Voice)">Ollama: Chat (Voice)</option>
+                                <option value="Ollama: LangChain (Text)">Ollama: LangChain (Text)</option>
+                                <option value="Ollama: LangChain (Voice)">Ollama: LangChain (Voice)</option>
                             </select>
                           </td>
                         </tr>
-                        { responseType === "OpenAI Chat" ? 
+                        { responseType.includes("OpenAI") ? 
                           <tr>
-                            <td>API Key</td>
+                            <td>OpenAI API Key</td>
                             <td className="pb-4 tracking-wide text-center font-bold text-nosferatu-900"><input className="w-full font-bold hover:bg-nosferatu-400 p-6 bg-nosferatu-100 text-sm font-mono text-black ring-1 hover:ring-2 ring-vonCount-900 rounded-xl" onChange = {(e) => handleApiKeyChange(e)} type="password" value={apiKey}></input></td>
                           </tr>
                           : <></>
                         }
-                        { responseType === "Ollama LangChain" ? 
+                        { responseType.includes("LangChain") || responseType.includes("(Voice)") ? 
                           <>
                             <tr>
-                              <td className="pb-4">Check Server</td>
+                              <td className="pb-4">Server Check</td>
                               <td className="pb-4">
                                 { serverCheck ?
-                                <p>Local LangChain Server <span className="text-blade-900">Online</span> <i className="fa-solid fa-handshake text-blade-900 text-2xl"></i></p>
+                                <p>Local NodeJS Voice/LangChain Server <span className="text-blade-700">Online</span> <i className="fa-solid fa-handshake text-blade-700 text-2xl"></i></p>
                                 : 
-                                <p>Local LangChain Server <span className="text-marcelin-900">Offline</span> <i className="fa-solid fa-triangle-exclamation text-marcelin-900 text-2xl"></i></p>
+                                <p>Local NodeJS Voice/LangChain Server <span className="text-marcelin-900">Offline</span> <i className="fa-solid fa-triangle-exclamation text-marcelin-900 text-2xl"></i></p>
                                 }
                               </td>
                             </tr>
+                          </>
+                          : <></>
+                        }
+                        { responseType.includes("LangChain") ? 
+                          <>
                             <tr>
                               { urlValid ?
-                                <td className="pb-4">Embed Source <i className="fa-solid fa-link text-blade-900"></i></td>
+                                <td className="pb-4">Embed Source <i className="fa-solid fa-link text-blade-700"></i></td>
                                 : 
                                 <td className="pb-4">Embed Source <i className="fa-solid fa-link-slash text-marcelin-900"></i></td>
                               }
@@ -288,7 +307,7 @@ function App() {
                           <td className="pb-4 tracking-wide text-center font-bold text-nosferatu-900">
                             <select name="samplingType" id="samplingType" className="hover:bg-nosferatu-400 cursor-pointer mb-2 p-4 min-w-full bg-nosferatu-100 font-mono rounded-xl text-black ring-1 hover:ring-2 ring-vonCount-900" onChange = {(e) => handleTypeChange(e)} value={samplingType}>
                                 <option value="temperature">temperature</option>
-                                <option value="topp">top_p</option>
+                                <option value="topp">top-p</option>
                             </select>
                           </td>
                         </tr>
@@ -323,7 +342,7 @@ function App() {
                           </tr>
                         :
                           <tr>
-                            <td className="pb-4">top_p</td>
+                            <td className="pb-4">top-p</td>
                             <td className="tracking-wide text-center font-bold text-nosferatu-900">
                               <select name="topp" id="topp" className="hover:bg-nosferatu-400 cursor-pointer mb-2 p-4 min-w-full bg-nosferatu-100 font-mono rounded-xl text-black ring-1 hover:ring-2 ring-vonCount-900" onChange = {(e) => handleToppChange(e)} value={topp}>
                                 <option value="0.01">0.01</option>
