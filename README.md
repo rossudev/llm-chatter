@@ -12,7 +12,7 @@ A web interface to chat by text or voice with Ollama- or OpenAI-powered language
 3. Run `wget https://raw.githubusercontent.com/rossuber/llm-chatter/master/dist/index.html`
 4. Run `python3 -m http.server 8181`
 5. Open `localhost:8181` in your web browser.
-6. Optional: Register an account at [openai.com](https://openai.com/) and subscribe for an API key. Paste it into the 'Open API AI' input field, while OpenAI Chat mode is selected.
+6. Optional: Register an account at [openai.com](https://openai.com/) and subscribe for an API key. Paste it into the "Open API key" input field, while OpenAI Chat mode is selected.
 
 # Optional NodeJS server (Voice/LangChain support)
 
