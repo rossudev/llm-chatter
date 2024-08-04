@@ -2,6 +2,7 @@ import { useState } from 'react';
 import axios from "axios";
 import TextareaAutosize from 'react-textarea-autosize';
 import XClose from "./XClose";
+import Voice from "./Voice";
 import { debounce } from 'lodash';
 import copy from "copy-to-clipboard";
 import Hyphenated from 'react-hyphen';
@@ -13,13 +14,13 @@ const Chat = ({numba, onClose, systemMessage, responseType, model, temperature, 
 
     let sysMsgs = [];
     switch (responseType) {
-        case "OpenAI Chat" :
-            sysMsgs = [{"role": "system", "content": systemMessage}];
-            break;
-        case "Ollama LangChain" :
+        case "Ollama: LangChain (Text)" :
             sysMsgs = [];
             break;
-        case "Ollama Chat" :
+        case "Ollama: LangChain (Voice)" :
+            sysMsgs = [];
+            break;
+        default :
             sysMsgs = [{"role": "system", "content": systemMessage}];
             break;
     }
@@ -31,6 +32,24 @@ const Chat = ({numba, onClose, systemMessage, responseType, model, temperature, 
     const [chatMessages, setChatMessages] = useState(sysMsgs);
     const [chatContext, setChatContext] = useState([]);
     const [chatDuration, setChatDuration] = useState(0.0);
+    const [media, setMedia] = useState();
+
+    const fetchVoice = async (input) => {
+        const formData = new FormData();
+        formData.append('audio', input);
+    
+        let response = await axios.post(
+            "http://localhost:8080/whisper-medusa", // End path
+            formData,
+            {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            }
+        );
+        //console.log(response.data);
+        return response.data;
+    }
 
     const fetchData = async (input) => {
         let endPath = "";
@@ -40,7 +59,7 @@ const Chat = ({numba, onClose, systemMessage, responseType, model, temperature, 
         const contType = { "Content-Type": "application/json" };
 
         switch (responseType) {
-          case "OpenAI Chat" :
+          case "OpenAI: Chat (Text)" :
               endPath = "https://api.openai.com/v1/chat/completions";
               sendPacket = {
                   model: model,
@@ -56,7 +75,23 @@ const Chat = ({numba, onClose, systemMessage, responseType, model, temperature, 
                 }
               };
           break;
-          case "Ollama LangChain" :
+          case "OpenAI: Chat (Voice)" :
+              endPath = "https://api.openai.com/v1/chat/completions";
+              sendPacket = {
+                  model: model,
+                  messages: chatMessages.concat({ "role": "user", "content": [ { "type": "text", "text": input } ] }),
+                  temperature: parseFloat(temperature),
+                  top_p: parseFloat(topp),
+                  user: userID
+              };
+              sendHeaders = {
+                headers: {
+                  "Content-Type": "application/json",
+                  'Authorization': bearer
+                }
+              };
+          break;
+          case "Ollama: LangChain (Text)" :
               endPath = "http://localhost:8080/langchain";
               sendPacket = {
                   model: model,
@@ -67,7 +102,18 @@ const Chat = ({numba, onClose, systemMessage, responseType, model, temperature, 
               };
               sendHeaders = { headers: contType };
           break;
-          case "Ollama Chat" :
+          case "Ollama: LangChain (Voice)" :
+              endPath = "http://localhost:8080/langchain";
+              sendPacket = {
+                  model: model,
+                  input: input,
+                  temperature: parseFloat(temperature),
+                  topP: parseFloat(topp),
+                  langchainURL: langchainURL
+              };
+              sendHeaders = { headers: contType };
+          break;
+          default :
               endPath = "http://localhost:11434/api/generate";
               sendPacket = {
                   model: model,
@@ -75,7 +121,8 @@ const Chat = ({numba, onClose, systemMessage, responseType, model, temperature, 
                   system: systemMessage,
                   context: chatContext,
                   options: {"temperature": parseFloat(temperature), "top_p": parseFloat(topp)},
-                  stream: false
+                  stream: false,
+                  keep_alive: 0
               };
               sendHeaders = { headers: contType };
           break;
@@ -91,25 +138,27 @@ const Chat = ({numba, onClose, systemMessage, responseType, model, temperature, 
             );
             
             const endTime = Date.now();
-            //console.log(response);
             const durTime = ((endTime - startTime) / 1000).toFixed(2);
             setChatDuration(durTime);
 
             let theEnd = "";
 
             switch (responseType) {
-                case "OpenAI Chat" : 
+                case "OpenAI: Chat (Text)" : 
                     theEnd = response.data.choices[0].message.content;
                     break;
-
-                case "Ollama Chat" : 
-                    //console.log(response);
+                case "OpenAI: Chat (Voice)" : 
+                    theEnd = response.data.choices[0].message.content;
+                    break;
+                case "Ollama: LangChain (Text)" : 
+                    theEnd = response.data.text.trim();
+                    break;
+                case "Ollama: LangChain (Voice)" : 
+                    theEnd = response.data.text.trim();
+                    break;
+                default : 
                     theEnd = response.data.response.trim();
                     setChatContext(response.data.context);
-                    break;
-                
-                case "Ollama LangChain" : 
-                    theEnd = response.data.text.trim();
                     break;
               }
   
@@ -135,6 +184,36 @@ const Chat = ({numba, onClose, systemMessage, responseType, model, temperature, 
                 console.error(error);
                 setIsError(true);
                 setChatMessages(chatMessages.concat({ "role": "user", "content": [ { "type": "text", "text": chatInput } ] }, { "role": "assistant", "content": "Error: " + error }));
+            }
+        }
+    }, 1000, { leading: true, trailing: false });
+
+    const handleSave = async (url) => {
+        const audioBlob = await fetch(url).then((r) => r.blob());
+        const audioFile = new File([audioBlob], 'voice.wav', { type: 'audio/wav' });
+        return audioFile;
+    };
+
+    const handleVoice = debounce(async () => {
+        if ( media ) {
+            setIsClicked(true);
+            try {
+                const audioFiler = await handleSave(media);
+                console.log(audioFiler);
+                const voiceOut = await fetchVoice(audioFiler);
+                console.log(voiceOut);
+                const chatOut = await fetchData(voiceOut);
+                console.log(chatOut);
+
+                setSentOne(true);
+                setIsClicked(false);
+                setChatMessages(chatMessages.concat({ "role": "user", "content": [ { "type": "text", "text": voiceOut } ] }, { "role": "assistant", "content": chatOut }));
+                setMedia();
+            } catch (error) {
+                setIsClicked(false);
+                console.error(error);
+                setIsError(true);
+                setChatMessages(chatMessages.concat({ "role": "user", "content": [ { "type": "text", "text": "Error" } ] }, { "role": "assistant", "content": "Error: " + error }));
             }
         }
     }, 1000, { leading: true, trailing: false });
@@ -186,7 +265,7 @@ const Chat = ({numba, onClose, systemMessage, responseType, model, temperature, 
             </code>
           </pre>
         ) : (
-          <code className={`${className} bg-gray-200 rounded p-1 whitespace-pre-wrap break-all`} {...props}>
+          <code className={`${className} bg-gray-800 text-white rounded p-1 whitespace-pre-wrap break-all`} {...props}>
             {children}
           </code>
         );
@@ -201,23 +280,41 @@ const Chat = ({numba, onClose, systemMessage, responseType, model, temperature, 
         delay={80}>
         {styles => (
           <animated.div style={styles} className="min-w-full self-start mt-1 mb-1 inline p-6 bg-nosferatu-200 rounded-3xl bg-gradient-to-tl from-nosferatu-500 shadow-2xl">
-            <table className="border-separate border-spacing-y-4">
+            <table className="border-separate border-spacing-y-2 border-spacing-x-2">
                 <tbody>
                     <tr>
                         <td colSpan="2" className="pb-4 tracking-wide text-4xl text-center font-bold text-nosferatu-900">
-                            <i className="fa-regular fa-comments mr-4 text-nosferatu-800"></i>
-                            {responseType} #{numba}
+                            <span className="mr-6">#{numba}</span>
+                            <i className="fa-regular fa-comments mr-6 text-nosferatu-800"></i>
+                            {responseType}
                         </td>
                         <td>
                             <XClose onClose={onClose} />
                         </td>
                     </tr>
                     <tr>
-                        <td><b>Model:</b><br/><i>{model}</i></td>
-                        <td><b>temperature:</b><br/><i>{temperature}</i></td>
-                        <td><b>top_p:</b><br/><i>{topp}</i></td>
+                        <td className="w-3/5 bg-buffy-200 rounded-xl bg-gradient-to-tl from-buffy-500 shadow-2xl p-1">
+                            <table><tr>
+                                <td className="w-1/6"><i class="fa-solid fa-splotch text-2xl text-dracula-500 ml-2"></i></td>
+                                <td className="w-5/6 p-3"><b>Model:</b><br/>{model}</td>
+                            </tr></table>
+                        </td>
+
+                        <td className="w-1/5 bg-vanHelsing-200 rounded-xl bg-gradient-to-tl from-vanHelsing-500 shadow-2xl p-1">
+                            <table><tr>
+                                <td className="w-1/6"><i class="fa-solid fa-temperature-three-quarters text-2xl text-buffy-500 ml-2"></i></td>
+                                <td className="w-5/6 p-3"><b>temperature:</b><br/>{temperature}</td>
+                            </tr></table>
+                        </td>
+
+                        <td className="w-1/5 bg-cullen-200 rounded-xl bg-gradient-to-tl from-cullen-500 shadow-2xl p-1">
+                            <table><tr>
+                                <td className="w-1/6"><i class="fa-brands fa-react text-2xl text-vanHelsing-900 ml-2"></i></td>
+                                <td className="w-5/6 p-3"><b>top-p:</b><br/>{topp}</td>
+                            </tr></table>
+                        </td>
                     </tr>
-                    { responseType === "Ollama LangChain" &&
+                    { responseType.includes("LangChain") &&
                         <tr>
                             <td colSpan="3"><b>Embed Source:</b><br/>
                             <a className="underline" href={langchainURL} alt={langchainURL} target="_blank" rel="noopener noreferrer">Link</a></td>
@@ -229,7 +326,7 @@ const Chat = ({numba, onClose, systemMessage, responseType, model, temperature, 
                         return (
                             <tr key={index}>
                                 <td onCopy={handleCopy} colSpan="3" className={obj.role === "user" || obj.role === "system" ? 
-                                    "py-3 p-3 bg-cullen-300 font-sans rounded-xl text-black-800 text-sm ring-1 whitespace-pre-wrap" : 
+                                    "py-3 p-3 bg-morbius-300 font-sans rounded-xl text-black-800 text-sm ring-1 whitespace-pre-wrap" : 
                                     "py-3 whitespace-pre-wrap p-3 bg-nosferatu-800 font-mono rounded-xl text-vanHelsing-200 text-sm ring-1"}>
                                     <div className="items-end justify-end text-right mb-3">
                                         <i onClick={() => copyClick(contentText)} className="m-2 fa-solid fa-copy fa-2x cursor-pointer shadow-xl hover:shadow-dracula-900"></i>
@@ -251,8 +348,14 @@ const Chat = ({numba, onClose, systemMessage, responseType, model, temperature, 
                             </tr>
                         )
                     })}
+
+                    { (responseType.includes("(Voice")) &&
+                        <tr>
+                            <td colSpan="3"><Voice setMedia={setMedia} handleVoice={handleVoice} media={media} isClicked={isClicked} /></td>
+                        </tr>
+                    }
                     
-                    { (!isError && ((responseType != "Ollama LangChain") || !sentOne)) && 
+                    { (!isError && ((!responseType.includes("LangChain") || !sentOne))) && 
                         <>
                             {sentOne &&
                                 <tr>
@@ -261,14 +364,28 @@ const Chat = ({numba, onClose, systemMessage, responseType, model, temperature, 
                                     </td>
                                 </tr>
                             }
-                            <tr>
-                                <td colSpan="2">
-                                    <TextareaAutosize autoFocus onKeyDown={handleEnterKey} minRows="3" maxRows="15" className="placeholder:text-6xl placeholder:italic mt-3 hover:bg-nosferatu-400 p-4 min-w-full bg-nosferatu-100 text-sm font-mono text-black ring-1 hover:ring-2 ring-vonCount-900 rounded-xl" placeholder="Chat" onChange={chatHandler()} value={chatInput} />
-                                </td>
-                                <td className="items-baseline justify-evenly text-center align-middle text-4xl">
-                                    <i onClick={ !isClicked ? () => handleChat() : null } className={ isClicked ? "text-dracula-900 mt-4 m-2 fa-solid fa-hat-wizard fa-2x cursor-pointer hover:text-dracula-300" : "text-blade-300 mt-4 m-2 fa-solid fa-message fa-2x cursor-pointer hover:text-blade-900" }></i>
-                                </td>
-                            </tr>
+                            {(!(responseType.includes("(Voice")))&&
+                                <tr>
+                                    <td colSpan="2">
+                                        <TextareaAutosize 
+                                            autoFocus 
+                                            onKeyDown={handleEnterKey} 
+                                            minRows="3" 
+                                            maxRows="15" 
+                                            className="placeholder:text-6xl placeholder:italic mt-3 hover:bg-nosferatu-400 p-4 min-w-full bg-nosferatu-100 text-sm font-mono text-black ring-1 hover:ring-2 ring-vonCount-900 rounded-xl" 
+                                            placeholder="Chat" 
+                                            onChange={chatHandler()} 
+                                            value={chatInput} 
+                                        />
+                                    </td>
+                                    <td className="items-baseline justify-evenly text-center align-middle text-4xl">
+                                        <i 
+                                            onClick={ !isClicked ? () => handleChat() : null } 
+                                            className={ isClicked ? "text-dracula-900 mt-4 m-2 fa-solid fa-hat-wizard fa-2x cursor-pointer hover:text-dracula-100" : "text-blade-300 mt-4 m-2 fa-solid fa-message fa-2x cursor-pointer hover:text-blade-900" }
+                                        />
+                                    </td>
+                                </tr>
+                            }
                         </>
                     }
                 </tbody>
