@@ -1,6 +1,6 @@
 # LLM Chatter, v0.0.3
 
-Single HTML file interface to chat with Ollama local large language models (LLMs) or OpenAI.com LLMs.
+A web interface to chat by text or voice with Ollama- or OpenAI-powered language models.
 
 ![Application screenshot](https://github.com/rossuber/llm-chatter/blob/main/dist/screenshot.webp?raw=true)
 
@@ -12,24 +12,37 @@ Single HTML file interface to chat with Ollama local large language models (LLMs
 3. Run `wget https://raw.githubusercontent.com/rossuber/llm-chatter/master/dist/index.html`
 4. Run `python3 -m http.server 8181`
 5. Open `localhost:8181` in your web browser.
-6. Optional: Register an account at [openai.com](https://openai.com/) and subscribe for an API key. Paste it into the 'Open AI' password field while OpenAI Chat is selected.
+6. Optional: Register an account at [openai.com](https://openai.com/) and subscribe for an API key. Paste it into the 'Open API AI' input field, while OpenAI Chat mode is selected.
 
-# Optional LangChain node.js server installation steps
+# Optional NodeJS server (Voice/LangChain support)
 
-Now supports LangChain URL embedding! The LangChain Ollama implementation is incompatible with something (like React? I am not sure), so it is necessary to run a separate node.js Express server to handle API requests at http://localhost:8080
+This handles API post requests at http://localhost:8080
 
 1. Run `mkdir langchain-ollama`
 2. Run `cd langchain-ollama`
 3. Run `wget https://raw.githubusercontent.com/rossuber/llm-chatter/master/langchain-ollama/index.js`
 4. Run `wget https://raw.githubusercontent.com/rossuber/llm-chatter/master/langchain-ollama/package.json`
-5. Run `npm install`
-6. Run `node index.js`
+5. Run `wget https://raw.githubusercontent.com/rossuber/llm-chatter/master/langchain-ollama/script.py`
+6. Run `npm install`
+7. Configure line 19 of `index.js` with the path to `script.py`
+8. Install [Whisper Medusa](https://github.com/aiola-lab/whisper-medusa) - see below
+9. Run `node index.js`
+
+# Whisper Medusa
+[Whisper Medusa](https://github.com/aiola-lab/whisper-medusa)
+
+- `conda create -n whisper-medusa python=3.11 -y`
+- `conda activate whisper-medusa`
+- `pip install torch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2 --index-url https://download.pytorch.org/whl/cu118`
+- `git clone https://github.com/aiola-lab/whisper-medusa.git`
+- `cd whisper-medusa`
+- `pip install -e .`
 
 Built with: [Vite](https://vitejs.dev/) / [Bun](https://bun.sh/) / [React](https://react.dev/) / [TailwindCSS](https://tailwindcss.com/) / [FontAwesome](https://fontawesome.com/)
 
 The web app pulls icon images from https://ka-f.fontawesome.com.
 
-The web app makes API calls to http://localhost:11434 (ollama), http://localhost:8080 (the langchain-ollama node.js Express server), and https://api.openai.com.
+The web app makes API calls to http://localhost:11434 (ollama), http://localhost:8080 (the NodeJS Express server running from index.js), and https://api.openai.com.
 
 [Ollama API docs](https://github.com/jmorganca/ollama/blob/main/docs/api.md)
 
@@ -37,5 +50,5 @@ The web app makes API calls to http://localhost:11434 (ollama), http://localhost
 
 # Thank you
 [Ollama.ai](https://www.ollama.ai/)
-
+[Whisper Medusa](https://github.com/aiola-lab/whisper-medusa)
 [OpenAI.com](https://www.openai.com/)
