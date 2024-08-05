@@ -64,7 +64,8 @@ app.post('/langchain', async (req, res) => {
     baseUrl: "http://localhost:11434",
     model: theData.model,
     temperature: theData.temperature,
-    topP: theData.topp
+    topP: theData.topp,
+    keepAlive: "0"
   });
 
   const loader = new CheerioWebBaseLoader( theData.langchainURL );
