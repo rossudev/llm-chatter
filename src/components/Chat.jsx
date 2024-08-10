@@ -1,14 +1,14 @@
-import { useState } from 'react';
 import axios from "axios";
-import TextareaAutosize from 'react-textarea-autosize';
+import copy from "copy-to-clipboard";
+import { debounce } from "lodash";
+import Hyphenated from "react-hyphen";
+import { animated, Spring } from "react-spring";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { useState } from "react";
+import TextareaAutosize from "react-textarea-autosize";
 import XClose from "./XClose";
 import Voice from "./Voice";
-import { debounce } from 'lodash';
-import copy from "copy-to-clipboard";
-import Hyphenated from 'react-hyphen';
-import { animated, Spring } from "react-spring";
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 
 const Chat = ({numba, onClose, systemMessage, responseType, model, temperature, topp, userID, apiKey, langchainURL}) => {
 
@@ -279,7 +279,7 @@ const Chat = ({numba, onClose, systemMessage, responseType, model, temperature, 
         ]}
         delay={80}>
         {styles => (
-          <animated.div style={styles} className="min-w-full self-start mt-1 mb-1 inline p-6 bg-nosferatu-200 rounded-3xl bg-gradient-to-tl from-nosferatu-500 shadow-2xl">
+          <animated.div style={styles} className="min-w-full self-start mt-1 mb-1 inline p-6 bg-nosferatu-200 rounded-3xl bg-gradient-to-tl from-nosferatu-500 shadow-2xl hover:shadow-blade-700">
             <table className="border-separate border-spacing-y-2 border-spacing-x-2">
                 <tbody>
                     <tr>
@@ -381,7 +381,7 @@ const Chat = ({numba, onClose, systemMessage, responseType, model, temperature, 
                                     <td className="items-baseline justify-evenly text-center align-middle text-4xl">
                                         <i 
                                             onClick={ !isClicked ? () => handleChat() : null } 
-                                            className={ isClicked ? "text-dracula-900 mt-4 m-2 fa-solid fa-hat-wizard fa-2x cursor-pointer hover:text-dracula-100" : "text-blade-300 mt-4 m-2 fa-solid fa-message fa-2x cursor-pointer hover:text-blade-900" }
+                                            className={ isClicked ? "text-dracula-900 mt-4 m-2 fa-solid fa-hat-wizard fa-2x cursor-pointer hover:text-dracula-100" : "text-blade-300 mt-4 m-2 fa-solid fa-message fa-2x cursor-pointer hover:text-vanHelsing-700" }
                                         />
                                     </td>
                                 </tr>
