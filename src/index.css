@@ -15,7 +15,7 @@
 	}
 }
 
-.fa-hat-wizard, .fa-copy:hover, .fa-square-pen:hover, .fa-square-odnoklassniki:hover, .fa-circle-xmark:hover, .fa-address-card:hover, .fa-cubes:hover, .fa-gear:hover {  
+.fa-hat-wizard, .fa-copy:hover, .fa-square-pen:hover, .fa-square-odnoklassniki:hover, .fa-circle-xmark:hover, .fa-keyboard:hover, .fa-cubes:hover, .fa-gear:hover, .fa-microphone-lines:hover, .fa-splotch:hover, .fa-temperature-three-quarters:hover, .fa-react:hover, .fa-comments:hover {  
 	-webkit-animation: infinite-spinning 1s ease-out 0s infinite normal;
     animation: infinite-spinning 1s ease-out 0s infinite normal;
 }
