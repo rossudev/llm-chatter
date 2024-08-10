@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
-import Chat from "./components/Chat";
-import { animated, Spring } from "react-spring";
-import debounce from 'lodash/debounce';
-import TextareaAutosize from 'react-textarea-autosize';
 import axios from "axios";
+import { animated, Spring } from "react-spring";
+import Chat from "./components/Chat";
+import debounce from "lodash/debounce";
+import { useEffect, useState } from "react";
+import TextareaAutosize from "react-textarea-autosize";
 
 function App() {
   const [sysMsg, setSysMsg] = useState("Let's work this out in a step by step way to be sure we have the right answer.");
@@ -12,7 +12,7 @@ function App() {
   const [advancedSetting, setAdvancedSetting] = useState(false);
   const [serverCheck, setServerCheck] = useState(false);
   const [samplingType, setSamplingType] = useState("temperature");
-  const [responseType, setResponseType] = useState("OpenAI: Chat (Text)");
+  const [responseType, setResponseType] = useState("OpenAI - Chat");
   const [temperature, setTemperature] = useState("1.0");
   const [model, setModel] = useState("gpt-4o-mini");
   const [topp, setTopp] = useState("1.0");
@@ -24,12 +24,23 @@ function App() {
   const [chosenOpenAI, setChosenOpenAI] = useState("gpt-4o-mini");
   const [chosenOllama, setChosenOllama] = useState("");
 
-  const makeNewComponent = () => {
+  const makeNewComponent = (typeOfComponent) => {
+    let response = "OpenAI - Chat";
+    let inputDescriptor = `(${typeOfComponent})`;
+
+    if (responseType === "OpenAI - Chat") {
+      response = `OpenAI: Chat ${inputDescriptor}`;
+    } else if (responseType === "Ollama - Chat") {
+      response = `Ollama: Chat ${inputDescriptor}`;
+    } else if (responseType === "Ollama - LangChain") {
+      response = `Ollama: LangChain ${inputDescriptor}`;
+    }
+
     const newChat = { 
       id: Date.now(), 
       numba: contactCount,
       systemMessage: sysMsg,
-      responseType: responseType,
+      responseType: response,
       model: model,
       samplingType: samplingType,
       temperature: temperature,
@@ -81,10 +92,10 @@ function App() {
   function handleRespChange(e) {
     setResponseType(e.target.value);
     switch (e.target.value) {
-      case "OpenAI: Chat (Text)" : 
+      case "OpenAI - Chat" : 
         setModel(chosenOpenAI);
       break;
-      case "OpenAI: Chat (Voice)" : 
+      case "OpenAI - Chat" : 
       setModel(chosenOpenAI);
     break;
       default : 
@@ -106,10 +117,7 @@ function App() {
     setModel(e.target.value);
 
     switch (responseType) {
-      case "OpenAI: Chat (Text)" : 
-        setChosenOpenAI(e.target.value);
-      break;
-      case "OpenAI: Chat (Voice)" : 
+      case "OpenAI - Chat" : 
         setChosenOpenAI(e.target.value);
       break;
       default : 
@@ -119,13 +127,13 @@ function App() {
 
   const handleCheckboxChange = (event) => { 
     const checkedYes = event.target.checked;
-    //checkModels();
 
     if (!checkedYes) {
       setTemperature("1.0");
       setTopp("1.0");
-      setResponseType("OpenAI: Chat (Text)");
+      setResponseType("OpenAI - Chat");
       setSamplingType("temperature");
+      setModel(chosenOpenAI);
     }
 
     setAdvancedSetting(checkedYes);
@@ -140,12 +148,9 @@ function App() {
   ];
 
   const modelOptions = {
-    "OpenAI: Chat (Text)": openAImodels,
-    "OpenAI: Chat (Voice)": openAImodels,
-    "Ollama: Chat (Text)": localModels,
-    "Ollama: Chat (Voice)": localModels,
-    "Ollama: LangChain (Text)": localModels,
-    "Ollama: LangChain (Voice)": localModels,
+    "OpenAI - Chat": openAImodels,
+    "Ollama - Chat": localModels,
+    "Ollama - LangChain": localModels
   };
 
   const checkModels = async () => {
@@ -154,10 +159,7 @@ function App() {
       setLocalModels(response.data.models);
 
       switch (responseType) {
-        case "OpenAI: Chat (Text)" : 
-          setModel("gpt-4o-mini");
-        break;
-        case "OpenAI: Chat (Voice)" : 
+        case "OpenAI - Chat" : 
           setModel("gpt-4o-mini");
         break;
         default : 
@@ -173,9 +175,9 @@ function App() {
   }, []);
 
   useEffect(() => {
-    //Check for server every 2.5 seconds
+    //Check for server every second
     const checkLangchain = setInterval(async () => {
-      //if (responseType == "Ollama: Chat (Text)" || responseType == "OpenAI: Chat (Text)") { return; }
+      //if (responseType == "Ollama - Chat" || responseType == "OpenAI - Chat") { return; }
       let chainServerCheck = false;
       try {
         chainServerCheck = await axios.post("http://localhost:8080/check");
@@ -188,7 +190,7 @@ function App() {
       } else {
         setServerCheck(false);
       }
-    }, 2500); // 1000 milliseconds = 1 second
+    }, 1000); // 1000 milliseconds = 1 second
 
     return () => {
       // This cleanup function will clear the interval when the component unmounts
@@ -198,6 +200,21 @@ function App() {
 
   return (
     <div className={`grid gap-2 sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 place-items-center mt-8`}>
+        { serverCheck &&
+          <Spring
+            from={{ opacity: 0 }}
+            to={[
+              { opacity: 1 }
+            ]}
+            delay={200}>
+            {styles => (
+              <animated.div onClick={debounce(() => {makeNewComponent("Voice");}, 250)} style={styles} className="self-start text-nosferatu-900 place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-5xl font-bold m-2 p-12 flex items-center justify-center mb-5 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-buffy-700 cursor-pointer">
+                <i className="fa-solid fa-microphone-lines mr-4 text-nosferatu-800"></i>
+                <h1>Voice Chat</h1>
+              </animated.div>
+            )}
+          </Spring>
+        }
         <Spring
           from={{ opacity: 0 }}
           to={[
@@ -205,9 +222,12 @@ function App() {
           ]}
           delay={200}>
           {styles => (
-            <animated.div onClick={debounce(() => {makeNewComponent();}, 250)} style={styles} className="self-start text-nosferatu-900 place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-5xl font-bold m-2 p-12 flex items-center justify-center mb-5 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-marcelin-700 cursor-pointer">
-              <i className="fa-solid fa-address-card mr-4 text-nosferatu-800"></i>
-              <h1>New Chat</h1>
+            <animated.div onClick={debounce(() => {makeNewComponent("Text");}, 250)} style={styles} className={ serverCheck ?
+            "self-start text-nosferatu-900 place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-5xl font-bold m-2 p-12 flex items-center justify-center mb-5 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-dracula-700 cursor-pointer" :
+            "2xl:col-span-2 self-start text-nosferatu-900 place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-5xl font-bold m-2 p-12 flex items-center justify-center mb-5 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-dracula-700 cursor-pointer"
+            }>
+              <i className="fa-solid fa-keyboard mr-4 text-nosferatu-800"></i>
+              <h1>Text Chat</h1>
             </animated.div>
           )}
         </Spring>
@@ -218,7 +238,7 @@ function App() {
           ]}
           delay={400}>
           {styles => (
-            <animated.div style={styles} className="w-[98%] text-nosferatu-900 2xl:col-span-2 place-self-start hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl font-bold p-6 flex items-center justify-center m-2 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-blade-800">
+            <animated.div style={styles} className="w-[98%] text-nosferatu-900 place-self-start hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl font-bold p-6 flex items-center justify-center m-2 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-blade-800">
               <div className="w-full">
                 <table className="min-w-full">
                   <tbody>
@@ -235,8 +255,8 @@ function App() {
                           <td className="pb-4">
                             System Message
                           </td>
-                          <td className="">
-                            <TextareaAutosize minRows="3" maxRows="5" className="w-full font-bold col-span-2 hover:bg-nosferatu-400 p-4 bg-nosferatu-100 text-sm font-mono text-black ring-1 hover:ring-2 ring-vonCount-900 rounded-xl" placeholder="'System' Message" onChange={(e) => handleSysMsgChange(e)} value={sysMsg} />
+                          <td>
+                            <TextareaAutosize minRows="3" maxRows="5" className="w-full font-bold hover:bg-nosferatu-400 p-4 bg-nosferatu-100 text-sm font-mono text-black ring-1 hover:ring-2 ring-vonCount-900 rounded-xl" placeholder="'System' Message" onChange={(e) => handleSysMsgChange(e)} value={sysMsg} />
                           </td>
                         </tr>
                       }
@@ -246,12 +266,9 @@ function App() {
                           <td className="pb-4">Input Type</td>
                           <td className="pb-4 tracking-wide text-center font-bold text-nosferatu-900">
                             <select name="responseType" id="responseType" className="hover:bg-nosferatu-400 cursor-pointer mb-2 p-4 min-w-full bg-nosferatu-100 font-mono rounded-xl text-black ring-1 hover:ring-2 ring-vonCount-900" onChange = {(e) => handleRespChange(e)} value={responseType}>
-                                <option value="OpenAI: Chat (Text)">OpenAI: Chat (Text)</option>
-                                <option value="OpenAI: Chat (Voice)">OpenAI: Chat (Voice)</option>
-                                <option value="Ollama: Chat (Text)">Ollama: Chat (Text)</option>
-                                <option value="Ollama: Chat (Voice)">Ollama: Chat (Voice)</option>
-                                <option value="Ollama: LangChain (Text)">Ollama: LangChain (Text)</option>
-                                <option value="Ollama: LangChain (Voice)">Ollama: LangChain (Voice)</option>
+                                <option value="OpenAI - Chat">OpenAI - Chat</option>
+                                <option value="Ollama - Chat">Ollama - Chat</option>
+                                <option value="Ollama - LangChain">Ollama - LangChain</option>
                             </select>
                           </td>
                         </tr>
