@@ -95,9 +95,6 @@ function App() {
       case "OpenAI - Chat" : 
         setModel(chosenOpenAI);
       break;
-      case "OpenAI - Chat" : 
-      setModel(chosenOpenAI);
-    break;
       default : 
         setModel(chosenOllama);
     }
