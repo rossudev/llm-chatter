@@ -34,8 +34,10 @@ path_to_audio = sys.argv[1]
 input_speech, sr = torchaudio.load(path_to_audio)
 
 # If stereo, average the channels
-if input_speech.shape[0] > 1:
+if input_speech.shape[0] > 1:  # If stereo, average the channels
     input_speech = input_speech.mean(dim=0, keepdim=True)
+
+if sr != SAMPLING_RATE:
     input_speech = torchaudio.transforms.Resample(sr, SAMPLING_RATE)(input_speech)
 
 # Process the input features
