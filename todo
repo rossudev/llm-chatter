@@ -1,0 +1,32 @@
+openai whisper(voice)
+
+config.jsx
+
+state management: redux, context api, useReducer
+const [settings, setSettings] = useState({
+    temperature: "1.0",
+
+Memoize event handlers (e.g., handleSysMsgChange, handleRespChange) with useCallback
+
+form libraries (like Formik, React Hook Form)
+
+tailwind classes
+
+repeated strings and magic numbers
+
+checkModels() toast notification
+
+const initialState = {
+function reducer(state, action) {
+const [state, dispatch] = useReducer(reducer, initialState);
+dispatch({ type: "SET_SYS_MSG", payload: e.target.value });
+
+custom hooks instead of useEffect?
+
+typescript interfaces
+
+setError('Failed to fetch models. Please try again.');
+
+const sortedModels = useMemo(() => 
+
+data-testid="model-selector"

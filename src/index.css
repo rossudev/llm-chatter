@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+	html {
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+		background-color:rgb(40, 42, 54);
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+		margin: 0;
+	}
+	body {
+		margin: 0;
+	}
+}
+
+.fa-hat-wizard, .fa-copy:hover, .fa-square-pen:hover, .fa-square-odnoklassniki:hover, .fa-circle-xmark:hover, .fa-keyboard:hover, .fa-cubes:hover, .fa-gear:hover, .fa-microphone-lines:hover, .fa-splotch:hover, .fa-temperature-three-quarters:hover, .fa-react:hover, .fa-comments:hover {  
+	-webkit-animation: infinite-spinning 1s ease-out 0s infinite normal;
+    animation: infinite-spinning 1s ease-out 0s infinite normal;
+}
+
+@keyframes infinite-spinning {
+	from {
+	  transform: rotate(0deg);
+	}
+	to {
+	  transform: rotate(360deg);
+	}
+}
+
+.element-hidden { display: none }
