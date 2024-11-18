@@ -7,12 +7,13 @@ import Chat from "./components/Chat";
 
 function App() {
   const openAImodels = [
-    { name: "gpt-4o-mini" },
     { name: "gpt-4o" },
-    { name: "gpt-4" },
+    { name: "gpt-4o-mini" },
     { name: "gpt-4-turbo" },
+    { name: "gpt-4" },
     { name: "gpt-3.5-turbo" },
 
+    //Not yet supported.
     //{ name: "gpt-4o-realtime-preview" },
     //{ name: "o1-preview" },
     //{ name: "o1-mini" },
@@ -27,66 +28,71 @@ function App() {
   ];
 
   const googleAImodels = [
-    { name: "gemini-1.5-flash-8b" },
-    { name: "gemini-1.5-flash" },
     { name: "gemini-1.5-pro" },
+    { name: "gemini-1.5-flash" },
+    { name: "gemini-1.5-flash-8b" },
   ];
 
   const grokAImodels = [
     { name: "grok-beta" },
   ];
 
-  const [sysMsg, setSysMsg] = useState("Let's work this out in a step by step way to be sure we have the right answer.");
-  const [componentList, setComponentList] = useState([]);
-  const [contactCount, setContactCount] = useState(1);
-  const [advancedSetting, setAdvancedSetting] = useState(false);
-  const [serverCheck, setServerCheck] = useState(false);
-  const [responseType, setResponseType] = useState("OpenAI");
-  const [temperature, setTemperature] = useState("1.0");
+  //Which model type is chosen by default
+  const [chatType, setChatType] = useState("OpenAI");
   const [model, setModel] = useState(openAImodels[0]);
-  const [topp, setTopp] = useState("1.0");
-  const [localModels, setLocalModels] = useState([{ name: "nil" }]);
-  const [checkIncrement, setCheckIncrement] = useState(0);
-  const [serverURL, setServerURL] = useState("http://localhost:8080");
-  const [langchainURL, setLangchainURL] = useState("https://");
-  const [urlValid, setUrlValid] = useState(false);
-  const [chosenOpenAI, setChosenOpenAI] = useState(openAImodels[0]);
-  const [chosenGrokAI, setChosenGrokAI] = useState(grokAImodels[0]);
-  const [chosenAnthropic, setChosenAnthropic] = useState(anthropicAImodels[0]);
-  const [chosenOllama, setChosenOllama] = useState(localModels[0]);
-  const [chosenGoogle, setChosenGoogle] = useState(googleAImodels[0]);
   const [listModels, setListModels] = useState(openAImodels);
 
+  //Other defaults
+  const [serverURL, setServerURL] = useState("http://localhost:8080");
+  const [sysMsg, setSysMsg] = useState("Let's work this out in a step by step way to be sure we have the right answer.");
+  const [temperature, setTemperature] = useState("1.0");
+  const [topp, setTopp] = useState("1.0");
+  const [langchainURL, setLangchainURL] = useState("https://");
+
+  //Don't touch the rest of these.
+  const [localModels, setLocalModels] = useState([]);
+  const [componentList, setComponentList] = useState([]);
+  const [advancedSetting, setAdvancedSetting] = useState(false);
+  const [serverCheck, setServerCheck] = useState(false);
+  const [urlValid, setUrlValid] = useState(false);
+  const [checkIncrement, setCheckIncrement] = useState(0);
+  const [chatCount, setChatCount] = useState(1);
+  const [chosenAnthropic, setChosenAnthropic] = useState(anthropicAImodels[0]);
+  const [chosenGoogle, setChosenGoogle] = useState(googleAImodels[0]);
+  const [chosenGrokAI, setChosenGrokAI] = useState(grokAImodels[0]);
+  const [chosenOllama, setChosenOllama] = useState(localModels[0]);
+  const [chosenOpenAI, setChosenOpenAI] = useState(openAImodels[0]);
+
   const modelOptions = {
-    "OpenAI": openAImodels,
     "Anthropic": anthropicAImodels,
     "Google": googleAImodels,
     "Grok": grokAImodels,
     "Ollama": localModels,
-    "Ollama - LangChain": localModels
+    "Ollama - LangChain": localModels,
+    "OpenAI": openAImodels,
   };
 
-  const makeNewComponent = (typeOfComponent) => {
+  const makeNewChat = useCallback((typeOfComponent) => {
     let response = "OpenAI";
     let inputDescriptor = `${typeOfComponent}`;
 
     const responseMap = {
-      "OpenAI": `OpenAI${inputDescriptor}`,
       "Anthropic": `Anthropic${inputDescriptor}`,
-      "Ollama": `Ollama${inputDescriptor}`,
       "Google": `Google${inputDescriptor}`,
       "Grok": `Grok${inputDescriptor}`,
-      "Ollama - LangChain": `Ollama: LangChain${inputDescriptor}`
+      "Ollama": `Ollama${inputDescriptor}`,
+      "Ollama - LangChain": `Ollama: LangChain${inputDescriptor}`,
+      "OpenAI": `OpenAI${inputDescriptor}`,
     };
-    
-    // Default to an empty string if responseType doesn't match
-    response = responseMap[responseType] || ""; 
+
+    // Default to an empty string if chatType doesn't match
+    response = responseMap[chatType] || "";
 
     const newChat = {
       id: Date.now(),
-      numba: contactCount,
+      numba: chatCount,
       systemMessage: sysMsg,
-      responseType: response,
+      chatType: response,
       model: model.name,
       temperature: temperature,
       topp: topp,
@@ -97,9 +103,10 @@ function App() {
     };
 
     setComponentList([...componentList, newChat]);
-    setContactCount(contactCount + 1);
-  };
+    setChatCount(chatCount + 1);
+  });
 
+  //Ping the backend server for a list of Ollama locally downloaded list of models
   const checkModels = useCallback(async () => {
     try {
       const theModels = await axios.post(
@@ -119,38 +126,37 @@ function App() {
       setLocalModels(allModels);
 
       const modelMapping = {
-        "OpenAI": openAImodels,
         "Anthropic": anthropicAImodels,
         "Google": googleAImodels,
         "Grok": grokAImodels,
+        "OpenAI": openAImodels,
       };
-      setModel(modelMapping[responseType]?.[0] || allModels[0]);
+      setModel(modelMapping[chatType]?.[0] || allModels[0]);
 
       setChosenOllama({ name: allModels[0].name });
     } catch (error) { console.log(error); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverURL]);
 
+  //Populate model list for Ollama
   useEffect(() => {
     checkModels();
   }, [checkModels]);
 
+  //Ensure back-end node.js server is online with a ping every second
   useEffect(() => {
-    const checkLangchain = setInterval(async () => {
-      let chainServerCheck = undefined;
+    const checkBackServer = setInterval(async () => {
+      let backServerCheck = undefined;
       try {
         const response = await axios.post(serverURL + "/check");
 
         // Check if the response data indicates success
-        chainServerCheck = response?.data || undefined;
+        backServerCheck = response?.data || undefined;
       } catch (error) {
-        chainServerCheck = undefined;
+        backServerCheck = undefined;
       }
 
-      if (chainServerCheck) {
-        setServerCheck(true);
-      } else {
-        setServerCheck(false);
+      setServerCheck(backServerCheck);
+      if (!backServerCheck) {
         setCheckIncrement(prevValue => prevValue + 1);
       }
 
@@ -162,98 +168,95 @@ function App() {
 
     return () => {
       // Clear the interval when the component unmounts
-      clearInterval(checkLangchain);
+      clearInterval(checkBackServer);
     };
-  }, [serverURL, checkIncrement]);
+  }, []);
 
-  function handleRespChange(e) {
-    const selectedResponseType = e.target.value;
-    setResponseType(selectedResponseType);
-  
+  //Event Handlers
+
+  const handleChatTypeChange = useCallback((e) => {
+    const selectedChatType = e.target.value;
+    setChatType(selectedChatType);
+
     const modelMapping = {
-      "OpenAI": { modelState: chosenOpenAI, list: openAImodels },
       "Anthropic": { modelState: chosenAnthropic, list: anthropicAImodels },
       "Google": { modelState: chosenGoogle, list: googleAImodels },
       "Grok": { modelState: chosenGrokAI, list: grokAImodels },
-      "default": { modelState: chosenOllama, list: localModels },
+      "OpenAI": { modelState: chosenOpenAI, list: openAImodels },
+      "default": { modelState: chosenOllama, list: localModels }, //Ollama
     };
-  
-    const selected = modelMapping[selectedResponseType] || modelMapping["default"];
-    
+
+    const selected = modelMapping[selectedChatType] || modelMapping["default"];
+
     // Attempt to restore previous model choice, fallback to the first model if undefined.
     const previousSelectedModel = selected.modelState || selected.list[0];
-    
+
     setModel(previousSelectedModel);
     setListModels(selected.list);
-  }
-  
+  }, [chosenOpenAI, chosenAnthropic, chosenGoogle, chosenGrokAI, chosenOllama, localModels]);
 
-  function handleModelChange(e) {
+
+  const handleModelChange = useCallback((e) => {
     const modelObj = { name: e.target.value };
     setModel(modelObj);
-  
+
     const setChosenMapping = {
-      "OpenAI": setChosenOpenAI,
       "Anthropic": setChosenAnthropic,
       "Google": setChosenGoogle,
       "Grok": setChosenGrokAI,
-      "Ollama": setChosenOllama
+      "Ollama": setChosenOllama,
+      "OpenAI": setChosenOpenAI,
     };
-  
-    (setChosenMapping[responseType] || setChosenOllama)(modelObj);
-  }
 
-  const handleClose = (id) => {
+    (setChosenMapping[chatType] || setChosenOllama)(modelObj);
+  }, [chatType]);
+
+  const handleClose = useCallback((id) => {
     setComponentList(componentList.filter((container) => container.id !== id));
-  };
+  }, []);
 
-  function handleSysMsgChange(e) {
+  const handleSysMsgChange = useCallback((e) => {
     setSysMsg(e.target.value);
-  }
+  }, []);
 
-  function handleToppChange(e) {
+  const handleToppChange = useCallback((e) => {
     setTopp(e.target.value);
-  }
+  }, []);
 
-  function handleTempChange(e) {
+  const handleTempChange = useCallback((e) => {
     setTemperature(e.target.value);
-  }
+  }, []);
 
-  function handleURLChange(e) {
+  const handleURLChange = useCallback((e) => {
     setServerURL(e.target.value);
-  }
+  }, []);
 
-  const handleCheckboxChange = (event) => {
-    const checkedYes = event.target.checked;
-    setAdvancedSetting(checkedYes);
-  };
+  const handleCheckboxChange = useCallback((e) => {
+    setAdvancedSetting(e.target.checked);
+  }, []);
 
-  function handleLangchainURLChange(e) {
+  const handleLangchainURLChange = useCallback((e) => {
     setLangchainURL(e.target.value);
-    const checkValid = isValidURL(e.target.value);
-    if (checkValid) {
-      setUrlValid(true);
-    } else {
-      setUrlValid(false);
-    }
-  }
+    setUrlValid(isValidURL(e.target.value));
+  }, []);
 
   // If input contains whitespace, return false.
-  function isValidURL(input) {
+  const isValidURL = useCallback((input) => {
     if (/\s/.test(input)) {
-      return false; 
+      return false;
     }
 
     const res = input.match(/(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|www\.[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9]+\.[^\s]{2,}|www\.[a-zA-Z0-9]+\.[^\s]{2,})/gi);
     return (res !== null);
-  }
+  });
 
-  const truncateString = (str, length) => {
+  //Shorten excessively long model names for the Settings drop-down list
+  const truncateString = useCallback((str, length) => {
     if (str.length > length) {
       return str.substring(0, length) + '...';
     }
     return str;
-  };
+  });
 
   return (
     <>
@@ -287,13 +290,13 @@ function App() {
                       <tr>
                         <td className="pb-4 pr-4">Server URL:</td>
                         <td className="pb-4">
-                          <TextareaAutosize minRows="1" maxRows="2" className="w-full font-bold hover:bg-vonCount-300 bg-vonCount-200 p-4 text-sm font-mono text-black rounded-xl" placeholder="http://localhost:8080" onChange={(e) => handleURLChange(e)} value={serverURL} />
+                          <TextareaAutosize minRows="1" maxRows="2" className="w-full font-bold hover:bg-vonCount-300 bg-vonCount-200 p-4 text-sm font-sans text-black rounded-xl" placeholder="http://localhost:8080" onChange={(e) => handleURLChange(e)} value={serverURL} />
                         </td>
                       </tr>
                     }
                     <tr>
                       <td className="pb-4 pr-4">Server Check:</td>
-                      <td className="pb-4">
+                      <td className="pb-4 font-sans">
                         {serverCheck ?
                           <p>Node.js Server: <span className="text-blade-700">Online</span><span className="ml-6">{serverURL}</span></p>
                           :
@@ -301,17 +304,17 @@ function App() {
                         }
                       </td>
                     </tr>
-                    {!responseType.includes("LangChain") &&
+                    {!chatType.includes("LangChain") &&
                       <tr>
                         <td className="pb-4 pr-4">
                           Starting Prompt:
                         </td>
                         <td>
-                          <TextareaAutosize minRows="3" maxRows="5" className="min-w-full font-bold hover:bg-vonCount-300 bg-vonCount-200 p-4 text-sm font-mono text-black rounded-xl" placeholder="'System' Message" onChange={(e) => handleSysMsgChange(e)} value={sysMsg} />
+                          <TextareaAutosize minRows="3" maxRows="5" className="min-w-full font-bold hover:bg-vonCount-300 bg-vonCount-200 p-4 text-sm font-sans text-black rounded-xl" placeholder="'System' Message" onChange={(e) => handleSysMsgChange(e)} value={sysMsg} />
                         </td>
                       </tr>
                     }
-                    {responseType.includes("LangChain") ?
+                    {chatType.includes("LangChain") ?
                       <>
                         <tr>
                           {urlValid ?
@@ -319,7 +322,7 @@ function App() {
                             :
                             <td className="pb-4 pr-4 text-marcelin-900">Embed Source:</td>
                           }
-                          <td className="tracking-wide font-bold text-black"><TextareaAutosize minRows="3" maxRows="5" className="min-w-full font-bold hover:bg-vonCount-300 bg-vonCount-200 p-4 text-sm font-mono text-black rounded-xl" onChange={(e) => handleLangchainURLChange(e)} type="text" value={langchainURL}></TextareaAutosize></td>
+                          <td className="tracking-wide font-bold text-black"><TextareaAutosize minRows="3" maxRows="5" className="min-w-full font-bold hover:bg-vonCount-300 bg-vonCount-200 p-4 text-sm font-sans text-black rounded-xl" onChange={(e) => handleLangchainURLChange(e)} type="text" value={langchainURL}></TextareaAutosize></td>
                         </tr>
                       </>
                       : <></>
@@ -327,7 +330,7 @@ function App() {
                     <tr>
                       <td className="pb-2 pr-4">Input Type:</td>
                       <td className="pb-2 tracking-wide font-bold text-black">
-                        <select name="responseType" id="responseType" className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer p-4 min-w-full font-mono rounded-xl text-black" onChange={(e) => handleRespChange(e)} value={responseType}>
+                        <select name="chatType" id="chatType" className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer p-4 min-w-full font-sans rounded-xl text-black" onChange={(e) => handleChatTypeChange(e)} value={chatType}>
                           <option value="Anthropic">Anthropic</option>
                           <option value="Google">Google</option>
                           <option value="Grok">Grok</option>
@@ -342,8 +345,8 @@ function App() {
                         <tr>
                           <td className="pb-2 pr-4">Model:</td>
                           <td className="pb-2 tracking-wide font-bold text-black">
-                            <select name="model" id="model" className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer p-4 min-w-full font-mono rounded-xl text-black" onChange={(e) => handleModelChange(e)} value={model.name}>
-                              {modelOptions[responseType].map((option) => (
+                            <select name="model" id="model" className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer p-4 min-w-full font-sans rounded-xl text-black" onChange={(e) => handleModelChange(e)} value={model.name}>
+                              {modelOptions[chatType].map((option) => (
                                 <option key={option.name} value={option.name}>
                                   {truncateString(option.name, 40)} {/* Modify the length */}
                                 </option>
@@ -354,7 +357,7 @@ function App() {
                         <tr>
                           <td className="pb-4 pr-4">temperature:</td>
                           <td className="tracking-wide font-bold text-black">
-                            <select name="temperature" id="temperature" className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer mb-2 p-4 min-w-24 font-mono rounded-xl text-black" onChange={(e) => handleTempChange(e)} value={temperature}>
+                            <select name="temperature" id="temperature" className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer mb-2 p-4 min-w-24 font-sans rounded-xl text-black" onChange={(e) => handleTempChange(e)} value={temperature}>
                               <option value="0.0">0.0</option>
                               <option value="0.1">0.1</option>
                               <option value="0.2">0.2</option>
@@ -382,7 +385,7 @@ function App() {
                         <tr>
                           <td className="pb-4">top-p:</td>
                           <td className="tracking-wide font-bold text-black">
-                            <select name="topp" id="topp" className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer mb-1 p-4 min-w-24 font-mono rounded-xl text-black" onChange={(e) => handleToppChange(e)} value={topp}>
+                            <select name="topp" id="topp" className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer mb-1 p-4 min-w-24 font-sans rounded-xl text-black" onChange={(e) => handleToppChange(e)} value={topp}>
                               <option value="0.01">0.01</option>
                               <option value="0.02">0.02</option>
                               <option value="0.03">0.03</option>
@@ -411,7 +414,7 @@ function App() {
                 </table>
                 { //New Chat buttons display when conditions allow.
                   !serverCheck ||
-                    (responseType.includes("LangChain") && !urlValid) ?
+                    (chatType.includes("LangChain") && !urlValid) ?
                     <></> :
                     <div className="grid gap-2 grid-cols-3 mt-6 mb-2">
                       <Spring
@@ -421,7 +424,7 @@ function App() {
                         ]}
                         delay={200}>
                         {styles => (
-                          <animated.div onClick={debounce(() => { makeNewComponent(""); }, 250)} style={styles} className={serverCheck ?
+                          <animated.div onClick={debounce(() => { makeNewChat(""); }, 250)} style={styles} className={serverCheck ?
                             "self-start text-black place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-3xl font-bold m-2 p-6 flex items-center justify-center mb-5 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-dracula-700 cursor-pointer" :
                             "2xl:col-span-2 self-start text-black place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-3xl font-bold m-2 p-6 flex items-center justify-center mb-5 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-dracula-700 cursor-pointer"
                           }>
@@ -432,9 +435,9 @@ function App() {
                       </Spring>
                       <div className="rounded-lg border-solid border-2 border-aro-800 bg-aro-300 text-black text-center pt-1 cursor-text">
                         <p className="underline text-3xl">Model Selected:</p>
-                        <p className="text-2xl">{responseType}: <span className="italic">{model.name}</span></p>
-                        { responseType.includes("LangChain") ?
-                          <p>{langchainURL}</p> :
+                        <p className="text-2xl">{chatType}: <span className="italic">{model.name}</span></p>
+                        {chatType.includes("LangChain") ?
+                          <p><a className="underline" alt={langchainURL} target="_blank" rel="noopener noreferrer" href={langchainURL}>{langchainURL}</a></p> :
                           <></>
                         }
                       </div>
@@ -445,7 +448,7 @@ function App() {
                         ]}
                         delay={200}>
                         {styles => (
-                          <animated.div onClick={debounce(() => { makeNewComponent(" (Voice)"); }, 250)} style={styles} className="self-start text-black place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-3xl font-bold m-2 p-6 flex items-center justify-center mb-5 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-buffy-700 shadow-xl cursor-pointer">
+                          <animated.div onClick={debounce(() => { makeNewChat(" (Voice)"); }, 250)} style={styles} className="self-start text-black place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-3xl font-bold m-2 p-6 flex items-center justify-center mb-5 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-buffy-700 shadow-xl cursor-pointer">
                             <i className="fa-solid fa-microphone-lines mr-4"></i>
                             <h1>New Voice</h1>
                           </animated.div>
@@ -463,7 +466,7 @@ function App() {
           <Chat
             key={container.id}
             systemMessage={container.systemMessage}
-            responseType={container.responseType}
+            chatType={container.chatType}
             model={container.model}
             temperature={container.temperature}
             topp={container.topp}

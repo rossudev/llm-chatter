@@ -1,5 +1,5 @@
 import { useReactMediaRecorder } from "react-media-recorder";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 const Voice = ({setMedia, handleVoice, media, isClicked}) => {
     const [second, setSecond] = useState("00");
@@ -34,13 +34,14 @@ const Voice = ({setMedia, handleVoice, media, isClicked}) => {
       return () => clearInterval(intervalId);
     }, [isActive, counter]);
 
-    function stopTimer() {
+    const stopTimer = useCallback(() => {
       setIsActive(false);
       setMedia();
       setCounter(0);
       setSecond("00");
       setMinute("00");
-    }
+    });
+    
     const {
       status,
       startRecording,

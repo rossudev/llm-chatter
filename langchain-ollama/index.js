@@ -1,32 +1,80 @@
-import bodyParser from "body-parser";
-import cors from "cors";
-import dotenv from 'dotenv';
-import path from 'path'; 
 import express from "express";
-import multer from "multer";
 import axios from "axios";
+import cors from "cors";
+import bodyParser from "body-parser";
+import multer from "multer";
+import path from 'path';
+import dotenv from 'dotenv';
 import { exec } from "child_process";
 import "@tensorflow/tfjs-node";
 import { CheerioWebBaseLoader } from "langchain/document_loaders/web/cheerio";
 import { MemoryVectorStore } from "langchain/vectorstores/memory";
-import { Ollama } from "langchain/llms/ollama";
-import OpenAI from 'openai';
-import Anthropic from "@anthropic-ai/sdk";
-import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from "@google/generative-ai";
 import { RetrievalQAChain } from "langchain/chains";
 import { TensorFlowEmbeddings } from "langchain/embeddings/tensorflow";
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
+import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from "@google/generative-ai";
+import { Ollama } from "langchain/llms/ollama";
+import OpenAI from 'openai';
 
+
+
+//.env file containing the API keys
+dotenv.config({ path: path.join(process.cwd(), '.env') });
+
+
+
+//Express server to handle client requests
 const app = express();
 const port = 8080;
 app.use(bodyParser.json());
 app.use(cors());
 
-dotenv.config({ path: path.join(process.cwd(), '.env') });
+
+
+//Heartbeat: Clients ping this /check URL every second
+app.post('/check', async (req, res) => {
+  res.send("ok");
+});
 
 
 
-const pyFilePath = "/path/to/your/script.py";
+//Client requests the list of local Ollama models
+app.post('/getmodels', async (req, res) => {
+  try {
+    const response = await axios.get('http://localhost:11434/api/tags');
+
+    res.send(response.data.models);
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: 'GetModels Failure' });
+  }
+});
+
+
+
+//Local Ollama API
+app.post('/ollama', async (req, res) => {
+  try {
+    const theData = req.body;
+
+    const response = await axios.post(
+      "http://localhost:11434/api/generate",
+      theData,
+      { headers: { "Content-Type": "application/json" } },
+  );
+
+    res.send(response.data);
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: 'Ollama Failure' });
+  }
+});
+
+
+
+//Whisper Medusa-supported voice-to-text
+const pyFilePath = "/home/opec/Documents/programming/python/whisper-medusa/whisper_medusa/go.py";
 const upload = multer({ dest: 'uploads/' });
 
 app.post('/whisper-medusa', upload.single('audio'), (req, res) => {
@@ -45,6 +93,7 @@ app.post('/whisper-medusa', upload.single('audio'), (req, res) => {
 
 
 
+//LangChain embedding of URL content
 app.post('/langchain', async (req, res) => {
   const theData = req.body;
 
@@ -94,12 +143,7 @@ app.post('/langchain', async (req, res) => {
 
 
 
-app.post('/check', async (req, res) => {
-  res.send("ok");
-});
-
-
-
+//Anthropic SDK
 app.post('/anthropic', async (req, res) => {
   try {
     const theData = req.body;
@@ -130,6 +174,7 @@ app.post('/anthropic', async (req, res) => {
 
 
 
+//OpenAI and Grok share the same SDK
 async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
   try {
     const { model, messages, temperature, topp, system } = req.body;
@@ -162,12 +207,13 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
   }
 }
 
-// Define routes using the consolidated function
+// Define both model-type routes using makeAIRequest()
 app.post('/openai', (req, res) => makeAIRequest(req, res, 'OPENAI_API_KEY'));
 app.post('/grok', (req, res) => makeAIRequest(req, res, 'GROK_API_KEY', "https://api.x.ai/v1"));
 
 
 
+//Convert function needed here because the Google API handles messages differently than other models
 const convertMessages = (messages) => {
   return messages.map(message => {
     // Change 'assistant' role to 'model' if applicable
@@ -182,6 +228,7 @@ const convertMessages = (messages) => {
   });
 };
 
+//Google SDK
 app.post('/google', async (req, res) => {
   try {
     const theData = req.body;
@@ -244,38 +291,7 @@ app.post('/google', async (req, res) => {
 
 
 
-app.post('/getmodels', async (req, res) => {
-  try {
-    const response = await axios.get('http://localhost:11434/api/tags');
-
-    res.send(response.data.models);
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'GetModels Failure' });
-  }
-});
-
-
-
-app.post('/ollama', async (req, res) => {
-  try {
-    const theData = req.body;
-
-    const response = await axios.post(
-      "http://localhost:11434/api/generate",
-      theData,
-      { headers: { "Content-Type": "application/json" } },
-  );
-
-    res.send(response.data);
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Ollama Failure' });
-  }
-});
-
-
-
+//Express server
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });

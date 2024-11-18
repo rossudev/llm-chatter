@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Hyphenated from "react-hyphen";
 import { animated, Spring } from "react-spring";
 import ReactMarkdown from "react-markdown";
@@ -11,11 +11,11 @@ import { debounce } from "lodash";
 import XClose from "./XClose";
 import Voice from "./Voice";
 
-const Chat = ({ numba, onClose, systemMessage, responseType, model, temperature, topp, langchainURL, listModels, serverURL }) => {
+const Chat = ({ numba, onClose, systemMessage, chatType, model, temperature, topp, langchainURL, listModels, serverURL }) => {
     let sysMsgs = [];
     let firstMeta = [];
 
-    switch (responseType) {
+    switch (chatType) {
         case "Anthropic":
         case "Anthropic (Voice)":
         case "Ollama: LangChain":
@@ -43,7 +43,7 @@ const Chat = ({ numba, onClose, systemMessage, responseType, model, temperature,
     const [addedModels, setAddedModels] = useState([]);
     const [messageMetas, setMessageMetas] = useState(firstMeta);
 
-    const fetchVoice = async (input) => {
+    const fetchVoice = useCallback(async (input) => {
         const formData = new FormData();
         formData.append('audio', input);
 
@@ -63,13 +63,13 @@ const Chat = ({ numba, onClose, systemMessage, responseType, model, temperature,
         const durTime = ((endTime - startTime) / 1000).toFixed(2);
 
         return [response.data, durTime + "s"];
-    }
+    })
 
-    const fetchData = async (input, modelThisFetch) => {
+    const fetchData = useCallback(async (input, modelThisFetch) => {
         let endPath = "";
         let sendPacket = {};
 
-        switch (responseType) {
+        switch (chatType) {
             case "OpenAI":
             case "OpenAI (Voice)":
                 endPath = serverURL + "/openai";
@@ -91,7 +91,7 @@ const Chat = ({ numba, onClose, systemMessage, responseType, model, temperature,
                     top_p: parseFloat(topp)
                 };
                 break;
-        
+
             case "Anthropic":
             case "Anthropic (Voice)":
                 endPath = serverURL + "/anthropic";
@@ -103,7 +103,7 @@ const Chat = ({ numba, onClose, systemMessage, responseType, model, temperature,
                     system: systemMessage,
                 };
                 break;
-            
+
             case "Google":
             case "Google (Voice)":
                 endPath = serverURL + "/google";
@@ -144,58 +144,60 @@ const Chat = ({ numba, onClose, systemMessage, responseType, model, temperature,
 
         try {
             const startTime = Date.now();
-        
+
             let response = await axios.post(
                 endPath,
                 sendPacket,
                 { headers: { "Content-Type": "application/json" } },
             );
-        
+
             const endTime = Date.now();
             const durTime = ((endTime - startTime) / 1000).toFixed(2);
 
-            let theEnd = "";
+            //Might switch to text.trim().replace(/\n{3,}/g, '\n\n')
+            const normalizeText = (text) => text.trim().replace(/\n+/g, '\n');
+            let theEnd;
 
-            switch (responseType) {
+            switch (chatType) {
                 case "OpenAI":
                 case "OpenAI (Voice)":
                 case "Grok":
                 case "Grok (Voice)":
-                    theEnd = response.data.choices[0].message.content;
+                    theEnd = normalizeText(response.data.choices[0].message.content);
                     break;
                 case "Anthropic":
                 case "Anthropic (Voice)":
-                    theEnd = response.data.content[0].text;
+                    theEnd = normalizeText(response.data.content[0].text);
                     break;
                 case "Ollama: LangChain":
                 case "Ollama: LangChain (Voice)":
-                    theEnd = response.data.text.trim();
+                    theEnd = normalizeText(response.data.text);
                     break;
                 case "Google":
                 case "Google (Voice)":
-                    theEnd = [{ type: "text", text: response.data.trim() }];
+                    theEnd = [{ type: "text", text: normalizeText(response.data) }];
                     break;
-                default: //Ollama
-                    theEnd = response.data.response.trim();
-                    setChatContext(response.data.context);
+                default: // Handles Ollama and any other case
+                    theEnd = normalizeText(response.data.response);
+                    setChatContext(normalizeText(response.data.context));
                     break;
             }
 
             return [theEnd, durTime];
         } catch (error) {
             setIsError(true);
-        
+
             let errorMessage = "An unexpected error occurred.";
 
             if (error.response.status === 503) {
-                errorMessage = "Overloaded.";
+                errorMessage = "Model Overloaded. Try again later.";
             }
 
             return [[{ type: "text", text: errorMessage }], 0];
         }
-    }
+    });
 
-    const handleInput = debounce(async (input, isVoice = false) => {
+    const handleInput = useCallback(debounce(async (input, isVoice = false) => {
         if (input) {
             setIsClicked(true);
 
@@ -254,24 +256,24 @@ const Chat = ({ numba, onClose, systemMessage, responseType, model, temperature,
                 }
             }
         }
-    }, 1000, { leading: true, trailing: false });
+    }, 1000, { leading: true, trailing: false }));
 
-    const handleChat = () => handleInput(chatInput, false);
-    const handleVoice = () => handleInput(media, true);
+    const handleChat = useCallback(() => handleInput(chatInput, false));
+    const handleVoice = useCallback(() => handleInput(media, true));
 
-    const handleSave = async (url) => {
+    const handleSave = useCallback(async (url) => {
         const audioBlob = await fetch(url).then((r) => r.blob());
         const audioFile = new File([audioBlob], 'voice.wav', { type: 'audio/wav' });
 
         return audioFile;
-    }
+    });
 
-    const handleAddModel = (model) => {
+    const handleAddModel = useCallback((model) => {
         const newModelArray = [...addedModels, model];
         setAddedModels(newModelArray);
-    }
+    });
 
-    const handleDeleteModel = (model) => {
+    const handleDeleteModel = useCallback((model) => {
         const index = addedModels.indexOf(model);
 
         if (index !== -1) { // Check if the model exists in the array
@@ -281,26 +283,26 @@ const Chat = ({ numba, onClose, systemMessage, responseType, model, temperature,
             ];
             setAddedModels(newModelArray);
         }
-    }
+    });
 
-    const handleModelToggle = () => {
+    const handleModelToggle = useCallback(() => {
         setAddSetting(!addSetting);
-    }
+    });
 
 
-    const handleEnterKey = (event) => {
+    const handleEnterKey = useCallback((event) => {
         if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault();
             handleChat();
         }
-    }
+    });
 
     const chatHandler = () => event => {
         const value = event.target.value;
         setChatInput(value);
     }
 
-    const handleCopy = (e) => {
+    const handleCopy = useCallback((e) => {
         e.preventDefault();
         const selectedText = document.getSelection().toString();
 
@@ -308,15 +310,15 @@ const Chat = ({ numba, onClose, systemMessage, responseType, model, temperature,
         const textContent = selectedText.replace(/\xAD/g, '');
 
         navigator.clipboard.writeText(textContent);
-    }
+    });
 
-    const copyClick = (value) => {
+    const copyClick = useCallback((value) => {
         if (typeof value === 'string') {
             copy(value);
         }
-    }
+    });
 
-    const getContentText = (content) => {
+    const getContentText = useCallback((content) => {
         if (Array.isArray(content)) {
             // If content is an array, access the text property of the first element
             return content[0]?.text || '';
@@ -324,9 +326,9 @@ const Chat = ({ numba, onClose, systemMessage, responseType, model, temperature,
             // If content is a string, return it directly
             return content || '';
         }
-    }
+    });
 
-    const CodeBlock = ({ inline, className, children, ...props }) => {
+    const CodeBlock = useCallback(({ inline, className, children, ...props }) => {
         const match = /language-(\w+)/.exec(className || '');
         return !inline && match ? (
             <pre className={`border p-4 rounded bg-nosferatu-200 text-black text-xs language-${match[1]} ${className} overflow-auto`}>
@@ -339,7 +341,7 @@ const Chat = ({ numba, onClose, systemMessage, responseType, model, temperature,
                 {children}
             </code>
         );
-    }
+    });
 
     return (
         <Spring
@@ -350,19 +352,23 @@ const Chat = ({ numba, onClose, systemMessage, responseType, model, temperature,
             delay={80}>
             {styles => (
                 <animated.div style={styles} className="min-w-[99%] self-start mt-2 mb-2 mb-1 inline p-2 bg-nosferatu-200 rounded-3xl bg-gradient-to-tl from-nosferatu-500 shadow-sm">
+
+                    {/* Chat ID number, Type of Model, X-Close button */}
                     <table className="min-w-[99%] border-separate border-spacing-y-2 border-spacing-x-2">
                         <tbody>
                             <tr>
                                 <td colSpan="2" className="pb-4 tracking-wide text-4xl text-center font-bold text-black">
                                     <span className="mr-6">#{numba}</span>
                                     <i className="fa-regular fa-comments mr-6 text-black"></i>
-                                    {responseType}
+                                    {chatType}
                                 </td>
                                 <td>
                                     <XClose onClose={onClose} />
                                 </td>
                             </tr>
-                            {( responseType.includes("Anthropic") || responseType.includes("Google") ) &&
+
+                            {/* Two model types store the System message differently */}
+                            {(chatType.includes("Anthropic") || chatType.includes("Google")) &&
                                 <tr>
                                     <td onCopy={handleCopy} colSpan="3" className="py-3 p-3 bg-morbius-300 font-sans rounded-xl text-black-800 text-md whitespace-pre-wrap">
                                         <div className="mb-3 grid grid-cols-3">
@@ -378,7 +384,9 @@ const Chat = ({ numba, onClose, systemMessage, responseType, model, temperature,
                                     </td>
                                 </tr>
                             }
-                            {responseType.includes("LangChain") &&
+
+                            {/* LangChain doesn't take System messages, so we show the Embed URL here instead */}
+                            {chatType.includes("LangChain") &&
                                 <tr>
                                     <td onCopy={handleCopy} colSpan="3" className="py-3 p-3 bg-morbius-300 font-sans rounded-xl text-black-800 text-md whitespace-pre-wrap">
                                         <div className="mb-3 grid grid-cols-3">
@@ -389,11 +397,13 @@ const Chat = ({ numba, onClose, systemMessage, responseType, model, temperature,
                                             </span>
                                         </div>
                                         <div>
-                                            <Hyphenated><a className="underline" href={langchainURL}>{langchainURL}</a></Hyphenated>
+                                            <Hyphenated><a className="underline" alt={langchainURL} target="_blank" rel="noopener noreferrer" href={langchainURL}>{langchainURL}</a></Hyphenated>
                                         </div>
                                     </td>
                                 </tr>
                             }
+
+                            {/* Prompts and All Models' Responses */}
                             {chatMessagesPlusMore.map((obj, index) => {
                                 const contentText = getContentText(obj.content);
                                 return (
@@ -426,14 +436,18 @@ const Chat = ({ numba, onClose, systemMessage, responseType, model, temperature,
                                     </tr>
                                 )
                             })}
-                            {(responseType.includes("(Voice")) &&
+
+                            {/* Voice component */}
+                            {(chatType.includes("(Voice")) &&
                                 <tr>
                                     <td colSpan="3"><Voice setMedia={setMedia} handleVoice={handleVoice} media={media} isClicked={isClicked} /></td>
                                 </tr>
                             }
-                            {(!isError && ((!responseType.includes("LangChain") || !sentOne))) &&
+
+                            {/* Regular text chat input box, and the Send button */}
+                            {(!isError && ((!chatType.includes("LangChain") || !sentOne))) &&
                                 <>
-                                    {(!(responseType.includes("(Voice"))) &&
+                                    {(!(chatType.includes("(Voice"))) &&
                                         <tr>
                                             <td colSpan="2">
                                                 <TextareaAutosize
@@ -457,8 +471,12 @@ const Chat = ({ numba, onClose, systemMessage, responseType, model, temperature,
                                     }
                                 </>
                             }
+
+                            {/*  Settings */}
                             <tr><td colSpan={3}><i className="fa-solid fa-gear text-4xl text-aro-800 text-center mb-2 ml-8 mt-4"></i></td></tr>
                             <tr className="align-top">
+
+                                {/*  Model info */}
                                 <td className="w-3/5 bg-buffy-200 rounded-xl bg-gradient-to-tl from-buffy-500 p-2">
                                     <table className="min-w-full"><tbody>
                                         <tr>
@@ -480,12 +498,16 @@ const Chat = ({ numba, onClose, systemMessage, responseType, model, temperature,
                                         </tr>
                                     </tbody></table>
                                 </td>
+
+                                {/* temperature info */}
                                 <td className="w-1/5 bg-vanHelsing-200 rounded-xl bg-gradient-to-tl from-vanHelsing-500">
                                     <table className="mt-2"><tbody><tr className="align-top">
                                         <td className="w-1/6"><i className="fa-solid fa-temperature-three-quarters text-2xl text-buffy-500"></i></td>
                                         <td className="w-5/6 p-1"><b>temperature:</b><br /><i className="fa-solid fa-caret-right text-sm text-buffy-900 mr-1"></i> {temperature}</td>
                                     </tr></tbody></table>
                                 </td>
+
+                                {/* top-p info */}
                                 <td className="w-1/5 bg-cullen-200 rounded-xl bg-gradient-to-tl from-cullen-500">
                                     <table className="mt-2"><tbody><tr className="align-top">
                                         <td className="w-1/6"><i className="fa-brands fa-react text-2xl text-vanHelsing-900"></i></td>
@@ -493,9 +515,11 @@ const Chat = ({ numba, onClose, systemMessage, responseType, model, temperature,
                                     </tr></tbody></table>
                                 </td>
                             </tr>
+
+                            {/* Add Models interface */}
                             <tr className="align-top">
                                 <td className="w-3/5">
-                                    {(!isError && ((!responseType.includes("LangChain") || !sentOne))) &&
+                                    {(!isError && ((!chatType.includes("LangChain") || !sentOne))) &&
                                         <>
                                             {addSetting ?
                                                 <div className="bg-blade-100 rounded-xl pb-2 pl-2">
@@ -528,8 +552,10 @@ const Chat = ({ numba, onClose, systemMessage, responseType, model, temperature,
                                         </>
                                     }
                                 </td>
+
+                                {/* LangChain info */}
                                 <td colSpan={2} className="w-2/5">
-                                    {responseType.includes("LangChain") &&
+                                    {chatType.includes("LangChain") &&
                                         <div className="bg-dracula-300 rounded-xl p-6">
                                             <b>LangChain Embed:</b><br />
                                             <i className="fa-solid fa-caret-right text-sm text-dracula-300 mr-1"></i><a className="underline hover:font-bold" href={langchainURL} alt={langchainURL} target="_blank" rel="noopener noreferrer">Link</a>

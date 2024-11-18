@@ -1,6 +1,6 @@
-# LLM Chatter, v0.0.3
+# LLM Chatter, v0.0.4
 
-A web interface to chat by text or voice with Ollama- or OpenAI-powered language models.
+A web interface to chat by text (and voice!) with various large language models.
 
 ![Application screenshot](https://github.com/rossuber/llm-chatter/blob/main/dist/screenshot.webp?raw=true)
 
@@ -12,9 +12,9 @@ A web interface to chat by text or voice with Ollama- or OpenAI-powered language
 3. Run `wget https://raw.githubusercontent.com/rossuber/llm-chatter/master/dist/index.html`
 4. Run `python3 -m http.server 8181`
 5. Open `localhost:8181` in your web browser.
-6. Optional: Register an account at [openai.com](https://openai.com/) and subscribe for an API key. Paste it into the "Open API key" input field, while OpenAI Chat mode is selected.
+6. Paste API keys into .env file for the NodeJS server
 
-# Optional NodeJS server (Voice/LangChain support)
+# NodeJS server
 
 This handles API post requests at http://localhost:8080
 
@@ -26,7 +26,7 @@ This handles API post requests at http://localhost:8080
 6. Run `npm install`
 7. Configure line 19 of `index.js` with the path to `script.py`
 8. Install [Whisper Medusa](https://github.com/aiola-lab/whisper-medusa) - see below
-9. Run `node index.js`
+9. Adjust line & Run `cd [path-to-file]; node index.js`
 
 # Whisper Medusa
 [Whisper Medusa](https://github.com/aiola-lab/whisper-medusa)
@@ -42,13 +42,28 @@ Built with: [Vite](https://vitejs.dev/) / [Bun](https://bun.sh/) / [React](https
 
 The web app pulls icon images from https://ka-f.fontawesome.com.
 
-The web app makes API calls to http://localhost:11434 (ollama), http://localhost:8080 (the NodeJS Express server running from index.js), and https://api.openai.com.
+The web app makes API calls to http://localhost:8080 by default. This is the NodeJS server running from index.js). The NodeJS server handles each model's API calls through various SDK's.
 
-[Ollama API docs](https://github.com/jmorganca/ollama/blob/main/docs/api.md)
-
-[OpenAI API docs](https://platform.openai.com/docs/api-reference)
-
-# Thank you
-[Ollama.ai](https://www.ollama.ai/)
+# Models Documentation Reference
+[Ollama.ai](https://github.com/jmorganca/ollama/blob/main/docs/api.md)
 [Whisper Medusa](https://github.com/aiola-lab/whisper-medusa)
-[OpenAI.com](https://www.openai.com/)
+[OpenAI.com](https://platform.openai.com/docs/overview)
+[Google.ai](https://ai.google.dev/gemini-api/docs)
+[Anthropic](https://docs.anthropic.com/)
+[Grok](https://docs.x.ai/docs)
+
+#Proprietary Models
+- gpt-4o
+- gpt-4o-mini
+- gpt-4-turbo
+- gpt-4
+- gpt-3.5-turbo
+- claude-3-5-sonnet-20241022
+- claude-3-5-haiku-20241022
+- claude-3-opus-20240229
+- claude-3-sonnet-20240229
+- claude-3-haiku-20240307
+- gemini-1.5-pro
+- gemini-1.5-flash
+- gemini-1.5-flash-8b
+- grok-beta
