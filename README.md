@@ -1,4 +1,4 @@
-# LLM Chatter, v0.0.4
+# LLM Chatter, v0.0.5
 
 A web interface to chat by text (and voice!) with various large language models.
 
