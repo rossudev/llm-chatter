@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+/* eslint-disable react/prop-types */
+import { useState, useCallback, useContext, React } from "react";
 import Hyphenated from "react-hyphen";
 import { animated, Spring } from "react-spring";
 import ReactMarkdown from "react-markdown";
@@ -7,11 +8,13 @@ import TextareaAutosize from "react-textarea-autosize";
 import axios from "axios";
 import copy from "copy-to-clipboard";
 import { debounce } from "lodash";
-
 import XClose from "./XClose";
 import Voice from "./Voice";
+import { dataContext } from "../App";
 
-const Chat = ({ numba, onClose, systemMessage, chatType, model, temperature, topp, langchainURL, listModels, serverURL }) => {
+const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, topp, langchainURL, listModels, serverURL, modelOptions, localModels }) => {
+    const { componentList, setComponentList, chatCount, setChatCount, chosenAnthropic, chosenGoogle, chosenGrokAI, chosenOllama, chosenOpenAI } = useContext(dataContext);
+
     let sysMsgs = [];
     let firstMeta = [];
 
@@ -32,16 +35,16 @@ const Chat = ({ numba, onClose, systemMessage, chatType, model, temperature, top
     }
 
     const [chatInput, setChatInput] = useState("");
+    const [messageMetas, setMessageMetas] = useState(firstMeta);
+    const [chatMessages, setChatMessages] = useState(sysMsgs);
+    const [chatMessagesPlusMore, setChatMessagesPlusMore] = useState(sysMsgs);
+    const [addedModels, setAddedModels] = useState([]);
+    const [chatContext, setChatContext] = useState([]);
+    const [media, setMedia] = useState(undefined);
+    const [addSetting, setAddSetting] = useState(true);
     const [isClicked, setIsClicked] = useState(false);
     const [isError, setIsError] = useState(false);
     const [sentOne, setSentOne] = useState(false);
-    const [chatMessages, setChatMessages] = useState(sysMsgs);
-    const [chatMessagesPlusMore, setChatMessagesPlusMore] = useState(sysMsgs);
-    const [chatContext, setChatContext] = useState([]);
-    const [media, setMedia] = useState(undefined);
-    const [addSetting, setAddSetting] = useState(false);
-    const [addedModels, setAddedModels] = useState([]);
-    const [messageMetas, setMessageMetas] = useState(firstMeta);
 
     const fetchVoice = useCallback(async (input) => {
         const formData = new FormData();
@@ -178,15 +181,17 @@ const Chat = ({ numba, onClose, systemMessage, chatType, model, temperature, top
                     theEnd = [{ type: "text", text: normalizeText(response.data) }];
                     break;
                 default: // Handles Ollama and any other case
-                    theEnd = normalizeText(response.data.response);
-                    setChatContext(normalizeText(response.data.context));
+                    //theEnd = normalizeText(response.data.response);
+                    //setChatContext(normalizeText(response.data.context));
+                    theEnd = response.data.response;
+                    setChatContext(response.data.context);
                     break;
             }
 
             return [theEnd, durTime];
         } catch (error) {
             setIsError(true);
-
+            console.log(error);
             let errorMessage = "An unexpected error occurred.";
 
             if (error.response.status === 503) {
@@ -343,6 +348,52 @@ const Chat = ({ numba, onClose, systemMessage, chatType, model, temperature, top
         );
     });
 
+    const onClose = useCallback((id) => {
+        setComponentList(componentList.filter((container) => container.id !== id));
+    })
+
+    const makeNewChat = useCallback((chosenType) => {
+        const modelArray = modelOptions[chosenType];
+        let pickModel = modelArray[0];
+
+        //chosenAnthropic, chosenGoogle, chosenGrokAI, chosenOllama, chosenOpenAI
+        switch (chosenType) {
+            case "Anthropic":
+                pickModel = chosenAnthropic;
+            break;
+            case "Google":
+                pickModel = chosenGoogle;
+            break;
+            case "Grok":
+                pickModel = chosenGrokAI;
+            break;
+            case "Ollama":
+                pickModel = chosenOllama;
+            break;
+            case "OpenAI":
+                pickModel = chosenOpenAI;
+            break;
+        }
+
+        const newChat = {
+            id: Date.now(),
+            numba: chatCount,
+            systemMessage: systemMessage,
+            chatType: chosenType,
+            model: pickModel.name,
+            temperature: temperature,
+            topp: topp,
+            localModels: localModels,
+            langchainURL: langchainURL,
+            listModels: modelArray,
+            serverURL: serverURL,
+            modelOptions: modelOptions,
+        };
+    
+        setComponentList([...componentList, newChat]);
+        setChatCount(chatCount + 1);
+    });
+
     return (
         <Spring
             from={{ opacity: 0 }}
@@ -363,7 +414,7 @@ const Chat = ({ numba, onClose, systemMessage, chatType, model, temperature, top
                                     {chatType}
                                 </td>
                                 <td>
-                                    <XClose onClose={onClose} />
+                                    <XClose onClose={onClose} closeID={closeID} />
                                 </td>
                             </tr>
 
@@ -397,7 +448,7 @@ const Chat = ({ numba, onClose, systemMessage, chatType, model, temperature, top
                                             </span>
                                         </div>
                                         <div>
-                                            <Hyphenated><a className="underline" alt={langchainURL} target="_blank" rel="noopener noreferrer" href={langchainURL}>{langchainURL}</a></Hyphenated>
+                                            <Hyphenated><a className="underline hover:no-underline" alt={langchainURL} target="_blank" rel="noopener noreferrer" href={langchainURL}>{langchainURL}</a></Hyphenated>
                                         </div>
                                     </td>
                                 </tr>
@@ -455,7 +506,7 @@ const Chat = ({ numba, onClose, systemMessage, chatType, model, temperature, top
                                                     onKeyDown={handleEnterKey}
                                                     minRows="3"
                                                     maxRows="15"
-                                                    className="placeholder:text-6xl placeholder:italic mt-3 hover:bg-nosferatu-400 p-4 min-w-full bg-nosferatu-100 text-sm font-mono text-black rounded-xl"
+                                                    className="placeholder:text-6xl placeholder:italic mt-3 p-4 min-w-full bg-nosferatu-100 text-sm font-mono text-black rounded-xl"
                                                     placeholder="Chat"
                                                     onChange={chatHandler()}
                                                     value={chatInput}
@@ -480,18 +531,16 @@ const Chat = ({ numba, onClose, systemMessage, chatType, model, temperature, top
                                 <td className="w-3/5 bg-buffy-200 rounded-xl bg-gradient-to-tl from-buffy-500 p-2">
                                     <table className="min-w-full"><tbody>
                                         <tr>
-                                            <td className="w-1/6"><i className="fa-solid fa-splotch text-2xl text-dracula-500 ml-1"></i></td>
-                                            <td className="w-5/6 min-w-full">
-                                                <p className="mb-2">{addedModels.length > 0 ? <b>Models:</b> : <b>Model:</b>}</p>
+                                            <td className="min-w-full">
+                                                <p className="mb-2"><i className="fa-solid fa-splotch text-2xl text-dracula-500 ml-1"></i> {addedModels.length > 0 ? <b>Models:</b> : <b>Model:</b>}</p>
                                             </td>
                                         </tr>
                                         <tr>
-                                            <td></td>
                                             <td>
                                                 <ul>
-                                                    <li><i className="fa-solid fa-caret-right text-sm text-dracula-500"></i> {model}</li>
+                                                    <li><i className="fa-solid ml-4 fa-caret-right text-sm text-dracula-500"></i> {model}</li>
                                                     {addedModels.map((model, index) => (
-                                                        <li key={index}><i className="fa-solid fa-caret-right text-sm text-dracula-500" ></i> <span onClick={() => handleDeleteModel(model)} className="hover:underline" >{model}</span></li>
+                                                        <li key={index}><i className="fa-solid ml-4 fa-caret-right text-sm text-dracula-500" ></i> <span onClick={() => handleDeleteModel(model)} className="hover:underline" >{model}</span></li>
                                                     ))}
                                                 </ul>
                                             </td>
@@ -502,7 +551,7 @@ const Chat = ({ numba, onClose, systemMessage, chatType, model, temperature, top
                                 {/* temperature info */}
                                 <td className="w-1/5 bg-vanHelsing-200 rounded-xl bg-gradient-to-tl from-vanHelsing-500">
                                     <table className="mt-2"><tbody><tr className="align-top">
-                                        <td className="w-1/6"><i className="fa-solid fa-temperature-three-quarters text-2xl text-buffy-500"></i></td>
+                                        <td className="w-1/6"><i className="ml-2 fa-solid fa-temperature-three-quarters text-2xl text-buffy-500"></i></td>
                                         <td className="w-5/6 p-1"><b>temperature:</b><br /><i className="fa-solid fa-caret-right text-sm text-buffy-900 mr-1"></i> {temperature}</td>
                                     </tr></tbody></table>
                                 </td>
@@ -510,7 +559,7 @@ const Chat = ({ numba, onClose, systemMessage, chatType, model, temperature, top
                                 {/* top-p info */}
                                 <td className="w-1/5 bg-cullen-200 rounded-xl bg-gradient-to-tl from-cullen-500">
                                     <table className="mt-2"><tbody><tr className="align-top">
-                                        <td className="w-1/6"><i className="fa-brands fa-react text-2xl text-vanHelsing-900"></i></td>
+                                        <td className="w-1/6"><i className="ml-2 fa-brands fa-react text-2xl text-vanHelsing-900"></i></td>
                                         <td className="w-5/6 p-1"><b>top-p:</b><br /><i className="fa-solid fa-caret-right text-sm text-vanHelsing-900 mr-1"></i> {topp}</td>
                                     </tr></tbody></table>
                                 </td>
@@ -525,18 +574,17 @@ const Chat = ({ numba, onClose, systemMessage, chatType, model, temperature, top
                                                 <div className="bg-blade-100 rounded-xl pb-2 pl-2">
                                                     <table className="min-w-full"><tbody>
                                                         <tr>
-                                                            <td className="w-1/6"><i className="cursor-pointer mb-3 mt-2 fa-solid fa-plus text-blade-800 text-3xl hover:text-marcelin-900 fa-rotate-by" style={{ '--fa-rotate-angle': '45deg' }} onClick={handleModelToggle}></i></td>
-                                                            <td className="w-5/6 min-w-full">
-                                                                <span className="font-bold hover:underline cursor-pointer hover:text-marcelin-900" onClick={handleModelToggle}>Add Model:</span>
+                                                            <td className="min-w-full pl-4">
+                                                                <i className="cursor-pointer mb-3 mt-2 fa-solid fa-plus text-blade-800 text-3xl hover:text-marcelin-900 fa-rotate-by" style={{ '--fa-rotate-angle': '45deg' }} onClick={handleModelToggle}></i> 
+                                                                <span className="ml-4 font-bold hover:underline cursor-pointer hover:text-marcelin-900" onClick={handleModelToggle}>Add Model:</span>
                                                             </td>
                                                         </tr>
                                                         <tr>
-                                                            <td></td>
                                                             <td>
                                                                 <ul>
                                                                     {listModels.map((model, index) => (
                                                                         <li key={index}>
-                                                                            <span className="text-sm cursor-pointer hover:text-aro-500 hover:underline hover:font-bold" onClick={() => handleAddModel(model.name)}><i className="fa-solid fa-caret-right text-sm text-blade-700 mr-1"></i>{model.name}</span>
+                                                                            <span className="ml-4 text-sm hover:text-aro-500 hover:underline hover:font-bold hover:cursor-pointer" onClick={() => handleAddModel(model.name)}><i className="fa-solid fa-caret-right text-sm text-blade-700 mr-1"></i>{model.name}</span>
                                                                         </li>
                                                                     ))}
                                                                 </ul>
@@ -553,12 +601,18 @@ const Chat = ({ numba, onClose, systemMessage, chatType, model, temperature, top
                                     }
                                 </td>
 
-                                {/* LangChain info */}
+                                {/* Copy System & first user prompt to a new Chat */}
                                 <td colSpan={2} className="w-2/5">
-                                    {chatType.includes("LangChain") &&
-                                        <div className="bg-dracula-300 rounded-xl p-6">
-                                            <b>LangChain Embed:</b><br />
-                                            <i className="fa-solid fa-caret-right text-sm text-dracula-300 mr-1"></i><a className="underline hover:font-bold" href={langchainURL} alt={langchainURL} target="_blank" rel="noopener noreferrer">Link</a>
+                                    { !chatType.includes("LangChain") && //sentOne
+                                        <div className="bg-dracula-300 rounded-xl p-4 text-sm">
+                                            <p className="font-bold mb-1 text-base"><i className="fa-solid fa-circle-plus text-2xl text-blade-500 mr-2 mb-2"></i> New Chat:</p>
+                                            {Object.keys(modelOptions).map((optionKey) => (
+                                                optionKey.includes("LangChain") ? null : (
+                                                    <p key={optionKey}>
+                                                        <i className="fa-solid fa-caret-right text-sm text-vanHelsing-900 mr-1 mb-1"></i> <span className="hover:underline hover:font-bold cursor-pointer" onClick={() => makeNewChat(optionKey)}>{optionKey}</span>
+                                                    </p>
+                                                )
+                                            ))}
                                         </div>
                                     }
                                 </td>

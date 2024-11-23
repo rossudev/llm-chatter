@@ -1,9 +1,10 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, createContext, React } from "react";
 import { animated, Spring } from "react-spring";
 import TextareaAutosize from "react-textarea-autosize";
 import axios from "axios";
 import debounce from "lodash/debounce";
 import Chat from "./components/Chat";
+export const dataContext = createContext();
 
 function App() {
   const openAImodels = [
@@ -45,7 +46,7 @@ function App() {
   //Other defaults
   const [serverURL, setServerURL] = useState("http://localhost:8080");
   const [sysMsg, setSysMsg] = useState("Let's work this out in a step by step way to be sure we have the right answer.");
-  const [temperature, setTemperature] = useState("1.0");
+  const [temperature, setTemperature] = useState("0.8");
   const [topp, setTopp] = useState("1.0");
   const [langchainURL, setLangchainURL] = useState("https://");
 
@@ -55,7 +56,6 @@ function App() {
   const [advancedSetting, setAdvancedSetting] = useState(false);
   const [serverCheck, setServerCheck] = useState(false);
   const [urlValid, setUrlValid] = useState(false);
-  const [checkIncrement, setCheckIncrement] = useState(0);
   const [chatCount, setChatCount] = useState(1);
   const [chosenAnthropic, setChosenAnthropic] = useState(anthropicAImodels[0]);
   const [chosenGoogle, setChosenGoogle] = useState(googleAImodels[0]);
@@ -63,14 +63,25 @@ function App() {
   const [chosenOllama, setChosenOllama] = useState(localModels[0]);
   const [chosenOpenAI, setChosenOpenAI] = useState(openAImodels[0]);
 
-  const modelOptions = {
-    "Anthropic": anthropicAImodels,
-    "Google": googleAImodels,
-    "Grok": grokAImodels,
-    "Ollama": localModels,
-    "Ollama - LangChain": localModels,
-    "OpenAI": openAImodels,
-  };
+// Check if the arrays contains elements before adding related keys
+  const modelOptions = {};
+  if (anthropicAImodels.length > 0) {
+    modelOptions["Anthropic"] = anthropicAImodels;
+  }
+  if (googleAImodels.length > 0) {
+    modelOptions["Google"] = googleAImodels;
+  }
+  if (grokAImodels.length > 0) {
+    modelOptions["Grok"] = grokAImodels;
+  }
+
+  if (localModels.length > 0) {
+    modelOptions["Ollama"] = localModels;
+    modelOptions["Ollama - LangChain"] = localModels;
+  }
+  if (openAImodels.length > 0) {
+    modelOptions["OpenAI"] = openAImodels;
+  }
 
   const makeNewChat = useCallback((typeOfComponent) => {
     let response = "OpenAI";
@@ -90,6 +101,7 @@ function App() {
 
     const newChat = {
       id: Date.now(),
+      closeID: Date.now(),
       numba: chatCount,
       systemMessage: sysMsg,
       chatType: response,
@@ -100,6 +112,7 @@ function App() {
       langchainURL: langchainURL,
       listModels: listModels,
       serverURL: serverURL,
+      modelOptions: modelOptions,
     };
 
     setComponentList([...componentList, newChat]);
@@ -144,33 +157,33 @@ function App() {
 
   //Ensure back-end node.js server is online with a ping every second
   useEffect(() => {
-    const checkBackServer = setInterval(async () => {
-      let backServerCheck = undefined;
+    const checkBackServer = async () => {
       try {
         const response = await axios.post(serverURL + "/check");
-
-        // Check if the response data indicates success
-        backServerCheck = response?.data || undefined;
+        const backServerCheck = response?.data || undefined;
+  
+        // Only update state if the value has changed
+        if (backServerCheck !== serverCheck) {
+          setServerCheck(backServerCheck);
+        }
+  
+        // Update localModels only if backend is available and list is empty
+        if (backServerCheck && localModels.length === 0) {
+          checkModels();
+        }
       } catch (error) {
-        backServerCheck = undefined;
+        if (serverCheck !== false) {
+          setServerCheck(false);
+        }
       }
-
-      setServerCheck(backServerCheck);
-      if (!backServerCheck) {
-        setCheckIncrement(prevValue => prevValue + 1);
-      }
-
-      if (checkIncrement > 10) {
-        console.clear();
-        setCheckIncrement(0);
-      }
-    }, 1000); // 1000 milliseconds = 1 second
-
-    return () => {
-      // Clear the interval when the component unmounts
-      clearInterval(checkBackServer);
     };
-  }, []);
+  
+    // Call immediately and then set interval
+    checkBackServer();
+    const intervalId = setInterval(checkBackServer, 1000);
+  
+    return () => clearInterval(intervalId);
+  }, [serverURL, serverCheck, localModels, checkModels]);
 
   //Event Handlers
 
@@ -210,10 +223,6 @@ function App() {
 
     (setChosenMapping[chatType] || setChosenOllama)(modelObj);
   }, [chatType]);
-
-  const handleClose = useCallback((id) => {
-    setComponentList(componentList.filter((container) => container.id !== id));
-  }, []);
 
   const handleSysMsgChange = useCallback((e) => {
     setSysMsg(e.target.value);
@@ -259,7 +268,7 @@ function App() {
   });
 
   return (
-    <>
+    <dataContext.Provider value={{ componentList, setComponentList, chatCount, setChatCount, chosenAnthropic, chosenGoogle, chosenGrokAI, chosenOllama, chosenOpenAI }}>
       <div>
         <Spring
           from={{ opacity: 0 }}
@@ -268,7 +277,9 @@ function App() {
           ]}
           delay={400}>
           {styles => (
-            <animated.div style={styles} className="min-w-full text-aro-100 place-self-center cursor-default bg-vonCount-600 bg-gradient-to-tl from-vonCount-700 rounded-3xl font-bold p-2 flex items-center justify-center mt-2">
+            <animated.div style={styles} className="min-w-full text-aro-100 place-self-center cursor-default bg-vonCount-600 bg-gradient-to-tl from-vonCount-700 rounded-3xl font-bold p-2 flex items-center justify-center">
+
+            { /* Settings box */ }
               <div className="w-full">
                 <table className="min-w-full text-black">
                   <tbody>
@@ -286,6 +297,8 @@ function App() {
                         </label>
                       </td>
                     </tr>
+
+                    { /* Configure NodeJS server URL */ }
                     {!serverCheck &&
                       <tr>
                         <td className="pb-4 pr-4">Server URL:</td>
@@ -294,6 +307,8 @@ function App() {
                         </td>
                       </tr>
                     }
+
+                    { /* NodeJS server check display */ }
                     <tr>
                       <td className="pb-4 pr-4">Server Check:</td>
                       <td className="pb-4 font-sans">
@@ -304,6 +319,8 @@ function App() {
                         }
                       </td>
                     </tr>
+
+                    { /* System Message */ }
                     {!chatType.includes("LangChain") &&
                       <tr>
                         <td className="pb-4 pr-4">
@@ -314,6 +331,8 @@ function App() {
                         </td>
                       </tr>
                     }
+
+                    { /* LangChain Embed URL */ }
                     {chatType.includes("LangChain") ?
                       <>
                         <tr>
@@ -327,38 +346,71 @@ function App() {
                       </>
                       : <></>
                     }
+
+                    { /* Input Type */ }
                     <tr>
                       <td className="pb-2 pr-4">Input Type:</td>
                       <td className="pb-2 tracking-wide font-bold text-black">
-                        <select name="chatType" id="chatType" className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer p-4 min-w-full font-sans rounded-xl text-black" onChange={(e) => handleChatTypeChange(e)} value={chatType}>
-                          <option value="Anthropic">Anthropic</option>
-                          <option value="Google">Google</option>
-                          <option value="Grok">Grok</option>
-                          <option value="OpenAI">OpenAI</option>
-                          <option value="Ollama">Ollama</option>
-                          <option value="Ollama - LangChain">Ollama - LangChain</option>
+                        <select
+                          name="chatType"
+                          id="chatType"
+                          className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer p-4 min-w-full font-sans rounded-xl text-black"
+                          onChange={(e) => handleChatTypeChange(e)}
+                          value={chatType}
+                        >
+                          {Object.keys(modelOptions).map((optionKey) => (
+                            <option key={optionKey} value={optionKey}>
+                              {optionKey}
+                            </option>
+                          ))}
                         </select>
                       </td>
                     </tr>
+
+                    { /* Model Selection */ }
                     {advancedSetting &&
                       <>
                         <tr>
                           <td className="pb-2 pr-4">Model:</td>
                           <td className="pb-2 tracking-wide font-bold text-black">
-                            <select name="model" id="model" className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer p-4 min-w-full font-sans rounded-xl text-black" onChange={(e) => handleModelChange(e)} value={model.name}>
-                              {modelOptions[chatType].map((option) => (
-                                <option key={option.name} value={option.name}>
-                                  {truncateString(option.name, 40)} {/* Modify the length */}
+                            <select 
+                              name="model" 
+                              id="model" 
+                              className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer p-4 min-w-full font-sans rounded-xl text-black" 
+                              onChange={(e) => handleModelChange(e)} 
+                              value={model.name}
+                              disabled={!modelOptions[chatType] || modelOptions[chatType].length === 0}
+                            >
+                              {modelOptions[chatType] && modelOptions[chatType].length > 0 ? (
+                                modelOptions[chatType].map((option) => (
+                                  <option key={option.name} value={option.name}>
+                                    {truncateString(option.name, 40)}
+                                  </option>
+                                ))
+                              ) : (
+                                <option value="" disabled>
+                                  No models available
                                 </option>
-                              ))}
+                              )}
                             </select>
                           </td>
                         </tr>
+
+                        { /* Temperature */ }
                         <tr>
                           <td className="pb-4 pr-4">temperature:</td>
                           <td className="tracking-wide font-bold text-black">
                             <select name="temperature" id="temperature" className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer mb-2 p-4 min-w-24 font-sans rounded-xl text-black" onChange={(e) => handleTempChange(e)} value={temperature}>
                               <option value="0.0">0.0</option>
+                              <option value="0.01">0.01</option>
+                              <option value="0.02">0.02</option>
+                              <option value="0.03">0.03</option>
+                              <option value="0.04">0.04</option>
+                              <option value="0.05">0.05</option>
+                              <option value="0.06">0.06</option>
+                              <option value="0.07">0.07</option>
+                              <option value="0.08">0.08</option>
+                              <option value="0.09">0.09</option>
                               <option value="0.1">0.1</option>
                               <option value="0.2">0.2</option>
                               <option value="0.3">0.3</option>
@@ -369,19 +421,11 @@ function App() {
                               <option value="0.8">0.8</option>
                               <option value="0.9">0.9</option>
                               <option value="1.0">1.0</option>
-                              <option value="1.1">1.1</option>
-                              <option value="1.2">1.2</option>
-                              <option value="1.3">1.3</option>
-                              <option value="1.4">1.4</option>
-                              <option value="1.5">1.5</option>
-                              <option value="1.6">1.6</option>
-                              <option value="1.7">1.7</option>
-                              <option value="1.8">1.8</option>
-                              <option value="1.9">1.9</option>
-                              <option value="2.0">2.0</option>
                             </select>
                           </td>
                         </tr>
+
+                        { /* top-p */ }
                         <tr>
                           <td className="pb-4">top-p:</td>
                           <td className="tracking-wide font-bold text-black">
@@ -412,7 +456,8 @@ function App() {
                     }
                   </tbody>
                 </table>
-                { //New Chat buttons display when conditions allow.
+
+                { //New Chat button displays only when conditions allow.
                   !serverCheck ||
                     (chatType.includes("LangChain") && !urlValid) ?
                     <></> :
@@ -424,23 +469,24 @@ function App() {
                         ]}
                         delay={200}>
                         {styles => (
-                          <animated.div onClick={debounce(() => { makeNewChat(""); }, 250)} style={styles} className={serverCheck ?
-                            "self-start text-black place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-3xl font-bold m-2 p-6 flex items-center justify-center mb-5 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-dracula-700 cursor-pointer" :
-                            "2xl:col-span-2 self-start text-black place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-3xl font-bold m-2 p-6 flex items-center justify-center mb-5 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-dracula-700 cursor-pointer"
-                          }>
+                          <animated.div onClick={debounce(() => { makeNewChat(""); }, 250)} style={styles} className="self-start text-black place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-2xl font-bold m-2 p-4 flex items-center justify-center mb-5 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-dracula-700 cursor-pointer">
                             <i className="fa-solid fa-keyboard mr-4"></i>
                             <h1>New Text</h1>
                           </animated.div>
                         )}
                       </Spring>
+
+                      { /* Middle display of selections */ }
                       <div className="rounded-lg border-solid border-2 border-aro-800 bg-aro-300 text-black text-center pt-1 cursor-text">
-                        <p className="underline text-3xl">Model Selected:</p>
-                        <p className="text-2xl">{chatType}: <span className="italic">{model.name}</span></p>
+                        <p className="underline text-2xl">Model Selected:</p>
+                        <p className="text-xl">{chatType}: <span className="italic">{model.name}</span></p>
                         {chatType.includes("LangChain") ?
-                          <p><a className="underline" alt={langchainURL} target="_blank" rel="noopener noreferrer" href={langchainURL}>{langchainURL}</a></p> :
+                          <p><a className="underline hover:no-underline" alt={langchainURL} target="_blank" rel="noopener noreferrer" href={langchainURL}>{langchainURL}</a></p> :
                           <></>
                         }
                       </div>
+
+                      { /* New Voice button */ }
                       <Spring
                         from={{ opacity: 0 }}
                         to={[
@@ -448,7 +494,7 @@ function App() {
                         ]}
                         delay={200}>
                         {styles => (
-                          <animated.div onClick={debounce(() => { makeNewChat(" (Voice)"); }, 250)} style={styles} className="self-start text-black place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-3xl font-bold m-2 p-6 flex items-center justify-center mb-5 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-buffy-700 shadow-xl cursor-pointer">
+                          <animated.div onClick={debounce(() => { makeNewChat(" (Voice)"); }, 250)} style={styles} className="self-start text-black place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-2xl font-bold m-2 p-4 flex items-center justify-center mb-5 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-buffy-700 shadow-xl cursor-pointer">
                             <i className="fa-solid fa-microphone-lines mr-4"></i>
                             <h1>New Voice</h1>
                           </animated.div>
@@ -461,23 +507,28 @@ function App() {
           )}
         </Spring>
       </div>
+
+      { /* All the Chats */ }
       <div className={`grid gap-3 sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 place-items-center mt-1`}>
         {componentList.slice().reverse().map((container) => (
           <Chat
             key={container.id}
+            closeID={container.id}
             systemMessage={container.systemMessage}
             chatType={container.chatType}
             model={container.model}
             temperature={container.temperature}
             topp={container.topp}
-            onClose={() => handleClose(container.id)} numba={container.numba}
+            numba={container.numba}
             langchainURL={container.langchainURL}
             listModels={container.listModels}
             serverURL={container.serverURL}
+            modelOptions={container.modelOptions}
+            localModels={container.localModels}
           />
         ))}
       </div>
-    </>
+    </dataContext.Provider>
   );
 }
 

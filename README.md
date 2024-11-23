@@ -2,8 +2,6 @@
 
 A web interface to chat by text (and voice!) with various large language models.
 
-![Application screenshot](https://github.com/rossuber/llm-chatter/blob/main/dist/screenshot.webp?raw=true)
-
 # Installation
 
 1. Install Ollama and [add at least one model](https://www.ollama.ai/library).
@@ -52,7 +50,7 @@ The web app makes API calls to http://localhost:8080 by default. This is the Nod
 [Anthropic](https://docs.anthropic.com/)
 [Grok](https://docs.x.ai/docs)
 
-#Proprietary Models
+# Proprietary Models
 - gpt-4o
 - gpt-4o-mini
 - gpt-4-turbo
