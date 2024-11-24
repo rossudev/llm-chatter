@@ -44,8 +44,7 @@ function App() {
   const [listModels, setListModels] = useState(openAImodels);
 
   //Other defaults
-  const [serverURL, setServerURL] = useState("https://x.rossu.dev");
-  //const [serverURL, setServerURL] = useState("http://localhost:8080");
+  const [serverURL, setServerURL] = useState("http://localhost:8080");
   const [sysMsg, setSysMsg] = useState("Let's work this out in a step by step way to be sure we have the right answer.");
   const [temperature, setTemperature] = useState("0.8");
   const [topp, setTopp] = useState("1.0");
