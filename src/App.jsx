@@ -44,7 +44,8 @@ function App() {
   const [listModels, setListModels] = useState(openAImodels);
 
   //Other defaults
-  const [serverURL, setServerURL] = useState("http://localhost:8080");
+  const [serverURL, setServerURL] = useState("https://x.rossu.dev");
+  //const [serverURL, setServerURL] = useState("http://localhost:8080");
   const [sysMsg, setSysMsg] = useState("Let's work this out in a step by step way to be sure we have the right answer.");
   const [temperature, setTemperature] = useState("0.8");
   const [topp, setTopp] = useState("1.0");
@@ -120,7 +121,7 @@ function App() {
   });
 
   //Ping the backend server for a list of Ollama locally downloaded list of models
-  const checkModels = useCallback(async () => {
+  const checkModels = useCallback(debounce(async () => {
     try {
       const theModels = await axios.post(
         serverURL + "/getmodels",
@@ -148,7 +149,7 @@ function App() {
 
       setChosenOllama({ name: allModels[0].name });
     } catch (error) { console.log(error); }
-  }, [serverURL]);
+  }, 250), [serverURL]);
 
   //Populate model list for Ollama
   useEffect(() => {
@@ -157,7 +158,7 @@ function App() {
 
   //Ensure back-end node.js server is online with a ping every second
   useEffect(() => {
-    const checkBackServer = async () => {
+    const checkBackServer = debounce(async () => {
       try {
         const response = await axios.post(serverURL + "/check");
         const backServerCheck = response?.data || undefined;
@@ -176,7 +177,7 @@ function App() {
           setServerCheck(false);
         }
       }
-    };
+    }, 250);
   
     // Call immediately and then set interval
     checkBackServer();

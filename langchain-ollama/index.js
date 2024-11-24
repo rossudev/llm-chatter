@@ -6,6 +6,8 @@ import cors from "cors";
 import bodyParser from "body-parser";
 import multer from "multer";
 import path from 'path';
+import fs from 'fs';
+import stripAnsi from 'strip-ansi';
 import chalk from 'chalk';
 import dotenv from 'dotenv';
 import { execFile } from 'child_process';
@@ -19,7 +21,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from "@google/generative-ai";
 import { Ollama } from "langchain/llms/ollama";
 import OpenAI from 'openai';
-const pyFilePath = "/home/opec/Documents/programming/python/whisper-medusa/whisper_medusa/go.py";
+
+const pyFilePath = "/file/path/here/script.py";
 
 
 
@@ -37,7 +40,7 @@ app.use(cors());
 
 const limiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 minutes
-  max: 1400 // limit each IP to 1400 requests per windowMs
+  max: 2000 // limit each IP to 2000 requests per windowMs
 });
 app.use(limiter);
 
@@ -45,6 +48,42 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ error: 'Internal Server Error' });
 });
+
+
+// Function to get the current time as a string in 'HH:MM:SS' format
+function getCurrentTime() {
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  return `${hours}:${minutes}:${seconds}`;
+}
+
+// Function to get the log file path, system local time
+function getLogFilePath() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are zero-indexed
+  const day = String(now.getDate()).padStart(2, '0');
+  const dateStr = `${year}-${month}-${day}`;
+  
+  return path.join(process.cwd(), `log-${dateStr}.txt`);
+}
+
+// Create a write stream for the log file
+const logStream = fs.createWriteStream(getLogFilePath(), { flags: 'a' });
+
+// Override console.log to write to the log file and console
+const originalConsoleLog = console.log;
+console.log = function (...args) {
+  const message = args.join(' ');
+  const timestamp = getCurrentTime(); // Use the current time
+  // Write to the log file without ANSI codes
+  const cleanMessage = stripAnsi(message);
+  logStream.write(`[${timestamp}] ${cleanMessage}\n`);
+  // Write to the console with ANSI codes
+  originalConsoleLog.apply(console, [`[${timestamp}]`, ...args]);
+};
 
 
 
@@ -60,14 +99,22 @@ app.post('/getmodels', async (req, res) => {
   try {
     const response = await axios.get('http://localhost:11434/api/tags');
 
-    console.log(chalk.cyan("Sent model list."))
-    res.send(response.data.models);
+    // Extracting the source address
+    const origin = req.headers.origin;
+    // Extracting the connector's address (IP address)
+    const clientIp = ( req.headers['x-forwarded-for'] || req.ip ); // Alternatively, use req.connection.remoteAddress or req.socket.remoteAddress
 
+    console.log(chalk.cyan("\nSent model list.") +
+    "\nSource (Origin): " + origin +
+    "\nConnector's Address (IP): " + clientIp + "\n");
+
+    res.send(response.data.models);
   } catch (error) {
     console.error('Error:', error);
     res.status(500).json({ error: 'GetModels Failure' });
   }
 });
+
 
 
 
@@ -91,8 +138,8 @@ const validateInput = [
 app.post('/ollama', validateInput, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
     console.log(errors);
+    return res.status(400).json({ errors: errors.array() });
   }
   try {
     const theData = req.body;
@@ -105,13 +152,13 @@ app.post('/ollama', validateInput, async (req, res) => {
 
     res.send(response.data);
 
-    console.log("\n" + chalk.bgGreen.bold("////////////////////////////////////////") + "\n");
-    console.log(chalk.blue(chalk.underline.bold("Model") + ": ") + theData.model);
-    console.log(chalk.yellow(chalk.underline.bold("Temperature") + ": ") + theData.options.temperature);
-    console.log(chalk.red(chalk.underline.bold("Top-P") + ": ") + theData.options.top_p);
-    console.log(chalk.magenta(chalk.underline.bold("System") + ":\n") + chalk.magenta(theData.system));
-    console.log(chalk.cyan(chalk.underline.bold("Prompt") + ":\n") + chalk.cyan(theData.prompt) + "\n");
-    console.log(chalk.white.underline.bold("Response") + ":\n" + chalk.bgBlack(response.data.response) + "\n");
+    console.log("\n" + chalk.bgGreen.bold("\n////////////////////////////////////////\n") + chalk.underline("Remote IP:") + " " + ( req.headers['x-forwarded-for'] || req.ip ) + "\n"
+    + chalk.blue(chalk.underline.bold("Model") + ": ") + theData.model + "\n"
+    + chalk.yellow(chalk.underline.bold("Temperature") + ": ") + theData.options.temperature + "\n"
+    + chalk.red(chalk.underline.bold("Top-P") + ": ") + theData.options.top_p + "\n"
+    + chalk.magenta(chalk.underline.bold("System") + ":\n") + chalk.magenta(theData.system) + "\n"
+    + chalk.cyan(chalk.underline.bold("Prompt") + ":\n") + chalk.cyan(theData.prompt) + "\n"
+    + chalk.white.underline.bold("Response") + ":\n" + chalk.bgBlack(response.data.response) + "\n" );
 
   } catch (error) {
     console.error('Error:', error);
@@ -126,13 +173,14 @@ const upload = multer({ dest: 'uploads/' });
 app.post('/whisper-medusa', upload.single('audio'), (req, res) => {
   // Check if file is uploaded
   if (!req.file) {
-    return res.status(400).send({ error: 'No file uploaded. Please include an audio file for processing.' });
     console.log("No file.");
+    return res.status(400).send({ error: 'No file uploaded. Please include an audio file for processing.' });
+
   }
   const acceptableMimeTypes = ['audio/mpeg', 'audio/wav', 'audio/webm'];
   if (!acceptableMimeTypes.includes(req.file.mimetype)) {
-    return res.status(400).send({ error: 'Unsupported file type. Please upload an audio file in MP3, WAV, or WEBM format.' });
     console.log("Wrong filetype.");
+    return res.status(400).send({ error: 'Unsupported file type. Please upload an audio file in MP3, WAV, or WEBM format.' });
   }
   // Proceed if file is valid
   const audioFilePath = req.file.path;
@@ -143,8 +191,7 @@ app.post('/whisper-medusa', upload.single('audio'), (req, res) => {
     }
     res.send(stdout);
 
-    console.log("\n" + chalk.bgGreen.bold("////////////////////////////////////////") + "\n");
-    console.log(chalk.blue("Whisper-Medusa:\n") + chalk.bgBlack(stdout));
+    console.log("\n" + chalk.bgBlue.bold("\n////////////////////////////////////////") + "\n" + chalk.blue("Whisper-Medusa:\n") + chalk.bgBlack(stdout) + "\n");
   });
 });
 
@@ -153,8 +200,8 @@ app.post('/whisper-medusa', upload.single('audio'), (req, res) => {
 app.post('/langchain', validateInput, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
     console.log(errors);
+    return res.status(400).json({ errors: errors.array() });
   }
 
   const theData = req.body;
@@ -202,13 +249,13 @@ app.post('/langchain', validateInput, async (req, res) => {
 
   res.status(200).json(result);
 
-  console.log("\n" + chalk.bgGreen.bold("////////////////////////////////////////") + "\n");
-  console.log(chalk.blue(chalk.underline.bold("Model") + ": ") + theData.model);
-  console.log(chalk.yellow(chalk.underline.bold("Temperature") + ": ") + theData.temperature);
-  console.log(chalk.red(chalk.underline.bold("Top-P") + ": ") + theData.topP);
-  console.log(chalk.white(chalk.underline.bold("LangChain Embed") + ":\n") + chalk.white(theData.langchainURL) + "\n");
-  console.log(chalk.cyan(chalk.underline.bold("Prompt") + ":\n") + chalk.cyan(theData.input) + "\n");
-  console.log(chalk.white.underline.bold("Response") + ":\n" + chalk.bgBlack(result.text) + "\n");
+  console.log("\n" + chalk.bgGreen.bold("\n////////////////////////////////////////\n") + chalk.underline("Remote IP:") + " " + ( req.headers['x-forwarded-for'] || req.ip ) + "\n"
+  + chalk.blue(chalk.underline.bold("Model") + ": ") + theData.model + "\n"
+  + chalk.yellow(chalk.underline.bold("Temperature") + ": ") + theData.temperature + "\n"
+  + chalk.red(chalk.underline.bold("Top-P") + ": ") + theData.topP + "\n"
+  + chalk.white(chalk.underline.bold("LangChain Embed") + ":\n") + chalk.white(theData.langchainURL) + "\n"
+  + chalk.cyan(chalk.underline.bold("Prompt") + ":\n") + chalk.cyan(theData.input) + "\n"
+  + chalk.white.underline.bold("Response") + ":\n" + chalk.bgBlack(result.text) + "\n" );
 });
 
 
@@ -218,15 +265,13 @@ app.post('/anthropic', validateInput, async (req, res) => {
   //Handle validation errors
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
     console.log(errors);
+    return res.status(400).json({ errors: errors.array() });
   }
 
   try {
     const theData = req.body;
     const theMsgs = theData.messages;
-
-
 
     if (!theData.model || !theMsgs) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -247,13 +292,13 @@ app.post('/anthropic', validateInput, async (req, res) => {
 
     res.status(200).json(msg);
 
-    console.log("\n" + chalk.bgGreen.bold("////////////////////////////////////////") + "\n");
-    console.log(chalk.blue(chalk.underline.bold("Model") + ": ") + theData.model);
-    console.log(chalk.yellow(chalk.underline.bold("Temperature") + ": ") + theData.temperature);
-    console.log(chalk.red(chalk.underline.bold("Top-P") + ": ") + theData.top_p);
-    console.log(chalk.magenta(chalk.underline.bold("System") + ":\n") + chalk.magenta(theData.system));
-    console.log(chalk.cyan(chalk.underline.bold("Prompt") + ":\n") + chalk.cyan(((theMsgs[theMsgs.length - 1])).content[0].text) + "\n");
-    console.log(chalk.white.underline.bold("Response") + ":\n" + chalk.bgBlack(msg.content[0].text) + "\n");
+    console.log("\n" + chalk.bgGreen.bold("\n////////////////////////////////////////\n") + chalk.underline("Remote IP:") + " " + ( req.headers['x-forwarded-for'] || req.ip ) + "\n"
+    + chalk.blue(chalk.underline.bold("Model") + ": ") + theData.model + "\n"
+    + chalk.yellow(chalk.underline.bold("Temperature") + ": ") + theData.temperature + "\n"
+    + chalk.red(chalk.underline.bold("Top-P") + ": ") + theData.top_p + "\n"
+    + chalk.magenta(chalk.underline.bold("System") + ":\n") + chalk.magenta(theData.system) + "\n"
+    + chalk.cyan(chalk.underline.bold("Prompt") + ":\n") + chalk.cyan(((theMsgs[theMsgs.length - 1])).content[0].text) + "\n"
+    + chalk.white.underline.bold("Response") + ":\n" + chalk.bgBlack(msg.content[0].text) + "\n" );
 
   } catch (error) {
     console.error('Error:\n', error);
@@ -268,8 +313,8 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
   // Handle validation errors
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
     console.log(errors);
+    return res.status(400).json({ errors: errors.array() });
   }
 
   try {
@@ -297,13 +342,13 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
 
     res.status(200).json(response);
 
-    console.log("\n" + chalk.bgGreen.bold("////////////////////////////////////////") + "\n");
-    console.log(chalk.blue(chalk.underline.bold("Model") + ": ") + model);
-    console.log(chalk.yellow(chalk.underline.bold("Temperature") + ": ") + temperature);
-    console.log(chalk.red(chalk.underline.bold("Top-P") + ": ") + top_p);
-    console.log(chalk.magenta(chalk.underline.bold("System") + ":\n") + chalk.magenta(messages[0].content));
-    console.log(chalk.cyan(chalk.underline.bold("Prompt") + ":\n") + chalk.cyan(((messages[messages.length - 1])).content[0].text) + "\n");
-    console.log(chalk.white.underline.bold("Response") + ":\n" + chalk.bgBlack(response.choices[0].message.content) + "\n");
+    console.log("\n" + chalk.bgGreen.bold("\n////////////////////////////////////////\n") + chalk.underline("Remote IP:") + " " + ( req.headers['x-forwarded-for'] || req.ip ) + "\n"
+    + chalk.blue(chalk.underline.bold("Model") + ": ") + model + "\n"
+    + chalk.yellow(chalk.underline.bold("Temperature") + ": ") + temperature + "\n"
+    + chalk.red(chalk.underline.bold("Top-P") + ": ") + top_p + "\n"
+    + chalk.magenta(chalk.underline.bold("System") + ":\n") + chalk.magenta(messages[0].content) + "\n"
+    + chalk.cyan(chalk.underline.bold("Prompt") + ":\n") + chalk.cyan(((messages[messages.length - 1])).content[0].text) + "\n"
+    + chalk.white.underline.bold("Response") + ":\n" + chalk.bgBlack(response.choices[0].message.content) + "\n" );
 
   } catch (error) {
     console.error('Error:', error);
@@ -338,8 +383,8 @@ app.post('/google', validateInput, async (req, res) => {
   //Handle validation errors
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
     console.log(errors);
+    return res.status(400).json({ errors: errors.array() });
   }
 
   try {
@@ -391,19 +436,19 @@ app.post('/google', validateInput, async (req, res) => {
 
     res.status(200).json(response);
 
-    console.log("\n" + chalk.bgGreen.bold("////////////////////////////////////////") + "\n");
-    console.log(chalk.blue(chalk.underline.bold("Model") + ": ") + theData.model);
-    console.log(chalk.yellow(chalk.underline.bold("Temperature") + ": ") + theData.temperature);
-    console.log(chalk.red(chalk.underline.bold("Top-P") + ": ") + theData.top_p);
-    console.log(chalk.magenta(chalk.underline.bold("System") + ":\n") + chalk.magenta(theData.system));
-    console.log(chalk.cyan(chalk.underline.bold("Prompt") + ":\n") + chalk.cyan(((theMsgs[theMsgs.length - 1])).content[0].text) + "\n");
-    console.log(chalk.white.underline.bold("Response") + ":\n" + chalk.bgBlack(response) + "\n");
+    console.log("\n" + chalk.bgGreen.bold("\n////////////////////////////////////////\n") + chalk.underline("Remote IP:") + " " + ( req.headers['x-forwarded-for'] || req.ip ) + "\n"
+    + chalk.blue(chalk.underline.bold("Model") + ": ") + theData.model + "\n"
+    + chalk.yellow(chalk.underline.bold("Temperature") + ": ") + theData.temperature + "\n"
+    + chalk.red(chalk.underline.bold("Top-P") + ": ") + theData.top_p + "\n"
+    + chalk.magenta(chalk.underline.bold("System") + ":\n") + chalk.magenta(theData.system) + "\n"
+    + chalk.cyan(chalk.underline.bold("Prompt") + ":\n") + chalk.cyan(((theMsgs[theMsgs.length - 1])).content[0].text) + "\n"
+    + chalk.white.underline.bold("Response") + ":\n" + chalk.bgBlack(response) + "\n" );
 
   } catch (error) {
     console.error('Error:', error);
     console.log(error);
     if (error.message.includes("overloaded")) {
-      return res.status(503).json("The model is overloaded. Please try again later.");
+      return res.status(503).json("The model is overloaded. Please try again later.\n");
     } else {
       return res.status(500).json({ error: 'An unexpected error occurred.' }); // More generic error message
     }
@@ -414,5 +459,5 @@ app.post('/google', validateInput, async (req, res) => {
 
 //Express server
 app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
+  console.log(`\n\nServer running at http://localhost:${port}\n` + chalk.bgCyan.bold("////////////////////////////////////////\n"));
 });
