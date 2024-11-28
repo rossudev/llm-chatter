@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback, createContext, React } from "react";
+import { useRef, useState, useCallback, createContext, React } from "react";
 import { animated, Spring } from "react-spring";
 import TextareaAutosize from "react-textarea-autosize";
+import { randomBytes } from 'crypto';
 import axios from "axios";
 import debounce from "lodash/debounce";
 import Chat from "./components/Chat";
@@ -44,6 +45,7 @@ function App() {
   const [listModels, setListModels] = useState(openAImodels);
 
   //Other defaults
+  const [serverPassphrase, setServerPassphrase] = useState("");
   const [serverURL, setServerURL] = useState("http://localhost:8080");
   const [sysMsg, setSysMsg] = useState("Let's work this out in a step by step way to be sure we have the right answer.");
   const [temperature, setTemperature] = useState("0.8");
@@ -51,10 +53,13 @@ function App() {
   const [langchainURL, setLangchainURL] = useState("https://");
 
   //Don't touch the rest of these.
+  const [clientJWT, setClientJWT] = useState("");
+  const [sessionHash, setSessionHash] = useState("");
   const [localModels, setLocalModels] = useState([]);
   const [componentList, setComponentList] = useState([]);
   const [advancedSetting, setAdvancedSetting] = useState(false);
   const [serverCheck, setServerCheck] = useState(false);
+  const [checkedIn, setCheckedIn] = useState(false);
   const [urlValid, setUrlValid] = useState(false);
   const [chatCount, setChatCount] = useState(1);
   const [chosenAnthropic, setChosenAnthropic] = useState(anthropicAImodels[0]);
@@ -62,6 +67,7 @@ function App() {
   const [chosenGrokAI, setChosenGrokAI] = useState(grokAImodels[0]);
   const [chosenOllama, setChosenOllama] = useState(localModels[0]);
   const [chosenOpenAI, setChosenOpenAI] = useState(openAImodels[0]);
+  const intervalIdRef = useRef(null);
 
 // Check if the arrays contains elements before adding related keys
   const modelOptions = {};
@@ -119,15 +125,92 @@ function App() {
     setChatCount(chatCount + 1);
   });
 
+
+
+  //Loop every second to check if server is available
+  const startInterval = useCallback(() => {
+    // Ensure not to start multiple intervals
+    if (intervalIdRef.current) {
+      return;
+    }
+
+    setSessionHash(randomBytes(64).toString('hex'));
+    checkBackServer();
+
+    // Start the interval
+    intervalIdRef.current = setInterval(() => {
+      checkBackServer();
+    }, 1000);
+  });
+
+  const checkBackServer = useCallback(debounce(async () => {
+    try {
+      const response = await axios.post(serverURL + "/check");
+      const backServerCheck = response?.data || undefined;
+
+      // Only update state if the value has changed
+      if (backServerCheck === "ok") {
+        setServerCheck(true);
+      } else {
+        setServerCheck(false);
+        setClientJWT("");
+        setCheckedIn(false);
+        setLocalModels([]);
+      }
+    } catch (error) {
+      setServerCheck(false);
+      setClientJWT("");
+      setCheckedIn(false);
+      setLocalModels([]);
+    }
+  }, 250,
+  [serverCheck] // Add dependencies
+));
+
+  //Ping the backend server to check in, validate passphrase and acquire the JWT for later API calls
+  const clientCheckIn = useCallback(debounce(async () => {
+    if (clientJWT != "") { return };
+
+    try {
+      const theJWT = await axios.post(
+        serverURL + "/checkin",
+        { serverPassphrase: serverPassphrase, sessionHash: sessionHash },
+        { headers: { "Content-Type": "application/json" } },
+      );
+
+      const clientCheck = theJWT?.data || undefined;
+
+      if (clientCheck) {
+        const newToken = theJWT.data;
+        setClientJWT(newToken);
+        setCheckedIn(true);
+      }
+    } catch (error) { console.log(error); }
+  }, 250), [clientJWT, serverPassphrase, sessionHash]);
+
+  function getRandomModel(modelsArray) {
+    if (!modelsArray || modelsArray.length === 0) {
+      return null;
+    }
+    const randomIndex = Math.floor(Math.random() * modelsArray.length);
+    return modelsArray[randomIndex];
+  }
+
   //Ping the backend server for a list of Ollama locally downloaded list of models
-  const checkModels = useCallback(debounce(async () => {
+  const checkModels = useCallback(debounce(async (bearer) => {
+    if (localModels.length > 0) { return };
+
     try {
       const theModels = await axios.post(
         serverURL + "/getmodels",
         {},
-        { headers: { "Content-Type": "application/json" } },
+        { headers: { 
+          "Content-Type": "application/json",
+          'Authorization': `Bearer ${bearer}`,
+         } },
       );
-      let allModels = theModels.data;
+
+      const allModels = theModels.data;
 
       allModels.sort((a, b) => {
         const nameA = a.name.toLowerCase();
@@ -144,46 +227,13 @@ function App() {
         "Grok": grokAImodels,
         "OpenAI": openAImodels,
       };
-      setModel(modelMapping[chatType]?.[0] || allModels[0]);
 
-      setChosenOllama({ name: allModels[0].name });
+      const randomOllama = getRandomModel(allModels);
+      setModel(modelMapping[chatType]?.[0] || randomOllama);
+
+      setChosenOllama({ name: randomOllama.name });
     } catch (error) { console.log(error); }
-  }, 250), [serverURL]);
-
-  //Populate model list for Ollama
-  useEffect(() => {
-    checkModels();
-  }, [checkModels]);
-
-  //Ensure back-end node.js server is online with a ping every second
-  useEffect(() => {
-    const checkBackServer = debounce(async () => {
-      try {
-        const response = await axios.post(serverURL + "/check");
-        const backServerCheck = response?.data || undefined;
-  
-        // Only update state if the value has changed
-        if (backServerCheck !== serverCheck) {
-          setServerCheck(backServerCheck);
-        }
-  
-        // Update localModels only if backend is available and list is empty
-        if (backServerCheck && localModels.length === 0) {
-          checkModels();
-        }
-      } catch (error) {
-        if (serverCheck !== false) {
-          setServerCheck(false);
-        }
-      }
-    }, 250);
-  
-    // Call immediately and then set interval
-    checkBackServer();
-    const intervalId = setInterval(checkBackServer, 1000);
-  
-    return () => clearInterval(intervalId);
-  }, [serverURL, serverCheck, localModels, checkModels]);
+  }, 250), [serverURL, localModels]);
 
   //Event Handlers
 
@@ -244,6 +294,10 @@ function App() {
     setAdvancedSetting(e.target.checked);
   }, []);
 
+  const handlePassphraseChange = useCallback((e) => {
+    setServerPassphrase(e.target.value);
+  }, []);
+
   const handleLangchainURLChange = useCallback((e) => {
     setLangchainURL(e.target.value);
     setUrlValid(isValidURL(e.target.value));
@@ -267,8 +321,24 @@ function App() {
     return str;
   });
 
+  const getGridClasses = (itemCount) => {
+    let classes = 'grid gap-3 place-items-center mt-1 ';
+    if (itemCount === 1) {
+      classes += 'sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-1 xl:grid-cols-1 2xl:grid-cols-1';
+    } else if (itemCount === 2) {
+      classes += 'sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2';
+    } else if (itemCount === 3) {
+      classes += 'sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-3';
+    } else {
+      classes += 'sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4';
+    }
+    return classes;
+  };
+
+  const itemCount = componentList.length;
+
   return (
-    <dataContext.Provider value={{ componentList, setComponentList, chatCount, setChatCount, chosenAnthropic, chosenGoogle, chosenGrokAI, chosenOllama, chosenOpenAI }}>
+    <dataContext.Provider value={{ componentList, setComponentList, chatCount, setChatCount, chosenAnthropic, chosenGoogle, chosenGrokAI, chosenOllama, chosenOpenAI, clientJWT, checkedIn }}>
       <div>
         <Spring
           from={{ opacity: 0 }}
@@ -285,7 +355,7 @@ function App() {
                   <tbody>
                     <tr>
                       <td className="2xl:w-[10%] xl:w-[14%] lg:w-[18%] md:w-[22%] sm:w-[26%] text-5xl text-center">
-                        <i className="fa-solid fa-gear text-5xl text-aro-300 text-center mb-4"></i>
+                        <a alt="GitHub" target="_blank" rel="noopener noreferrer" href="https://github.com/rossudev/llm-chatter"><i className="fa-solid fa-gear text-5xl text-aro-300 text-center mb-4"></i></a>
                       </td>
                       <td className="2xl:w-[90%] xl:w-[86%] lg:w-[82%] md:w-[78%] sm:w-[74%] text-3xl tracking-normal text-center items-center font-bold text-black cursor-context-menu">
                         <input className="hidden" type="checkbox" name="advancedSetting" id="advancedSettings" checked={advancedSetting} onChange={handleCheckboxChange} />
@@ -298,16 +368,6 @@ function App() {
                       </td>
                     </tr>
 
-                    { /* Configure NodeJS server URL */ }
-                    {!serverCheck &&
-                      <tr>
-                        <td className="pb-4 pr-4">Server URL:</td>
-                        <td className="pb-4">
-                          <TextareaAutosize minRows="1" maxRows="2" className="w-full font-bold hover:bg-vonCount-300 bg-vonCount-200 p-4 text-sm font-sans text-black rounded-xl" placeholder="http://localhost:8080" onChange={(e) => handleURLChange(e)} value={serverURL} />
-                        </td>
-                      </tr>
-                    }
-
                     { /* NodeJS server check display */ }
                     <tr>
                       <td className="pb-4 pr-4">Server Check:</td>
@@ -317,8 +377,39 @@ function App() {
                           :
                           <><p>Node.js Server: <span className="text-marcelin-900">Offline</span> <i className="fa-solid fa-triangle-exclamation text-marcelin-900 text-2xl"></i></p></>
                         }
+                        { !intervalIdRef.current &&
+                          <div onClick={debounce(() => { startInterval() }, 250)} className="bg-nosferatu-200 hover:bg-nosferatu-300 rounded-3xl text-2xl font-bold m-2 text-center p-4"><p>Initialize</p></div>
+                        }
+                        { (serverCheck && !checkedIn && serverPassphrase) &&
+                          <div onClick={debounce(() => { clientCheckIn() }, 250)} className="bg-nosferatu-200 hover:bg-nosferatu-300 rounded-3xl text-2xl font-bold m-2 text-center p-4"><p>Sign In</p></div>
+                        }
+                        { (serverCheck && (localModels.length === 0) && checkedIn) &&
+                          <div onClick={debounce(() => { checkModels(clientJWT) }, 250)} className="bg-nosferatu-200 hover:bg-nosferatu-300 rounded-3xl text-2xl font-bold m-2 text-center p-4"><p>Ollama Init.</p></div>
+                        }
                       </td>
                     </tr>
+
+                    { /* Configure NodeJS server URL */ }
+                    {!serverCheck &&
+                        <tr>
+                          <td className="pb-4 pr-4">Server URL:</td>
+                          <td className="pb-4">
+                            <TextareaAutosize minRows="1" maxRows="2" className="w-full font-bold hover:bg-vonCount-300 bg-vonCount-200 p-4 text-sm font-sans text-black rounded-xl" placeholder="http://localhost:8080" onChange={(e) => handleURLChange(e)} value={serverURL} />
+                          </td>
+                        </tr>
+                    }
+
+                    { /* NodeJS server passphrase */ }
+                    {!clientJWT &&
+                        <tr>
+                          <td className="pb-4 pr-4">Server Passphrase:</td>
+                          <td className="pb-4 font-sans">
+                            <input type="password" className="min-w-full font-bold hover:bg-vonCount-300 bg-vonCount-200 p-4 text-sm font-sans text-black rounded-xl" placeholder="Server Passphrase" onChange={(e) => handlePassphraseChange(e)} value={serverPassphrase} />
+                          </td>
+                        </tr>
+                    }
+
+
 
                     { /* System Message */ }
                     {!chatType.includes("LangChain") &&
@@ -458,8 +549,7 @@ function App() {
                 </table>
 
                 { //New Chat button displays only when conditions allow.
-                  !serverCheck ||
-                    (chatType.includes("LangChain") && !urlValid) ?
+                  !serverCheck || (chatType.includes("LangChain") && !urlValid) || !checkedIn ?
                     <></> :
                     <div className="grid gap-2 grid-cols-3 mt-6 mb-2">
                       <Spring
@@ -509,8 +599,8 @@ function App() {
       </div>
 
       { /* All the Chats */ }
-      <div className={`grid gap-3 sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 place-items-center mt-1`}>
-        {componentList.slice().reverse().map((container) => (
+      <div className={getGridClasses(itemCount)}>
+      {componentList.slice().reverse().map((container) => (
           <Chat
             key={container.id}
             closeID={container.id}

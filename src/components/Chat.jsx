@@ -2,18 +2,17 @@
 import { useState, useCallback, useContext, React } from "react";
 import Hyphenated from "react-hyphen";
 import { animated, Spring } from "react-spring";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import TextareaAutosize from "react-textarea-autosize";
 import axios from "axios";
 import copy from "copy-to-clipboard";
 import { debounce } from "lodash";
 import XClose from "./XClose";
 import Voice from "./Voice";
+import ContentText from "./ContentText";
 import { dataContext } from "../App";
 
-const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, topp, langchainURL, listModels, serverURL, modelOptions, localModels }) => {
-    const { componentList, setComponentList, chatCount, setChatCount, chosenAnthropic, chosenGoogle, chosenGrokAI, chosenOllama, chosenOpenAI } = useContext(dataContext);
+const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, topp, langchainURL, listModels, serverURL, modelOptions, localModels, }) => {
+    const { componentList, setComponentList, chatCount, setChatCount, chosenAnthropic, chosenGoogle, chosenGrokAI, chosenOllama, chosenOpenAI, clientJWT, checkedIn } = useContext(dataContext);
 
     let sysMsgs = [];
     let firstMeta = [];
@@ -53,11 +52,12 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
         const startTime = Date.now();
 
         let response = await axios.post(
-            serverURL + "/whisper-medusa", // End path
+            serverURL + "/whisper", // End path
             formData,
             {
                 headers: {
                     'Content-Type': 'multipart/form-data',
+                    'Authorization': `Bearer ${clientJWT}`,
                 },
             }
         );
@@ -151,7 +151,10 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
             let response = await axios.post(
                 endPath,
                 sendPacket,
-                { headers: { "Content-Type": "application/json" } },
+                { headers: { 
+                    "Content-Type": "application/json",
+                    'Authorization': `Bearer ${clientJWT}`, 
+                } },
             );
 
             const endTime = Date.now();
@@ -294,7 +297,6 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
         setAddSetting(!addSetting);
     });
 
-
     const handleEnterKey = useCallback((event) => {
         if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault();
@@ -331,21 +333,6 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
             // If content is a string, return it directly
             return content || '';
         }
-    });
-
-    const CodeBlock = useCallback(({ inline, className, children, ...props }) => {
-        const match = /language-(\w+)/.exec(className || '');
-        return !inline && match ? (
-            <pre className={`border p-4 rounded bg-nosferatu-200 text-black text-xs language-${match[1]} ${className} overflow-auto`}>
-                <code {...props} className={`${className} whitespace-pre-wrap break-all`}>
-                    {children}
-                </code>
-            </pre>
-        ) : (
-            <code className={`${className} bg-nosferatu-200 text-black rounded p-1 whitespace-pre-wrap break-all`} {...props}>
-                {children}
-            </code>
-        );
     });
 
     const onClose = useCallback((id) => {
@@ -469,20 +456,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                                     <i onClick={() => copyClick(contentText)} className="text-aro-900 m-2 fa-solid fa-copy fa-2x cursor-pointer shadow-xl hover:shadow-dracula-900"></i>
                                                 </span>
                                             </div>
-                                            <div>
-                                                <Hyphenated>
-                                                    {obj.role === "user" || obj.role === "system" ?
-                                                        contentText :
-                                                        <ReactMarkdown
-                                                            remarkPlugins={[remarkGfm]}
-                                                            components={{ code: CodeBlock }}
-                                                            className="markdown text-aro-900"
-                                                        >
-                                                            {contentText}
-                                                        </ReactMarkdown>
-                                                    }
-                                                </Hyphenated>
-                                            </div>
+                                            <ContentText role={obj.role} txt={contentText} />
                                         </td>
                                     </tr>
                                 )
@@ -503,7 +477,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                             <td colSpan="2">
                                                 <TextareaAutosize
                                                     autoFocus
-                                                    onKeyDown={handleEnterKey}
+                                                    onKeyDown={checkedIn ? handleEnterKey : null}
                                                     minRows="3"
                                                     maxRows="15"
                                                     className="placeholder:text-6xl placeholder:italic mt-3 p-4 min-w-full bg-nosferatu-100 text-sm font-mono text-black rounded-xl"
@@ -513,10 +487,13 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                                 />
                                             </td>
                                             <td className="items-baseline justify-evenly text-center align-middle text-4xl">
-                                                <i
-                                                    onClick={!isClicked ? () => handleChat() : null}
-                                                    className={isClicked ? "text-dracula-900 mt-4 m-2 fa-solid fa-hat-wizard fa-2x cursor-pointer hover:text-dracula-100" : "text-blade-300 mt-4 m-2 fa-solid fa-message fa-2x cursor-pointer hover:text-vanHelsing-700"}
-                                                />
+                                                { checkedIn ?
+                                                    <i
+                                                        onClick={!isClicked ? () => handleChat() : null}
+                                                        className={isClicked ? "text-dracula-900 mt-4 m-2 fa-solid fa-hat-wizard fa-2x cursor-pointer hover:text-dracula-100" : "text-blade-300 mt-4 m-2 fa-solid fa-message fa-2x cursor-pointer hover:text-vanHelsing-700"}
+                                                    /> :
+                                                    <i className="fa-solid fa-triangle-exclamation text-marcelin-900 text-4xl" />
+                                                }
                                             </td>
                                         </tr>
                                     }
@@ -592,8 +569,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                                         </tr>
                                                     </tbody></table>
                                                 </div>
-
-
+                                                
                                                 :
                                                 <div className="bg-blade-100 rounded-xl mb-1"><i className="cursor-pointer m-3 ml-6 fa-solid fa-plus text-2xl hover:text-blade-800" onClick={handleModelToggle}></i> <span className="cursor-pointer hover:underline hover:text-blade-800" onClick={handleModelToggle}>Add Model</span></div>
                                             }

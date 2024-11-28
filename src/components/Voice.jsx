@@ -1,5 +1,6 @@
+/* eslint-disable react/prop-types */
 import { useReactMediaRecorder } from "react-media-recorder";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, React } from "react";
 
 const Voice = ({setMedia, handleVoice, media, isClicked}) => {
     const [second, setSecond] = useState("00");
@@ -63,7 +64,6 @@ const Voice = ({setMedia, handleVoice, media, isClicked}) => {
         <div
           className="col-md-6 col-md-offset-3 text-white pl-6 pt-6 pb-10"
         >
-
           <span
             className="text-cullen-500"
             style={{
@@ -179,6 +179,6 @@ const Voice = ({setMedia, handleVoice, media, isClicked}) => {
         </div>
       </div>
     );
-  };
+};
 
 export default Voice;

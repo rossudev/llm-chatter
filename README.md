@@ -1,4 +1,4 @@
-# LLM Chatter, v0.0.5
+# LLM Chatter, v0.0.6
 
 A web interface to chat by text (and voice!) with various large language models.
 
@@ -7,36 +7,23 @@ A web interface to chat by text (and voice!) with various large language models.
 1. Install Ollama and [add at least one model](https://www.ollama.ai/library).
    - `curl https://ollama.ai/install.sh | sh`
    - `ollama pull mistral-openorca:7b`
-3. Run `wget https://raw.githubusercontent.com/rossuber/llm-chatter/master/dist/index.html`
-4. Run `python3 -m http.server 8181`
-5. Open `localhost:8181` in your web browser.
-6. Paste API keys into .env file for the NodeJS server
+2. Run `wget https://raw.githubusercontent.com/rossuber/llm-chatter/master/dist/index.html`
+3. Run `python3 -m http.server 8181`
+4. Open `localhost:8181` in your web browser.
 
 # NodeJS server
 
 This handles API post requests at http://localhost:8080
 
-1. Run `mkdir langchain-ollama`
-2. Run `cd langchain-ollama`
-3. Run `wget https://raw.githubusercontent.com/rossuber/llm-chatter/master/langchain-ollama/index.js`
-4. Run `wget https://raw.githubusercontent.com/rossuber/llm-chatter/master/langchain-ollama/package.json`
-5. Run `wget https://raw.githubusercontent.com/rossuber/llm-chatter/master/langchain-ollama/script.py`
-6. Run `npm install`
-7. Configure line 19 of `index.js` with the path to `script.py`
-8. Install [Whisper Medusa](https://github.com/aiola-lab/whisper-medusa) - see below
-9. Adjust line & Run `cd [path-to-file]; node index.js`
+1. `mkdir langchain-ollama`
+2. `cd langchain-ollama`
+3. `wget https://raw.githubusercontent.com/rossuber/llm-chatter/master/langchain-ollama/index.js`
+4. `wget https://raw.githubusercontent.com/rossuber/llm-chatter/master/langchain-ollama/package.json`
+5. `npm install`
+6. Configure .env file
+7. Run `cd [path-to-file]; node index.js`
 
-# Whisper Medusa
-[Whisper Medusa](https://github.com/aiola-lab/whisper-medusa)
-
-- `conda create -n whisper-medusa python=3.11 -y`
-- `conda activate whisper-medusa`
-- `pip install torch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2 --index-url https://download.pytorch.org/whl/cu118`
-- `git clone https://github.com/aiola-lab/whisper-medusa.git`
-- `cd whisper-medusa`
-- `pip install -e .`
-
-Built with: [Vite](https://vitejs.dev/) / [Bun](https://bun.sh/) / [React](https://react.dev/) / [TailwindCSS](https://tailwindcss.com/) / [FontAwesome](https://fontawesome.com/)
+Built with: [Vite](https://vitejs.dev/) / [React](https://react.dev/) / [TailwindCSS](https://tailwindcss.com/) / [FontAwesome](https://fontawesome.com/)
 
 The web app pulls icon images from https://ka-f.fontawesome.com.
 

@@ -1,5 +1,3 @@
-openai whisper(voice)
-
 config.jsx
 
 state management: redux, context api, useReducer
@@ -16,17 +14,10 @@ repeated strings and magic numbers
 
 checkModels() toast notification
 
-const initialState = {
-function reducer(state, action) {
-const [state, dispatch] = useReducer(reducer, initialState);
-dispatch({ type: "SET_SYS_MSG", payload: e.target.value });
-
-custom hooks instead of useEffect?
 
 typescript interfaces
 
-setError('Failed to fetch models. Please try again.');
 
-const sortedModels = useMemo(() => 
+ Ensure that JWTs are properly verified for expiration. The expiresIn: '1d' setting is good for setting expiration, but ensure that the jwt.verify() method handles this aspect properly.
 
-data-testid="model-selector"
+ Ensure that you trust the source of the X-Forwarded-For header. Consider using reverse proxies like Nginx that can be configured to properly append this header.

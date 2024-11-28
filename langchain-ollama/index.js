@@ -10,7 +10,8 @@ import fs from 'fs';
 import stripAnsi from 'strip-ansi';
 import chalk from 'chalk';
 import dotenv from 'dotenv';
-import { execFile } from 'child_process';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import "@tensorflow/tfjs-node";
 import { CheerioWebBaseLoader } from "langchain/document_loaders/web/cheerio";
 import { MemoryVectorStore } from "langchain/vectorstores/memory";
@@ -21,8 +22,6 @@ import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from "@google/generative-ai";
 import { Ollama } from "langchain/llms/ollama";
 import OpenAI from 'openai';
-
-const pyFilePath = "/file/path/here/script.py";
 
 
 
@@ -40,7 +39,8 @@ app.use(cors());
 
 const limiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 minutes
-  max: 2000 // limit each IP to 2000 requests per windowMs
+  max: 2000, // limit each IP to 2000 requests per windowMs
+  validate: {xForwardedForHeader: false},
 });
 app.use(limiter);
 
@@ -48,6 +48,7 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ error: 'Internal Server Error' });
 });
+
 
 
 // Function to get the current time as a string in 'HH:MM:SS' format
@@ -90,19 +91,101 @@ console.log = function (...args) {
 //Heartbeat: Clients ping this /check URL every second
 app.post('/check', async (req, res) => {
   res.send("ok");
+}); 
+
+
+
+// Function to authenticate passphrase
+const verifyPassphrase = async (plainPassphrase, hashedPassphrase) => {
+  const match = await bcrypt.compare(plainPassphrase, hashedPassphrase);
+  return match;
+};
+
+
+
+// Function to generate a token
+const generateToken = (userId) => {
+  const token = jwt.sign({ userId }, process.env['LLM_SERVER_HASH'], { expiresIn: '1d' });
+  return token;
+};
+
+
+
+const validateGetModels =[
+  body('serverPassphrase').isString().trim(),
+];
+
+//Client check-in
+app.post('/checkin', validateGetModels, async (req, res) => {
+  const errors = validationResult(req);
+  
+  if (!errors.isEmpty()) {
+    console.log(errors);
+    res.status(400).json({ error: 'Internal Server Error' });
+  }
+
+  const checkPass = await verifyPassphrase(req.body.serverPassphrase, process.env['LLM_CHATTER_PASSPHRASE']);
+  if (!checkPass) { return res.status(400).json({ error: 'Passphrase Failure' }); }
+  
+  const clientIp = ( req.headers['x-forwarded-for'] || req.ip );
+  const origin = req.headers.origin;
+  const token = generateToken(req.body.sessionHash);
+
+  console.log(chalk.cyan("\nClient successfully checked in." +
+  "\nSource (Origin): " + origin +
+  "\nConnector's Address (IP): " + clientIp + "\n"));
+
+  res.send(token);
 });
 
 
 
+const validateInput = [
+  // Validation checks
+  body('model').optional().isString().trim(),
+  body('prompt').optional().isString().trim(),
+  body('system').optional().isString().trim(),
+  body('context').optional().isArray(),
+  body('options.temperature').optional().isFloat({ min: 0, max: 1 }),
+  body('options.top_p').optional().isFloat({ min: 0, max: 1 }),
+  body('temperature').optional().isFloat({ min: 0, max: 1 }),
+  body('top_p').optional().isFloat({ min: 0, max: 1 }),
+  body('stream').optional().isBoolean(),
+  body('keep_alive').optional().isInt({ min: 0 }),
+  body('messages').optional().isArray(),
+
+  // Middleware function to handle validation and token verification
+  (req, res, next) => {
+    // Validate input
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({ error: 'Internal Server Error' });
+    }
+    // Verify token
+    const token = req.headers['authorization']?.split(' ')[1]; // Assuming Bearer token scheme
+    if (!token) {
+      return res.status(401).send('Access Denied');
+    }
+    try {
+      const verified = jwt.verify(token, process.env['LLM_SERVER_HASH']);
+      req.user = verified; // Store user information in request
+    } catch (err) {
+      return res.status(400).send('Invalid Token');
+    }
+    // If both validation and token verification succeed, proceed
+    next();
+  }
+];
+
+
+
 //Client requests the list of local Ollama models
-app.post('/getmodels', async (req, res) => {
+app.post('/getmodels', validateInput, async (req, res) => {
+  const clientIp = ( req.headers['x-forwarded-for'] || req.ip );
+  const origin = req.headers.origin;
+
   try {
     const response = await axios.get('http://localhost:11434/api/tags');
-
-    // Extracting the source address
-    const origin = req.headers.origin;
-    // Extracting the connector's address (IP address)
-    const clientIp = ( req.headers['x-forwarded-for'] || req.ip ); // Alternatively, use req.connection.remoteAddress or req.socket.remoteAddress
 
     console.log(chalk.cyan("\nSent model list.") +
     "\nSource (Origin): " + origin +
@@ -117,30 +200,15 @@ app.post('/getmodels', async (req, res) => {
 
 
 
-
-const validateInput = [
-  body('model').optional().isString().trim(),
-  body('prompt').optional().isString().trim(),
-  body('system').optional().isString().trim(),
-  body('context').optional().isArray(),
-  body('options.temperature').optional().isFloat({ min: 0, max: 1 }),
-  body('options.top_p').optional().isFloat({ min: 0, max: 1 }),
-  body('temperature').optional().isFloat({ min: 0, max: 1 }),
-  body('top_p').optional().isFloat({ min: 0, max: 1 }),
-  body('stream').optional().isBoolean(),
-  body('keep_alive').optional().isInt({ min: 0 }),
-  body('messages').optional().isArray(),
-];
-
-
-
 //Local Ollama API
 app.post('/ollama', validateInput, async (req, res) => {
   const errors = validationResult(req);
+
   if (!errors.isEmpty()) {
     console.log(errors);
-    return res.status(400).json({ errors: errors.array() });
+    res.status(400).json({ error: 'Internal Server Error' });
   }
+
   try {
     const theData = req.body;
 
@@ -157,8 +225,8 @@ app.post('/ollama', validateInput, async (req, res) => {
     + chalk.yellow(chalk.underline.bold("Temperature") + ": ") + theData.options.temperature + "\n"
     + chalk.red(chalk.underline.bold("Top-P") + ": ") + theData.options.top_p + "\n"
     + chalk.magenta(chalk.underline.bold("System") + ":\n") + chalk.magenta(theData.system) + "\n"
-    + chalk.cyan(chalk.underline.bold("Prompt") + ":\n") + chalk.cyan(theData.prompt) + "\n"
-    + chalk.white.underline.bold("Response") + ":\n" + chalk.bgBlack(response.data.response) + "\n" );
+    + chalk.cyan(chalk.underline.bold("\nPrompt") + ":\n") + chalk.cyan(theData.prompt) + "\n"
+    + chalk.white.underline.bold("\nResponse") + ":\n" + chalk.bgBlack(response.data.response) + "\n" );
 
   } catch (error) {
     console.error('Error:', error);
@@ -168,31 +236,53 @@ app.post('/ollama', validateInput, async (req, res) => {
 
 
 
-//Whisper Medusa-supported voice-to-text
-const upload = multer({ dest: 'uploads/' });
-app.post('/whisper-medusa', upload.single('audio'), (req, res) => {
-  // Check if file is uploaded
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/'); // Specify the destination directory
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, `voice-${uniqueSuffix}${ext}`);
+  }
+});
+
+// Whisper voice-to-text
+const upload = multer({ storage: storage });
+app.post('/whisper', upload.single('audio'), async (req, res) => {
   if (!req.file) {
     console.log("No file.");
-    return res.status(400).send({ error: 'No file uploaded. Please include an audio file for processing.' });
-
+    return res.status(400).send({ error: 'No file uploaded.' });
   }
-  const acceptableMimeTypes = ['audio/mpeg', 'audio/wav', 'audio/webm'];
-  if (!acceptableMimeTypes.includes(req.file.mimetype)) {
+
+  const acceptableMimeTypes = {
+    'audio/wav': 'wav',
+  };
+  const fileExtension = acceptableMimeTypes[req.file.mimetype];
+  if (!fileExtension) {
     console.log("Wrong filetype.");
-    return res.status(400).send({ error: 'Unsupported file type. Please upload an audio file in MP3, WAV, or WEBM format.' });
+    return res.status(400).send({ error: 'Unsupported file type.' });
   }
-  // Proceed if file is valid
-  const audioFilePath = req.file.path;
-  execFile('/bin/bash', ['-c', `cp ${audioFilePath} ${audioFilePath}.webm; ffmpeg -i ${audioFilePath}.webm -ar 16000 ${audioFilePath}.wav; PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True conda run -n whisper-medusa python ${pyFilePath} "${audioFilePath}.wav"`], (error, stdout, stderr) => {
-    if (error) {
-      console.log(stderr);
-      return res.status(500).send(stderr);
-    }
-    res.send(stdout);
 
-    console.log("\n" + chalk.bgBlue.bold("\n////////////////////////////////////////") + "\n" + chalk.blue("Whisper-Medusa:\n") + chalk.bgBlack(stdout) + "\n");
-  });
+  try {
+    const openai = new OpenAI({ apiKey: process.env['OPENAI_API_KEY'] });
+    const transcription = await openai.audio.transcriptions.create({
+      file: fs.createReadStream(req.file.path),
+      model: "whisper-1",
+    });
+
+    res.send(transcription.text);
+  } catch (error) {
+    console.error("Error during transcription: ", error);
+    res.status(500).send({ error: 'An error occurred during transcription.' });
+  } finally {
+    // Clean up the file after processing
+    try {
+      await fs.unlink(req.file.path);
+    } catch (unlinkErr) {
+      console.error("Error deleting file: ", unlinkErr);
+    }
+  }
 });
 
 
@@ -201,7 +291,7 @@ app.post('/langchain', validateInput, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     console.log(errors);
-    return res.status(400).json({ errors: errors.array() });
+    res.status(400).json({ error: 'Internal Server Error' });
   }
 
   const theData = req.body;
@@ -253,9 +343,9 @@ app.post('/langchain', validateInput, async (req, res) => {
   + chalk.blue(chalk.underline.bold("Model") + ": ") + theData.model + "\n"
   + chalk.yellow(chalk.underline.bold("Temperature") + ": ") + theData.temperature + "\n"
   + chalk.red(chalk.underline.bold("Top-P") + ": ") + theData.topP + "\n"
-  + chalk.white(chalk.underline.bold("LangChain Embed") + ":\n") + chalk.white(theData.langchainURL) + "\n"
-  + chalk.cyan(chalk.underline.bold("Prompt") + ":\n") + chalk.cyan(theData.input) + "\n"
-  + chalk.white.underline.bold("Response") + ":\n" + chalk.bgBlack(result.text) + "\n" );
+  + chalk.white(chalk.underline.bold("\nLangChain Embed") + ":\n") + chalk.white(theData.langchainURL) + "\n"
+  + chalk.cyan(chalk.underline.bold("\nPrompt") + ":\n") + chalk.cyan(theData.input) + "\n"
+  + chalk.white.underline.bold("\nResponse") + ":\n" + chalk.bgBlack(result.text) + "\n" );
 });
 
 
@@ -266,7 +356,7 @@ app.post('/anthropic', validateInput, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     console.log(errors);
-    return res.status(400).json({ errors: errors.array() });
+    res.status(400).json({ error: 'Internal Server Error' });
   }
 
   try {
@@ -297,8 +387,8 @@ app.post('/anthropic', validateInput, async (req, res) => {
     + chalk.yellow(chalk.underline.bold("Temperature") + ": ") + theData.temperature + "\n"
     + chalk.red(chalk.underline.bold("Top-P") + ": ") + theData.top_p + "\n"
     + chalk.magenta(chalk.underline.bold("System") + ":\n") + chalk.magenta(theData.system) + "\n"
-    + chalk.cyan(chalk.underline.bold("Prompt") + ":\n") + chalk.cyan(((theMsgs[theMsgs.length - 1])).content[0].text) + "\n"
-    + chalk.white.underline.bold("Response") + ":\n" + chalk.bgBlack(msg.content[0].text) + "\n" );
+    + chalk.cyan(chalk.underline.bold("\nPrompt") + ":\n") + chalk.cyan(((theMsgs[theMsgs.length - 1])).content[0].text) + "\n"
+    + chalk.white.underline.bold("\nResponse") + ":\n" + chalk.bgBlack(msg.content[0].text) + "\n" );
 
   } catch (error) {
     console.error('Error:\n', error);
@@ -308,13 +398,13 @@ app.post('/anthropic', validateInput, async (req, res) => {
 
 
 
-//OpenAI and Grok share the same SDK
+//OpenAI and Grok share the same SDK -- Grok needs to have baseUrl set
 async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
   // Handle validation errors
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     console.log(errors);
-    return res.status(400).json({ errors: errors.array() });
+    res.status(400).json({ error: 'Internal Server Error' });
   }
 
   try {
@@ -347,8 +437,8 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
     + chalk.yellow(chalk.underline.bold("Temperature") + ": ") + temperature + "\n"
     + chalk.red(chalk.underline.bold("Top-P") + ": ") + top_p + "\n"
     + chalk.magenta(chalk.underline.bold("System") + ":\n") + chalk.magenta(messages[0].content) + "\n"
-    + chalk.cyan(chalk.underline.bold("Prompt") + ":\n") + chalk.cyan(((messages[messages.length - 1])).content[0].text) + "\n"
-    + chalk.white.underline.bold("Response") + ":\n" + chalk.bgBlack(response.choices[0].message.content) + "\n" );
+    + chalk.cyan(chalk.underline.bold("\nPrompt") + ":\n") + chalk.cyan(((messages[messages.length - 1])).content[0].text) + "\n"
+    + chalk.white.underline.bold("\nResponse") + ":\n" + chalk.bgBlack(response.choices[0].message.content) + "\n" );
 
   } catch (error) {
     console.error('Error:', error);
@@ -384,7 +474,7 @@ app.post('/google', validateInput, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     console.log(errors);
-    return res.status(400).json({ errors: errors.array() });
+    res.status(400).json({ error: 'Internal Server Error' });
   }
 
   try {
@@ -441,8 +531,8 @@ app.post('/google', validateInput, async (req, res) => {
     + chalk.yellow(chalk.underline.bold("Temperature") + ": ") + theData.temperature + "\n"
     + chalk.red(chalk.underline.bold("Top-P") + ": ") + theData.top_p + "\n"
     + chalk.magenta(chalk.underline.bold("System") + ":\n") + chalk.magenta(theData.system) + "\n"
-    + chalk.cyan(chalk.underline.bold("Prompt") + ":\n") + chalk.cyan(((theMsgs[theMsgs.length - 1])).content[0].text) + "\n"
-    + chalk.white.underline.bold("Response") + ":\n" + chalk.bgBlack(response) + "\n" );
+    + chalk.cyan(chalk.underline.bold("\nPrompt") + ":\n") + chalk.cyan(((theMsgs[theMsgs.length - 1])).content[0].text) + "\n"
+    + chalk.white.underline.bold("\nResponse") + ":\n" + chalk.bgBlack(response) + "\n" );
 
   } catch (error) {
     console.error('Error:', error);
