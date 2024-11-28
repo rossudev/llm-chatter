@@ -2,26 +2,28 @@
 
 A web interface to chat by text (and voice!) with various large language models.
 
-# Installation
+# Client setup
 
 1. Install Ollama and [add at least one model](https://www.ollama.ai/library).
    - `curl https://ollama.ai/install.sh | sh`
    - `ollama pull mistral-openorca:7b`
 2. `wget https://raw.githubusercontent.com/rossudev/llm-chatter/master/dist/index.html`
 3. `python3 -m http.server 8181`
-4. Open `localhost:8181` in your web browser.
 
-# NodeJS server
+# Client start-up
 
-This handles API post requests at localhost:8080
+1. Open `localhost:8181` in your web browser.
 
-1. `mkdir langchain-ollama`
-2. `cd langchain-ollama`
-3. `wget https://raw.githubusercontent.com/rossudev/llm-chatter/master/langchain-ollama/index.js`
-4. `wget https://raw.githubusercontent.com/rossudev/llm-chatter/master/langchain-ollama/package.json`
-5. `npm install`
-6. Configure .env file
-7. `cd [path-to-file]; node index.js`
+# NodeJS server installation
+
+1. `mkdir langchain-ollama; cd langchain-ollama; wget https://raw.githubusercontent.com/rossudev/llm-chatter/master/langchain-ollama/index.js; wget https://raw.githubusercontent.com/rossudev/llm-chatter/master/langchain-ollama/package.json; wget https://raw.githubusercontent.com/rossudev/llm-chatter/master/langchain-ollama/.env; npm install`
+2. Configure .env file
+
+# NodeJS server start-up
+
+1. `cd [path-to-file]; node index.js`
+
+# Thanks
 
 Built with: 
 
@@ -29,8 +31,6 @@ Built with:
 - [React](https://react.dev/)
 - [TailwindCSS](https://tailwindcss.com/)
 - [FontAwesome](https://fontawesome.com/)
-
-The web app makes API calls to localhost:8080 by default. This is the NodeJS server running from index.js). The NodeJS server handles each model's API calls through various SDK's.
 
 # Models Documentation Reference
 - [Ollama.ai](https://github.com/jmorganca/ollama/blob/main/docs/api.md)
@@ -40,7 +40,7 @@ The web app makes API calls to localhost:8080 by default. This is the NodeJS ser
 - [Anthropic](https://docs.anthropic.com/)
 - [Grok](https://docs.x.ai/docs)
 
-# Proprietary Models
+# Proprietary Models List
 - gpt-4o
 - gpt-4o-mini
 - gpt-4-turbo
