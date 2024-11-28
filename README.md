@@ -37,12 +37,12 @@ Built with:
 - [FontAwesome](https://fontawesome.com/)
 
 # Models Documentation Reference
-- [Ollama.ai](https://github.com/jmorganca/ollama/blob/main/docs/api.md)
-- [Whisper Medusa](https://github.com/aiola-lab/whisper-medusa)
-- [OpenAI.com](https://platform.openai.com/docs/overview)
-- [Google.ai](https://ai.google.dev/gemini-api/docs)
 - [Anthropic](https://docs.anthropic.com/)
+- [Google](https://ai.google.dev/gemini-api/docs)
 - [Grok](https://docs.x.ai/docs)
+- [Ollama](https://github.com/jmorganca/ollama/blob/main/docs/api.md)
+- [Ollama LangChain](https://js.langchain.com/docs/integrations/llms/ollama/)
+- [OpenAI](https://platform.openai.com/docs/overview)
 
 # Proprietary Models List
 - gpt-4o
