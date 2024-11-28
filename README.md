@@ -16,6 +16,12 @@ A web interface to chat by text (and voice!) with various large language models.
 
 1. `mkdir langchain-ollama; cd langchain-ollama; wget https://raw.githubusercontent.com/rossudev/llm-chatter/master/langchain-ollama/index.js; wget https://raw.githubusercontent.com/rossudev/llm-chatter/master/langchain-ollama/package.json; wget https://raw.githubusercontent.com/rossudev/llm-chatter/master/langchain-ollama/.env; npm install`
 2. Configure .env file
+   - [LLM_CHATTER_PASSPHRASE](https://bcrypt.online/)
+   - [LLM_SERVER_HASH](https://duckduckgo.com/?q=generate+password+32+characters)
+   - [ANTHROPIC_API_KEY](https://www.anthropic.com/api)
+   - [GOOGLE_API_KEY](https://ai.google.dev/gemini-api/docs/billing)
+   - [GROK_API_KEY](https://console.x.ai/)
+   - [OPENAI_API_KEY](https://platform.openai.com/account/billing)
 
 # Server start-up
 
