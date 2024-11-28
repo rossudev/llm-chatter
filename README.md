@@ -7,7 +7,7 @@ A web interface to chat by text (and voice!) with various large language models.
 1. Install Ollama and [add at least one model](https://www.ollama.ai/library).
    - `curl https://ollama.ai/install.sh | sh`
    - `ollama pull mistral-openorca:7b`
-2. `wget https://raw.githubusercontent.com/rossuber/llm-chatter/master/dist/index.html`
+2. `wget https://raw.githubusercontent.com/rossudev/llm-chatter/master/dist/index.html`
 3. `python3 -m http.server 8181`
 4. Open `localhost:8181` in your web browser.
 
@@ -17,8 +17,8 @@ This handles API post requests at localhost:8080
 
 1. `mkdir langchain-ollama`
 2. `cd langchain-ollama`
-3. `wget https://raw.githubusercontent.com/rossuber/llm-chatter/master/langchain-ollama/index.js`
-4. `wget https://raw.githubusercontent.com/rossuber/llm-chatter/master/langchain-ollama/package.json`
+3. `wget https://raw.githubusercontent.com/rossudev/llm-chatter/master/langchain-ollama/index.js`
+4. `wget https://raw.githubusercontent.com/rossudev/llm-chatter/master/langchain-ollama/package.json`
 5. `npm install`
 6. Configure .env file
 7. `cd [path-to-file]; node index.js`
