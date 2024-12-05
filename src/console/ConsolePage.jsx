@@ -108,7 +108,6 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
       {
         type: `input_text`,
         text: `Hello!`,
-        // text: `For testing purposes, I want you to list ten car brands. Number each item, e.g. "one (or whatever number you are one): the item name".`
       },
     ]);
     if (client.getTurnDetectionType() === 'server_vad') {
@@ -121,7 +120,7 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
   const disconnectConversation = useCallback(async () => {
     setIsConnected(false);
     setRealtimeEvents([]);
-    setItems([]);
+    //setItems([]);
     setMemoryKv({});
     setCoords({
       lat: 37.775593,
@@ -281,10 +280,16 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
     // Get refs
     const wavStreamPlayer = wavStreamPlayerRef.current;
     const client = clientRef.current;
+
     // Set instructions
     client.updateSession({ instructions: instructions });
+
     // Set transcription, otherwise we don't get user transcriptions back
     client.updateSession({ input_audio_transcription: { model: 'whisper-1' } });
+
+    // Set voice randomly (missing: 'fable', 'onyx', 'nova')
+    client.updateSession({ voice: ['alloy', 'echo',  'shimmer', 'ash', 'ballad', 'coral', 'sage', 'verse'][Math.floor(Math.random() * 8)] });
+
     // Add tools
     client.addTool(
       {
@@ -451,16 +456,6 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
                   <div data-component="ConsolePage">
                     <div className="content-main">
                       <div className="content-logs">
-                        <div className="content-block events">
-                          <div className="visualization">
-                            <div className="visualization-entry client">
-                              <canvas ref={clientCanvasRef} />
-                            </div>
-                            <div className="visualization-entry server">
-                              <canvas ref={serverCanvasRef} />
-                            </div>
-                          </div>
-                        </div>
                         <div className="content-block conversation">
                           <div className="content-block-body" data-conversation-content>
                             {!items.length && 
@@ -472,20 +467,8 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
                             {items.map((conversationItem) => {
                               return (
                                 <div className={conversationItem.role === "user" ?
-                                    "p-3 mt-3 bg-morbius-300 font-sans rounded-xl text-black text-md whitespace-pre-wrap" :
-                                    "p-3 mt-3 whitespace-pre-wrap bg-nosferatu-100 font-mono rounded-xl text-black text-md"} key={conversationItem.id}>
-                                  <div className="flex">
-                                    <div className="flex-1"></div>
-                                    <div
-                                      className="close ml-auto mb-4 text-lg"
-                                      onClick={() =>
-                                        deleteConversationItem(conversationItem.id)
-                                      }
-                                    >
-                                      <X />
-                                    </div>
-                                  </div>
-                                  <div>
+                                    "p-3 mt-2 bg-morbius-300 font-sans rounded-xl text-black text-md whitespace-pre-wrap" :
+                                    "p-3 mt-2 whitespace-pre-wrap bg-nosferatu-100 font-mono rounded-xl text-black text-md"} key={conversationItem.id}>
                                     {/* tool response */}
                                     {conversationItem.type === 'function_call_output' && (
                                       <div>{conversationItem.formatted.output}</div>
@@ -501,12 +484,9 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
                                       conversationItem.role === 'user' && (
                                         <>
                                             <div className="flex">
-                                                <div className="flex-1"><span className="font-bold text-xl text-aro-900">User</span></div>
-{/*                                                 <div className="ml-auto">
-                                                    <i onClick={() => copyClick(conversationItem.formatted.text)} className="text-aro-900 m-2 fa-solid fa-copy fa-2x cursor-pointer shadow-xl hover:shadow-dracula-900"></i>
-                                                </div> */}
+                                                <div className="flex-1"><span className="font-bold text-xl text-aro-900 mb-3">User</span></div>
                                             </div>
-                                            <div>
+                                            <div className="mt-3">
                                             {conversationItem.formatted.transcript ||
                                                 (conversationItem.formatted.audio?.length
                                                 ? '(awaiting transcript)'
@@ -519,9 +499,9 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
                                       conversationItem.role === 'assistant' && (
                                         <>
                                             <div className="flex">
-                                                <div className="flex-1"><span className="font-bold text-xl text-aro-900">OpenAI Realtime</span></div>
+                                                <div className="flex-1"><span className="font-bold text-xl text-aro-900 mb-3">OpenAI Realtime</span></div>
                                             </div>
-                                            <div>
+                                            <div className="mt-3">
                                             {conversationItem.formatted.transcript ||
                                                 conversationItem.formatted.text ||
                                                 '(truncated)'}
@@ -535,17 +515,28 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
                                         controls
                                       />
                                     )}
-                                  </div>
                                 </div>
                               );
                             })}
                           </div>
                         </div>
+
+                        <div className="content-block events">
+                          <div className="visualization">
+                            <div className="visualization-entry client">
+                              <canvas ref={clientCanvasRef} />
+                            </div>
+                            <div className="visualization-entry server">
+                              <canvas ref={serverCanvasRef} />
+                            </div>
+                          </div>
+                        </div>
+
                         { checkedIn ? 
-                            <div className="content-actions mt-6">
+                            <div className="content-actions mt-3">
                             <Toggle
                                 defaultValue={false}
-                                labels={['push-to-talk', 'voice-activate']}
+                                labels={['PTT', 'VAD']}
                                 values={['none', 'server_vad']}
                                 onChange={(_, value) => changeTurnEndType(value)}
                             />

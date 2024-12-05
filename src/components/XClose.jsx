@@ -1,6 +1,3 @@
-/* eslint-disable react/prop-types */
-import { React } from "react";
-
 function XClose({onClose, closeID}) {
     return (
         <div className="mb-6 flex font-bold text-5xl items-end justify-end">

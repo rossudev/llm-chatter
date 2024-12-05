@@ -1,5 +1,4 @@
-/* eslint-disable react/prop-types */
-import { useState, useCallback, useContext, React } from "react";
+import { useState, useCallback, useContext } from "react";
 import Hyphenated from "react-hyphen";
 import { animated, Spring } from "react-spring";
 import TextareaAutosize from "react-textarea-autosize";
@@ -7,11 +6,10 @@ import axios from "axios";
 import copy from "copy-to-clipboard";
 import { debounce } from "lodash";
 import XClose from "./XClose";
-//import Voice from "./Voice";
 import ContentText from "./ContentText";
 import { dataContext } from "../App";
 
-const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, topp, langchainURL, listModels, serverURL, modelOptions, localModels, }) => {
+const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, topp, topk, langchainURL, listModels, serverURL, modelOptions, localModels, }) => {
     const { componentList, setComponentList, chatCount, setChatCount, chosenAnthropic, chosenGoogle, chosenGrokAI, chosenOllama, chosenOpenAI, clientJWT, checkedIn } = useContext(dataContext);
 
     let sysMsgs = [];
@@ -19,11 +17,8 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
 
     const nonOpenAIChatTypes = [
         "Anthropic",
-        "Anthropic (Voice)",
         "Ollama: LangChain",
-        "Ollama: LangChain (Voice)",
         "Google",
-        "Google (Voice)"
     ];
     const nonDefaultModels = ["o1-mini", "o1-preview"];
     function setMessagesAndMeta(isDefault = true) {
@@ -45,41 +40,17 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
         }
     }
 
+   //const [streamedData, setStreamedData] = useState("");
     const [chatInput, setChatInput] = useState("");
-    //const [streamedData, setStreamedData] = useState("");
     const [messageMetas, setMessageMetas] = useState(firstMeta);
     const [chatMessages, setChatMessages] = useState(sysMsgs);
     const [chatMessagesPlusMore, setChatMessagesPlusMore] = useState(sysMsgs);
     const [addedModels, setAddedModels] = useState([]);
     const [chatContext, setChatContext] = useState([]);
-    //const [media, setMedia] = useState(undefined);
     const [addSetting, setAddSetting] = useState(true);
     const [isClicked, setIsClicked] = useState(false);
     const [isError, setIsError] = useState(false);
     const [sentOne, setSentOne] = useState(false);
-
-    const fetchVoice = useCallback(async (input) => {
-        const formData = new FormData();
-        formData.append('audio', input);
-
-        const startTime = Date.now();
-
-        let response = await axios.post(
-            serverURL + "/whisper", // End path
-            formData,
-            {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                    'Authorization': `Bearer ${clientJWT}`,
-                },
-            }
-        );
-
-        const endTime = Date.now();
-        const durTime = ((endTime - startTime) / 1000).toFixed(2);
-
-        return [response.data, durTime + "s"];
-    })
 
     const fetchData = useCallback(async (input, modelThisFetch) => {
         let endPath = "";
@@ -87,7 +58,6 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
 
         switch (chatType) {
             case "OpenAI":
-            case "OpenAI (Voice)":
                 //endPath = serverURL + "/openai-stream";
                 endPath = serverURL + "/openai";
                 sendPacket = {
@@ -99,7 +69,6 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                 break;
 
             case "Grok":
-            case "Grok (Voice)":
                 //endPath = serverURL + "/grok-stream";
                 endPath = serverURL + "/grok";
                 sendPacket = {
@@ -107,41 +76,42 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                     messages: chatMessages.concat({ "role": "user", "content": [{ "type": "text", "text": input }] }),
                     temperature: parseFloat(temperature),
                     top_p: parseFloat(topp),
+                    top_k: parseFloat(topk),
                 };
                 break;
 
             case "Anthropic":
-            case "Anthropic (Voice)":
                 endPath = serverURL + "/anthropic";
                 sendPacket = {
                     model: modelThisFetch,
                     messages: chatMessages.concat({ "role": "user", "content": [{ "type": "text", "text": input }] }),
                     temperature: parseFloat(temperature),
                     top_p: parseFloat(topp),
+                    top_k: parseFloat(topk),
                     system: systemMessage,
                 };
                 break;
 
             case "Google":
-            case "Google (Voice)":
                 endPath = serverURL + "/google";
                 sendPacket = {
                     model: modelThisFetch,
                     messages: chatMessages.concat({ "role": "user", "content": [{ "type": "text", "text": input }] }),
                     temperature: parseFloat(temperature),
                     top_p: parseFloat(topp),
+                    top_k: parseFloat(topk),
                     system: systemMessage,
                 };
                 break;
 
             case "Ollama: LangChain":
-            case "Ollama: LangChain (Voice)":
                 endPath = serverURL + "/langchain";
                 sendPacket = {
                     model: modelThisFetch,
                     input: input,
                     temperature: parseFloat(temperature),
                     topP: parseFloat(topp),
+                    topK: parseFloat(topk),
                     langchainURL: langchainURL
                 };
                 break;
@@ -153,7 +123,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                     prompt: input,
                     system: systemMessage,
                     context: chatContext,
-                    options: { "temperature": parseFloat(temperature), "top_p": parseFloat(topp) },
+                    options: { "temperature": parseFloat(temperature), "top_p": parseFloat(topp), "top_k": parseFloat(topk) },
                     stream: false,
                     keep_alive: 0
                 };
@@ -162,14 +132,11 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
 
         try {
             const startTime = Date.now();
-
             let response;
 
             switch (chatType) {
-                /*case "OpenAI":
-                case "OpenAI (Voice)":
+                /* case "OpenAI":
                 case "Grok":
-                case "Grok (Voice)":
                     //Streaming responses
                     {
                         try {
@@ -222,30 +189,24 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
             const endTime = Date.now();
             const durTime = ((endTime - startTime) / 1000).toFixed(2);
 
-            //Might switch to text.trim().replace(/\n{3,}/g, '\n\n')
             const normalizeText = (text) => text.trim().replace(/\n+/g, '\n');
             let theEnd;
 
             switch (chatType) {
                 case "OpenAI":
-                case "OpenAI (Voice)":
                 case "Grok":
-                case "Grok (Voice)":
                     theEnd = normalizeText(response.data.choices[0].message.content);
                     break;
                 case "Anthropic":
-                case "Anthropic (Voice)":
                     theEnd = normalizeText(response.data.content[0].text);
                     break;
                 case "Ollama: LangChain":
-                case "Ollama: LangChain (Voice)":
                     theEnd = normalizeText(response.data.text);
                     break;
                 case "Google":
-                case "Google (Voice)":
                     theEnd = [{ type: "text", text: normalizeText(response.data) }];
                     break;
-                default: // Handles Ollama and any other case
+                default: // Handles Ollama
                     theEnd = response.data.response;
                     setChatContext(response.data.context);
                     break;
@@ -273,7 +234,9 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                 setChatInput("");
             }
 
-            const finalInput = isVoice ? await fetchVoice(await handleSave(input)) : [input, ""];
+            //const finalInput = isVoice ? await fetchVoice(await handleSave(input)) : [input, ""];
+
+            const finalInput = [input, ""];
 
             try {
                 const chatOut = await fetchData(finalInput[0], model);
@@ -295,7 +258,6 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                 if (addedModels.length === 0) {
                     setSentOne(true);
                     setIsClicked(false);
-                    //if (isVoice) setMedia();
                 }
             } catch (error) {
                 setIsClicked(false);
@@ -320,21 +282,12 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                 } finally {
                     setSentOne(true);
                     setIsClicked(false);
-                    //if (isVoice) setMedia();
                 }
             }
         }
     }, 1000, { leading: true, trailing: false }));
 
     const handleChat = useCallback(() => handleInput(chatInput, false));
-    //const handleVoice = useCallback(() => handleInput(media, true));
-
-    const handleSave = useCallback(async (url) => {
-        const audioBlob = await fetch(url).then((r) => r.blob());
-        const audioFile = new File([audioBlob], 'voice.wav', { type: 'audio/wav' });
-
-        return audioFile;
-    });
 
     const handleAddModel = useCallback((model) => {
         const newModelArray = [...addedModels, model];
@@ -430,6 +383,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
             model: pickModel.name,
             temperature: temperature,
             topp: topp,
+            topk: topk,
             localModels: localModels,
             langchainURL: langchainURL,
             listModels: modelArray,
@@ -449,13 +403,13 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
             ]}
             delay={80}>
             {styles => (
-                <animated.div style={styles} className="min-w-[99%] self-start mt-2 mb-2 mb-1 inline p-2 bg-nosferatu-200 rounded-3xl bg-gradient-to-tl from-nosferatu-500 shadow-sm">
+                <animated.div style={styles} className="min-w-[99%] self-start mt-2 mb-2 mb-1 inline p-0 bg-nosferatu-200 rounded-3xl bg-gradient-to-tl from-nosferatu-500 shadow-sm">
 
                     {/* Chat ID number, Type of Model, X-Close button */}
                     <table className="min-w-[99%] border-separate border-spacing-y-2 border-spacing-x-2">
                         <tbody>
                             <tr>
-                                <td colSpan="2" className="pb-4 tracking-wide text-4xl text-center font-bold text-black">
+                                <td colSpan="3" className="pb-4 tracking-wide text-4xl text-center font-bold text-black">
                                     <span className="mr-6">#{numba}</span>
                                     <i className="fa-regular fa-comments mr-6 text-black"></i>
                                     {chatType}
@@ -468,7 +422,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                             {/* Two model types store the System message differently */}
                             {(chatType.includes("Anthropic") || chatType.includes("Google")) &&
                                 <tr>
-                                    <td onCopy={handleCopy} colSpan="3" className="py-3 p-3 bg-morbius-300 font-sans rounded-xl text-black-800 text-md whitespace-pre-wrap">
+                                    <td onCopy={handleCopy} colSpan="4" className="py-3 p-3 bg-morbius-300 font-sans rounded-xl text-black-800 text-md whitespace-pre-wrap">
                                         <div className="mb-3 grid grid-cols-3">
                                             <span className="font-bold text-xl text-aro-900">Starting Prompt</span>
                                             <span></span>
@@ -477,7 +431,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                             </span>
                                         </div>
                                         <div>
-                                            <Hyphenated>{systemMessage}</Hyphenated>
+                                            <Hyphenated className="text-black">{systemMessage}</Hyphenated>
                                         </div>
                                     </td>
                                 </tr>
@@ -486,7 +440,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                             {/* LangChain doesn't take System messages, so we show the Embed URL here instead */}
                             {chatType.includes("LangChain") &&
                                 <tr>
-                                    <td onCopy={handleCopy} colSpan="3" className="py-3 p-3 bg-morbius-300 font-sans rounded-xl text-black-800 text-md whitespace-pre-wrap">
+                                    <td onCopy={handleCopy} colSpan="4" className="py-3 p-3 bg-morbius-300 font-sans rounded-xl text-black-800 text-md whitespace-pre-wrap">
                                         <div className="mb-3 grid grid-cols-3">
                                             <span className="font-bold text-xl text-aro-900">Embed URL</span>
                                             <span></span>
@@ -495,7 +449,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                             </span>
                                         </div>
                                         <div>
-                                            <Hyphenated><a className="underline hover:no-underline" alt={langchainURL} target="_blank" rel="noopener noreferrer" href={langchainURL}>{langchainURL}</a></Hyphenated>
+                                            <Hyphenated><a className="text-black underline hover:no-underline" alt={langchainURL} target="_blank" rel="noopener noreferrer" href={langchainURL}>{langchainURL}</a></Hyphenated>
                                         </div>
                                     </td>
                                 </tr>
@@ -506,9 +460,9 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                 const contentText = getContentText(obj.content);
                                 return (
                                     <tr key={index}>
-                                        <td onCopy={handleCopy} colSpan="3" className={obj.role === "user" || obj.role === "system" ?
+                                        <td onCopy={handleCopy} colSpan="4" className={obj.role === "user" || obj.role === "system" ?
                                             "py-3 p-3 bg-morbius-300 font-sans rounded-xl text-black-800 text-md whitespace-pre-wrap" :
-                                            "py-3 whitespace-pre-wrap p-3 bg-nosferatu-100 font-mono rounded-xl text-vanHelsing-200 text-sm"}>
+                                            "py-3 whitespace-pre-wrap p-3 bg-nosferatu-100 font-mono rounded-xl text-black text-sm"}>
                                             <div className="mb-3 grid grid-cols-3">
                                                 <span className="font-bold text-xl text-aro-900">{messageMetas[index][0]}</span>
                                                 <span className="text-center text-sm text-aro-900">{messageMetas[index][1]}</span>
@@ -522,19 +476,12 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                 )
                             })}
 
-                            {/* Voice component 
-                            {(chatType.includes("(Voice")) &&
-                                <tr>
-                                    <td colSpan="3"><Voice setMedia={setMedia} handleVoice={handleVoice} media={media} isClicked={isClicked} /></td>
-                                </tr>
-                            } */}
-
                             {/* Regular text chat input box, and the Send button */}
                             {(!isError && ((!chatType.includes("LangChain") || !sentOne))) &&
                                 <>
                                     {(!(chatType.includes("(Voice"))) &&
                                         <tr>
-                                            <td colSpan="2">
+                                            <td colSpan="3">
                                                 <TextareaAutosize
                                                     autoFocus
                                                     onKeyDown={checkedIn ? handleEnterKey : null}
@@ -565,7 +512,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                             <tr className="align-top">
 
                                 {/*  Model info */}
-                                <td className="w-3/5 bg-buffy-200 rounded-xl bg-gradient-to-tl from-buffy-500 p-2">
+                                <td className="w-1/2 bg-blade-200 rounded-xl bg-gradient-to-tl from-blade-400 p-2">
                                     <table className="min-w-full"><tbody>
                                         <tr>
                                             <td className="min-w-full">
@@ -586,25 +533,36 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                 </td>
 
                                 {/* temperature info */}
-                                <td className="w-1/5 bg-vanHelsing-200 rounded-xl bg-gradient-to-tl from-vanHelsing-500">
-                                    <table className="mt-2"><tbody><tr className="align-top">
+                                <td className="w-1/6 bg-vanHelsing-200 rounded-xl bg-gradient-to-tl from-vanHelsing-500">
+                                    <table><tbody><tr className="align-top">
                                         <td className="w-1/6"><i className="ml-2 fa-solid fa-temperature-three-quarters text-2xl text-buffy-500"></i></td>
-                                        <td className="w-5/6 p-1"><b>temperature:</b><br /><i className="fa-solid fa-caret-right text-sm text-buffy-900 mr-1"></i> {temperature}</td>
+                                        <td className="w-5/6 p-1"><b>temp:</b><br /><i className="fa-solid fa-caret-right text-sm text-buffy-900"></i> {temperature}</td>
                                     </tr></tbody></table>
                                 </td>
 
                                 {/* top-p info */}
-                                <td className="w-1/5 bg-cullen-200 rounded-xl bg-gradient-to-tl from-cullen-500">
-                                    <table className="mt-2"><tbody><tr className="align-top">
+                                <td colSpan={( (chatType.includes("OpenAI")) || (chatType.includes("Grok")) ) ? 2 : 1} className="w-1/6 bg-cullen-200 rounded-xl bg-gradient-to-tl from-cullen-500">
+                                    <table><tbody><tr className="align-top">
                                         <td className="w-1/6"><i className="ml-2 fa-brands fa-react text-2xl text-vanHelsing-900"></i></td>
-                                        <td className="w-5/6 p-1"><b>top-p:</b><br /><i className="fa-solid fa-caret-right text-sm text-vanHelsing-900 mr-1"></i> {topp}</td>
+                                        <td className="w-5/6 p-1"><b>top-p:</b><br /><i className="fa-solid fa-caret-right text-sm text-vanHelsing-900"></i> {topp}</td>
                                     </tr></tbody></table>
                                 </td>
+
+                                {/* top-k info */}
+                                { ( (chatType.includes("OpenAI")) || (chatType.includes("Grok")) ) ?
+                                    <></> :
+                                    <td className="w-1/6 bg-cullen-200 rounded-xl bg-gradient-to-tl from-cullen-500">
+                                        <table><tbody><tr className="align-top">
+                                            <td className="w-1/6"><i className="ml-2 fa-solid fa-square-poll-horizontal text-2xl text-vanHelsing-900"></i></td>
+                                            <td className="w-5/6 p-1"><b>top-k:</b><br /><i className="fa-solid fa-caret-right text-sm text-vanHelsing-900"></i> {topk}</td>
+                                        </tr></tbody></table>
+                                    </td>
+                                }
                             </tr>
 
                             {/* Add Models interface */}
-                            <tr className="align-top">
-                                <td className="w-3/5">
+                            <tr className="align-top over">
+                                <td colSpan={chatType.includes("LangChain") ? 4 : 2} className="w-1/2">
                                     {(!isError && ((!chatType.includes("LangChain") || !sentOne))) &&
                                         <>
                                             {addSetting ?
@@ -636,12 +594,11 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                         </>
                                     }
                                 </td>
-
                                 {/* Copy System & first user prompt to a new Chat */}
-                                <td colSpan={2} className="w-2/5">
+                                <td colSpan={2} className="w-1/2">
                                     { !chatType.includes("LangChain") && //sentOne
                                         <div className="bg-dracula-300 rounded-xl p-4 text-sm">
-                                            <p className="font-bold mb-1 text-base"><i className="fa-solid fa-circle-plus text-2xl text-blade-500 mr-2 mb-2"></i> New Chat:</p>
+                                            <p className="font-bold mb-1 text-base">New Chat:</p>
                                             {Object.keys(modelOptions).map((optionKey) => (
                                                 optionKey.includes("LangChain") ? null : (
                                                     <p key={optionKey}>

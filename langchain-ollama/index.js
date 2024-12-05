@@ -1,10 +1,10 @@
+/* eslint-disable no-undef */
 import express from "express";
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
 import axios from "axios";
 import cors from "cors";
 import bodyParser from "body-parser";
-import multer from "multer";
 import path from 'path';
 import fs from 'fs';
 import stripAnsi from 'strip-ansi';
@@ -22,6 +22,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from "@google/generative-ai";
 import { Ollama } from "langchain/llms/ollama";
 import OpenAI from 'openai';
+import { RealtimeRelay } from './relay.js';
 
 
 
@@ -30,11 +31,19 @@ dotenv.config({ path: path.join(process.cwd(), '.env') });
 
 
 
+//Realtime Relay
+const relay = new RealtimeRelay(process.env['OPENAI_API_KEY']);
+relay.listen(8081);
+
+
+
 //Express server to handle client requests
 const app = express();
 const port = 8080;
 
 app.use(bodyParser.json());
+
+//Configure allowed-to-connect domains here, for real deployment
 app.use(cors());
 
 const limiter = rateLimit({
@@ -148,8 +157,10 @@ const validateInput = [
   body('context').optional().isArray(),
   body('options.temperature').optional().isFloat({ min: 0, max: 1 }),
   body('options.top_p').optional().isFloat({ min: 0, max: 1 }),
+  body('options.top_k').optional().isFloat({ min: 1, max: 20 }),
   body('temperature').optional().isFloat({ min: 0, max: 1 }),
   body('top_p').optional().isFloat({ min: 0, max: 1 }),
+  body('top_k').optional().isFloat({ min: 1, max: 20 }),
   body('stream').optional().isBoolean(),
   body('keep_alive').optional().isInt({ min: 0 }),
   body('messages').optional().isArray(),
@@ -162,7 +173,13 @@ const validateInput = [
       res.status(400).json({ error: 'Internal Server Error' });
     }
     // Verify token
-    const token = req.headers['authorization']?.split(' ')[1]; // Assuming Bearer token scheme
+    let token;
+    if (req.query.token) {
+      token = req.query.token;
+    } else {
+      token = req.headers['authorization']?.split(' ')[1]; // Bearer token scheme
+    }
+
     if (!token) {
       return res.status(401).send('Access Denied');
     }
@@ -220,68 +237,27 @@ app.post('/ollama', validateInput, async (req, res) => {
 
     res.send(response.data);
 
-    console.log("\n" + chalk.bgGreen.bold("\n////////////////////////////////////////\n") + chalk.underline("Remote IP:") + " " + ( req.headers['x-forwarded-for'] || req.ip ) + "\n"
-    + chalk.blue(chalk.underline.bold("Model") + ": ") + theData.model + "\n"
-    + chalk.yellow(chalk.underline.bold("Temperature") + ": ") + theData.options.temperature + "\n"
-    + chalk.red(chalk.underline.bold("Top-P") + ": ") + theData.options.top_p + "\n"
-    + chalk.magenta(chalk.underline.bold("System") + ":\n") + chalk.magenta(theData.system) + "\n"
-    + chalk.cyan(chalk.underline.bold("\nPrompt") + ":\n") + chalk.cyan(theData.prompt) + "\n"
-    + chalk.white.underline.bold("\nResponse") + ":\n" + chalk.bgBlack(response.data.response) + "\n" );
-
+    const {
+      xForwardedFor = req.ip,
+    } = req.headers;
+    console.log(`
+    ${chalk.bgGreen.bold('\n////////////////////////////////////////')}
+    ${chalk.underline('Remote IP:')} ${chalk.white(xForwardedFor)}
+    ${chalk.blue.bold.underline('Model')}: ${chalk.blue(theData.model)}
+    ${chalk.yellow.bold.underline('Temperature')}: ${chalk.yellow(theData.options.temperature)}
+    ${chalk.red.bold.underline('Top-P')}: ${chalk.red(theData.options.top_p)}
+    ${chalk.red.bold.underline('Top-K')}: ${chalk.red(theData.options.top_k)}
+    ${chalk.magenta.bold.underline('System')}:
+    ${chalk.magenta(theData.system)}
+    ${chalk.cyan.bold.underline('Prompt')}:
+    ${chalk.cyan(theData.prompt)}
+    ${chalk.white.bold.underline('Response')}:
+    ${chalk.bgBlack.white(response.data.response)}
+    ${chalk.bgGreen.bold('////////////////////////////////////////\n')}
+    `);
   } catch (error) {
     console.error('Error:', error);
     res.status(500).json({ error: 'Ollama Failure' });
-  }
-});
-
-
-
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/'); // Specify the destination directory
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    cb(null, `voice-${uniqueSuffix}${ext}`);
-  }
-});
-
-// Whisper voice-to-text
-const upload = multer({ storage: storage });
-app.post('/whisper', upload.single('audio'), async (req, res) => {
-  if (!req.file) {
-    console.log("No file.");
-    return res.status(400).send({ error: 'No file uploaded.' });
-  }
-
-  const acceptableMimeTypes = {
-    'audio/wav': 'wav',
-  };
-  const fileExtension = acceptableMimeTypes[req.file.mimetype];
-  if (!fileExtension) {
-    console.log("Wrong filetype.");
-    return res.status(400).send({ error: 'Unsupported file type.' });
-  }
-
-  try {
-    const openai = new OpenAI({ apiKey: process.env['OPENAI_API_KEY'] });
-    const transcription = await openai.audio.transcriptions.create({
-      file: fs.createReadStream(req.file.path),
-      model: "whisper-1",
-    });
-
-    res.send(transcription.text);
-  } catch (error) {
-    console.error("Error during transcription: ", error);
-    res.status(500).send({ error: 'An error occurred during transcription.' });
-  } finally {
-    // Clean up the file after processing
-    try {
-      await fs.unlink(req.file.path);
-    } catch (unlinkErr) {
-      console.error("Error deleting file: ", unlinkErr);
-    }
   }
 });
 
@@ -314,6 +290,7 @@ app.post('/langchain', validateInput, async (req, res) => {
     model: theData.model,
     temperature: theData.temperature,
     topP: theData.topP,
+    topK: theData.topK,
     keepAlive: "0"
   });
 
@@ -339,13 +316,24 @@ app.post('/langchain', validateInput, async (req, res) => {
 
   res.status(200).json(result);
 
-  console.log("\n" + chalk.bgGreen.bold("\n////////////////////////////////////////\n") + chalk.underline("Remote IP:") + " " + ( req.headers['x-forwarded-for'] || req.ip ) + "\n"
-  + chalk.blue(chalk.underline.bold("Model") + ": ") + theData.model + "\n"
-  + chalk.yellow(chalk.underline.bold("Temperature") + ": ") + theData.temperature + "\n"
-  + chalk.red(chalk.underline.bold("Top-P") + ": ") + theData.topP + "\n"
-  + chalk.white(chalk.underline.bold("\nLangChain Embed") + ":\n") + chalk.white(theData.langchainURL) + "\n"
-  + chalk.cyan(chalk.underline.bold("\nPrompt") + ":\n") + chalk.cyan(theData.input) + "\n"
-  + chalk.white.underline.bold("\nResponse") + ":\n" + chalk.bgBlack(result.text) + "\n" );
+  const {
+    xForwardedFor = req.ip,
+  } = req.headers;
+  console.log(`
+  ${chalk.bgGreen.bold('\n////////////////////////////////////////')}
+  ${chalk.underline('Remote IP:')} ${chalk.white(xForwardedFor)}
+  ${chalk.blue.bold.underline('Model')}: ${chalk.blue(theData.model)}
+  ${chalk.yellow.bold.underline('Temperature')}: ${chalk.yellow(theData.temperature)}
+  ${chalk.red.bold.underline('Top-P')}: ${chalk.red(theData.topP)}
+  ${chalk.red.bold.underline('Top-K')}: ${chalk.red(theData.topK)}
+  ${chalk.magenta.bold.underline('LangChain Embed')}:
+  ${chalk.magenta(theData.langchainURL)}
+  ${chalk.cyan.bold.underline('Prompt')}:
+  ${chalk.cyan(theData.input)}
+  ${chalk.white.bold.underline('Response')}:
+  ${chalk.bgBlack.white(result.text)}
+  ${chalk.bgGreen.bold('////////////////////////////////////////\n')}
+  `);
 });
 
 
@@ -376,20 +364,31 @@ app.post('/anthropic', validateInput, async (req, res) => {
       max_tokens: 1000,
       temperature: theData.temperature,
       top_p: theData.top_p,
+      top_k: theData.top_k,
       system: theData.system,
       messages: theMsgs,
     });
 
     res.status(200).json(msg);
 
-    console.log("\n" + chalk.bgGreen.bold("\n////////////////////////////////////////\n") + chalk.underline("Remote IP:") + " " + ( req.headers['x-forwarded-for'] || req.ip ) + "\n"
-    + chalk.blue(chalk.underline.bold("Model") + ": ") + theData.model + "\n"
-    + chalk.yellow(chalk.underline.bold("Temperature") + ": ") + theData.temperature + "\n"
-    + chalk.red(chalk.underline.bold("Top-P") + ": ") + theData.top_p + "\n"
-    + chalk.magenta(chalk.underline.bold("System") + ":\n") + chalk.magenta(theData.system) + "\n"
-    + chalk.cyan(chalk.underline.bold("\nPrompt") + ":\n") + chalk.cyan(((theMsgs[theMsgs.length - 1])).content[0].text) + "\n"
-    + chalk.white.underline.bold("\nResponse") + ":\n" + chalk.bgBlack(msg.content[0].text) + "\n" );
-
+    const {
+      xForwardedFor = req.ip,
+    } = req.headers;
+    console.log(`
+    ${chalk.bgGreen.bold('\n////////////////////////////////////////')}
+    ${chalk.underline('Remote IP:')} ${chalk.white(xForwardedFor)}
+    ${chalk.blue.bold.underline('Model')}: ${chalk.blue(theData.model)}
+    ${chalk.yellow.bold.underline('Temperature')}: ${chalk.yellow(theData.temperature)}
+    ${chalk.red.bold.underline('Top-P')}: ${chalk.red(theData.top_p)}
+    ${chalk.red.bold.underline('Top-K')}: ${chalk.red(theData.top_k)}
+    ${chalk.magenta.bold.underline('System')}:
+    ${chalk.magenta(theData.system)}
+    ${chalk.cyan.bold.underline('Prompt')}:
+    ${chalk.cyan(((theMsgs[theMsgs.length - 1])).content[0].text)}
+    ${chalk.white.bold.underline('Response')}:
+    ${chalk.bgBlack.white(msg.content[0].text)}
+    ${chalk.bgGreen.bold('////////////////////////////////////////\n')}
+    `);
   } catch (error) {
     console.error('Error:\n', error);
     res.status(500).json({ error: 'Anthropic Failure' });
@@ -398,8 +397,24 @@ app.post('/anthropic', validateInput, async (req, res) => {
 
 
 
-//OpenAI and Grok share the same SDK -- Grok needs to have baseUrl set
-async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
+const streamInfo = [];
+
+function addOrUpdateStreamInfo(newObject) {
+  // Find the index of the existing object with the same token
+  const index = streamInfo.findIndex((element) => element.token === newObject.token);
+  if (index !== -1) {
+    // If the object is found, update it with the new values
+    streamInfo[index] = newObject;
+    //console.log("Updated existing object:", streamInfo[index]);
+  } else {
+    // If the object is not found, push the new object to the array
+    streamInfo.push(newObject);
+    //console.log("Added new object:", newObject);
+  }
+}
+
+//OpenAI and Grok stream initialization
+async function initStream(req, res) {
   // Handle validation errors
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -409,6 +424,47 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
 
   try {
     const { model, messages, temperature, top_p } = req.body;
+
+    const token = req.headers['authorization']?.split(' ')[1];
+
+    // Validate required fields
+    if (!model || !messages) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    addOrUpdateStreamInfo({
+      token: token,
+      model: model,
+      messages: messages,
+      temperature: temperature,
+      top_p: top_p,
+    });
+    res.status(200).json({msg: "hello"});
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: `API Failure` }); // Generic error message
+  }
+}
+
+app.post('/openai-stream-init', validateInput, (req, res) => initStream(req, res));
+app.post('/grok-stream-init', validateInput, (req, res) => initStream(req, res));
+
+
+
+
+//Stream Requests
+async function makeStream(req, res, apiKeyEnvVar, baseUrl = null) {
+  // Handle validation errors
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    console.log(errors);
+    res.status(400).json({ error: 'Internal Server Error' });
+  }
+
+  try {
+    const result = streamInfo.find((element) => element.token === req.query.token);
+
+    const { model, messages, temperature, top_p } = result;
 
     // Validate required fields
     if (!model || !messages) {
@@ -421,34 +477,130 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
       ...(baseUrl && { baseURL: baseUrl })
     });
 
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
     // Make the API call
-    const response = await client.chat.completions.create({
+    const completion = await client.chat.completions.create({
       model,
       max_tokens: 1000,
       temperature,
       top_p: top_p,
       messages,
+      stream: true,
     });
 
-    res.status(200).json(response);
+    let fullMsg = ''; // Initialize fullMsg as an empty string
+    for await (const chunk of completion) {
+      const respondChunk = chunk.choices[0].delta.content;
+      // Check if respondChunk is undefined or an empty string
+      if (respondChunk === undefined || respondChunk === '') {
+        continue; // Skip the rest of the loop iteration
+      }
+      res.write(`data: ${JSON.stringify(respondChunk)}\n\n`);
+      fullMsg += respondChunk;
+    }
 
-    console.log("\n" + chalk.bgGreen.bold("\n////////////////////////////////////////\n") + chalk.underline("Remote IP:") + " " + ( req.headers['x-forwarded-for'] || req.ip ) + "\n"
-    + chalk.blue(chalk.underline.bold("Model") + ": ") + model + "\n"
-    + chalk.yellow(chalk.underline.bold("Temperature") + ": ") + temperature + "\n"
-    + chalk.red(chalk.underline.bold("Top-P") + ": ") + top_p + "\n"
-    + chalk.magenta(chalk.underline.bold("System") + ":\n") + chalk.magenta(messages[0].content) + "\n"
-    + chalk.cyan(chalk.underline.bold("\nPrompt") + ":\n") + chalk.cyan(((messages[messages.length - 1])).content[0].text) + "\n"
-    + chalk.white.underline.bold("\nResponse") + ":\n" + chalk.bgBlack(response.choices[0].message.content) + "\n" );
+    res.end();
 
+    const {
+      xForwardedFor = req.ip,
+    } = req.headers;
+    console.log(`
+    ${chalk.bgGreen.bold('\n////////////////////////////////////////')}
+    ${chalk.underline('Remote IP:')} ${chalk.white(xForwardedFor)}
+    ${chalk.blue.bold.underline('Model')}: ${chalk.blue(model)}
+    ${chalk.yellow.bold.underline('Temperature')}: ${chalk.yellow(temperature)}
+    ${chalk.red.bold.underline('Top-P')}: ${chalk.red(top_p)}
+    ${chalk.magenta.bold.underline('System')}:
+    ${chalk.magenta(messages[0].content)}
+    ${chalk.cyan.bold.underline('Prompt')}:
+    ${chalk.cyan(((messages[messages.length - 1])).content[0].text)}
+    ${chalk.white.bold.underline('Response')}:
+    ${chalk.bgBlack.white(fullMsg)}
+    ${chalk.bgGreen.bold('////////////////////////////////////////\n')}
+    `);
   } catch (error) {
     console.error('Error:', error);
     res.status(500).json({ error: `API Failure` }); // Generic error message
   }
 }
 
-// Define both model-type routes using makeAIRequest()
+app.get('/openai-stream', validateInput, (req, res) => makeStream(req, res, 'OPENAI_API_KEY'));
+app.get('/grok-stream', validateInput, (req, res) => makeStream(req, res, 'GROK_API_KEY', "https://api.x.ai/v1"));
+
+
+
+//OpenAI and Grok share the same SDK -- Grok needs to have baseUrl set
+async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
+  // Handle validation errors
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    console.log(errors);
+    return res.status(400).json({ error: 'Internal Server Error' });
+  }
+  try {
+    let { model, messages, temperature, top_p } = req.body;
+    let system = messages[0] ? messages[0].content : "";
+
+    // Validate required fields
+    if (!model || !messages) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    // Check the model and alter messages if necessary
+    if (model === "o1-preview" || model === "o1-mini") {
+      // Filter out the object with role "system"
+      //messages = messages.filter(message => message.role !== "system");
+      temperature = 1;
+      top_p = 1;
+      system = "";
+      messages = messages.filter(message => message.role !== "system");
+    }
+    // Set up client with the appropriate API key and optional base URL
+    const client = new OpenAI({
+      apiKey: process.env[apiKeyEnvVar],
+      ...(baseUrl && { baseURL: baseUrl })
+    });
+    // Make the API call
+    const response = await client.chat.completions.create({
+      model,
+      //max_tokens: 1000,
+      //max_completion_tokens: 1000,
+      temperature,
+      top_p,
+      messages,
+    });
+    res.status(200).json(response);
+
+    const {
+      xForwardedFor = req.ip,
+    } = req.headers;
+    const lastMessage = messages[messages.length - 1];
+    const promptText = lastMessage && lastMessage.content[0].text ? lastMessage.content[0].text : 'N/A';
+    const responseContent = response.choices?.[0]?.message?.content || 'No response content available';
+    console.log(`
+    ${chalk.bgGreen.bold('\n////////////////////////////////////////')}
+    ${chalk.underline('Remote IP:')} ${chalk.white(xForwardedFor)}
+    ${chalk.blue.bold.underline('Model')}: ${chalk.blue(model)}
+    ${chalk.yellow.bold.underline('Temperature')}: ${chalk.yellow(temperature)}
+    ${chalk.red.bold.underline('Top-P')}: ${chalk.red(top_p)}
+    ${chalk.magenta.bold.underline('System')}:
+    ${chalk.magenta(system)}
+    ${chalk.cyan.bold.underline('Prompt')}:
+    ${chalk.cyan(promptText)}
+    ${chalk.white.bold.underline('Response')}:
+    ${chalk.bgBlack.white(responseContent)}
+    ${chalk.bgGreen.bold('////////////////////////////////////////\n')}
+    `);
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: `API Failure` }); // Generic error message
+  }
+}
 app.post('/openai', validateInput, (req, res) => makeAIRequest(req, res, 'OPENAI_API_KEY'));
 app.post('/grok', validateInput, (req, res) => makeAIRequest(req, res, 'GROK_API_KEY', "https://api.x.ai/v1"));
+
 
 
 
@@ -514,6 +666,7 @@ app.post('/google', validateInput, async (req, res) => {
     const generationConfig = {
       temperature: theData.temperature,
       topP: theData.top_p,
+      topK: theData.top_k,
       maxOutputTokens: 1000,
     };
 
@@ -526,14 +679,24 @@ app.post('/google', validateInput, async (req, res) => {
 
     res.status(200).json(response);
 
-    console.log("\n" + chalk.bgGreen.bold("\n////////////////////////////////////////\n") + chalk.underline("Remote IP:") + " " + ( req.headers['x-forwarded-for'] || req.ip ) + "\n"
-    + chalk.blue(chalk.underline.bold("Model") + ": ") + theData.model + "\n"
-    + chalk.yellow(chalk.underline.bold("Temperature") + ": ") + theData.temperature + "\n"
-    + chalk.red(chalk.underline.bold("Top-P") + ": ") + theData.top_p + "\n"
-    + chalk.magenta(chalk.underline.bold("System") + ":\n") + chalk.magenta(theData.system) + "\n"
-    + chalk.cyan(chalk.underline.bold("\nPrompt") + ":\n") + chalk.cyan(((theMsgs[theMsgs.length - 1])).content[0].text) + "\n"
-    + chalk.white.underline.bold("\nResponse") + ":\n" + chalk.bgBlack(response) + "\n" );
-
+    const {
+      xForwardedFor = req.ip,
+    } = req.headers;
+    console.log(`
+    ${chalk.bgGreen.bold('\n////////////////////////////////////////')}
+    ${chalk.underline('Remote IP:')} ${chalk.white(xForwardedFor)}
+    ${chalk.blue.bold.underline('Model')}: ${chalk.blue(theData.model)}
+    ${chalk.yellow.bold.underline('Temperature')}: ${chalk.yellow(theData.temperature)}
+    ${chalk.red.bold.underline('Top-P')}: ${chalk.red(theData.top_p)}
+    ${chalk.red.bold.underline('Top-K')}: ${chalk.red(theData.top_k)}
+    ${chalk.magenta.bold.underline('System')}:
+    ${chalk.magenta(theData.system)}
+    ${chalk.cyan.bold.underline('Prompt')}:
+    ${chalk.cyan(((theMsgs[theMsgs.length - 1])).content[0].text)}
+    ${chalk.white.bold.underline('Response')}:
+    ${chalk.bgBlack.white(response)}
+    ${chalk.bgGreen.bold('////////////////////////////////////////\n')}
+    `);
   } catch (error) {
     console.error('Error:', error);
     console.log(error);

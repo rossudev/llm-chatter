@@ -1,5 +1,4 @@
-/* eslint-disable react/prop-types */
-import { React, useState } from "react";
+import { useState } from "react";
 import Hyphenated from "react-hyphen";
 import remarkGfm from "remark-gfm";
 import ReactMarkdown from "react-markdown";
@@ -39,7 +38,7 @@ const ContentText = ({ txt, role }) => {
                     <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
                         components={{ code: CodeBlock }}
-                        className="markdown text-aro-900"
+                        className="markdown text-black"
                     >
                         {contentToDisplay}
                     </ReactMarkdown>

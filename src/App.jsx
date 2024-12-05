@@ -1,9 +1,10 @@
-import { useRef, useState, useCallback, createContext, React } from "react";
+import { useRef, useState, useCallback, createContext, useMemo, useEffect } from "react";
 import { animated, Spring } from "react-spring";
 import TextareaAutosize from "react-textarea-autosize";
 import { randomBytes } from 'crypto';
 import axios from "axios";
 import debounce from "lodash/debounce";
+import { v4 as uuidv4 } from 'uuid';
 import Chat from "./components/Chat";
 import { ConsolePage } from './console/ConsolePage.jsx';
 export const dataContext = createContext();
@@ -15,9 +16,6 @@ function App() {
     { name: "gpt-4-turbo" },
     { name: "gpt-4" },
     { name: "gpt-3.5-turbo" },
-
-    //Not yet supported.
-    //{ name: "gpt-4o-realtime-preview" },
     { name: "o1-preview" },
     { name: "o1-mini" },
   ];
@@ -52,14 +50,11 @@ function App() {
   //Other defaults
   const [serverPassphrase, setServerPassphrase] = useState("");
   const [serverURL, setServerURL] = useState("http://localhost:8080");
-  //const [serverURL, setServerURL] = useState("https://x.rossu.dev");
-  // eslint-disable-next-line no-unused-vars
   const [relayWS, setRelayWS] = useState("http://localhost:8081");
-  // eslint-disable-next-line no-unused-vars
-  //const [relayWS, setRelayWS] = useState("https://x.rossu.dev/relay");
   const [sysMsg, setSysMsg] = useState("Let's work this out in a step by step way to be sure we have the right answer.");
   const [temperature, setTemperature] = useState("0.8");
-  const [topp, setTopp] = useState("1.0");
+  const [topp, setTopp] = useState("1");
+  const [topk, setTopk] = useState("1");
   const [langchainURL, setLangchainURL] = useState("https://");
 
   //Don't touch the rest of these.
@@ -105,32 +100,26 @@ function App() {
     modelOptions["Realtime"] = realtimeAImodels;
   } */
 
-  const makeNewChat = useCallback((typeOfComponent) => {
-    let response = "OpenAI";
-    let inputDescriptor = `${typeOfComponent}`;
+  function useDebouncedCallback(callback, delay) {
+    const debouncedFn = useMemo(() => debounce(callback, delay), [callback, delay]);
+    useEffect(() => {
+      return () => debouncedFn.cancel();
+    }, [debouncedFn]);
+    return debouncedFn;
+  }
 
-    const responseMap = {
-      "Anthropic": `Anthropic${inputDescriptor}`,
-      "Google": `Google${inputDescriptor}`,
-      "Grok": `Grok${inputDescriptor}`,
-      "Ollama": `Ollama${inputDescriptor}`,
-      "Ollama - LangChain": `Ollama: LangChain${inputDescriptor}`,
-      "OpenAI": `OpenAI${inputDescriptor}`,
-      //"Realtime": `Realtime${inputDescriptor}`,
-    };
-
-    // Default to an empty string if chatType doesn't match
-    response = responseMap[chatType] || "";
+  const makeNewChat = useCallback((additionalData) => {
+    const uuid = uuidv4();
 
     const newChat = {
-      id: Date.now(),
-      closeID: Date.now(),
+      id: uuid,
       numba: chatCount,
       systemMessage: sysMsg,
-      chatType: response,
+      chatType: additionalData,
       model: model.name,
       temperature: temperature,
       topp: topp,
+      topk: topk,
       localModels: localModels,
       langchainURL: langchainURL,
       listModels: listModels,
@@ -142,7 +131,7 @@ function App() {
     setChatCount(chatCount + 1);
   });
 
-
+  const debouncedMakeNewChat = useDebouncedCallback(makeNewChat, 250);
 
   //Loop every second to check if server is available
   const startInterval = useCallback(() => {
@@ -168,6 +157,7 @@ function App() {
       // Only update state if the value has changed
       if (backServerCheck === "ok") {
         setServerCheck(true);
+        //clientCheckIn();
       } else {
         setServerCheck(false);
         setClientJWT("");
@@ -201,6 +191,7 @@ function App() {
         const newToken = theJWT.data;
         setClientJWT(newToken);
         setCheckedIn(true);
+        //checkModels(newToken);
       }
     } catch (error) { console.log(error); }
   }, 250), [clientJWT, serverPassphrase, sessionHash]);
@@ -251,7 +242,7 @@ function App() {
 
       setChosenOllama({ name: randomOllama.name });
     } catch (error) { console.log(error); }
-  }, 250), [serverURL, localModels]);
+  }, 250), [serverURL, localModels, chatType]);
 
   //Event Handlers
 
@@ -302,6 +293,10 @@ function App() {
     setTopp(e.target.value);
   }, []);
 
+  const handleTopkChange = useCallback((e) => {
+    setTopk(e.target.value);
+  }, []);
+
   const handleTempChange = useCallback((e) => {
     setTemperature(e.target.value);
   }, []);
@@ -341,6 +336,7 @@ function App() {
     return str;
   });
 
+  //If only 1, 2 or 3 chats, then allow them to fill the horizontal space
   const getGridClasses = (itemCount) => {
     let classes = 'grid gap-3 place-items-center mt-1 ';
     if (itemCount === 1) {
@@ -367,21 +363,21 @@ function App() {
           ]}
           delay={400}>
           {styles => (
-            <animated.div style={styles} className="min-w-full text-aro-100 place-self-center cursor-default bg-vonCount-600 bg-gradient-to-tl from-vonCount-700 rounded-3xl font-bold p-2 flex items-center justify-center">
+            <animated.div style={styles} className="min-w-[50%] text-aro-100 place-self-center cursor-default bg-vonCount-600 bg-gradient-to-tl from-vonCount-700 rounded-3xl font-bold p-1 flex items-center justify-center">
 
             { /* Settings box */ }
               <div className="w-full">
                 <table className="min-w-full text-black">
                   <tbody>
                     <tr>
-                      <td className="2xl:w-[10%] xl:w-[14%] lg:w-[18%] md:w-[22%] sm:w-[26%] text-5xl text-center">
-                        <a alt="GitHub" target="_blank" rel="noopener noreferrer" href="https://github.com/rossudev/llm-chatter"><i className="fa-solid fa-gear text-5xl text-aro-300 text-center mb-4"></i></a>
+                      <td className="w-[10%] text-5xl text-center">
+                        <a alt="GitHub" target="_blank" rel="noopener noreferrer" href="https://github.com/rossudev/llm-chatter"><i className="fa-solid fa-gear text-5xl text-aro-300 text-center mb-2"></i></a>
                       </td>
                       <td className="2xl:w-[90%] xl:w-[86%] lg:w-[82%] md:w-[78%] sm:w-[74%] text-3xl tracking-normal text-center items-center font-bold text-black cursor-context-menu">
                         <input className="hidden" type="checkbox" name="advancedSetting" id="advancedSettings" checked={advancedSetting} onChange={handleCheckboxChange} />
                         <label className="cursor-context-menu leading-6" htmlFor="advancedSettings">
-                          <span className="mr-2 mb-4 flex items-center text-black">
-                            <i className={`text-aro-200 text-5xl fa-solid fa-bars ml-20 p-4 hover:text-marcelin-900 ${advancedSetting ? 'fa-bars text-blade-500 fa-rotate-270' : 'hover:text-dracula-100 ml-20'}`}></i>
+                          <span className="mr-2 mb-2 flex items-center text-black">
+                            <i className={`text-aro-200 text-5xl fa-solid fa-bars ml-4 p-4 hover:text-marcelin-900 ${advancedSetting ? 'fa-bars text-blade-500 fa-rotate-270' : 'hover:text-dracula-100 ml-4'}`}></i>
                             Settings
                           </span>
                         </label>
@@ -393,18 +389,18 @@ function App() {
                       <td className="pb-4 pr-4">Server Check:</td>
                       <td className="pb-4 font-sans">
                         {serverCheck ?
-                          <p>Node.js Server: <span className="text-blade-700">Online</span><span className="ml-6">{serverURL} &amp; {relayWS}</span></p>
+                          <p>Node.js Server: <span className="text-blade-700">Online</span><span className="ml-6">{serverURL}</span></p>
                           :
                           <><p>Node.js Server: <span className="text-marcelin-900">Offline</span> <i className="fa-solid fa-triangle-exclamation text-marcelin-900 text-2xl"></i></p></>
                         }
                         { !intervalIdRef.current &&
-                          <div onClick={debounce(() => { startInterval() }, 250)} className="bg-nosferatu-200 hover:bg-nosferatu-300 rounded-3xl text-2xl font-bold m-2 text-center p-4"><p>Initialize</p></div>
+                          <div onClick={debounce(() => { startInterval() }, 250)} className="bg-nosferatu-200 hover:bg-nosferatu-300 rounded-3xl text-2xl font-bold m-2 text-center p-4"><p>Connect</p></div>
                         }
                         { (serverCheck && !checkedIn && serverPassphrase) &&
                           <div onClick={debounce(() => { clientCheckIn() }, 250)} className="bg-nosferatu-200 hover:bg-nosferatu-300 rounded-3xl text-2xl font-bold m-2 text-center p-4"><p>Sign In</p></div>
                         }
                         { (serverCheck && (localModels.length === 0) && checkedIn) &&
-                          <div onClick={debounce(() => { checkModels(clientJWT) }, 250)} className="bg-nosferatu-200 hover:bg-nosferatu-300 rounded-3xl text-2xl font-bold m-2 text-center p-4"><p>Ollama Init.</p></div>
+                          <div onClick={debounce(() => { checkModels(clientJWT) }, 250)} className="bg-nosferatu-200 hover:bg-nosferatu-300 rounded-3xl text-2xl font-bold m-2 text-center p-4"><p>Connect Ollama</p></div>
                         }
                       </td>
                     </tr>
@@ -512,7 +508,7 @@ function App() {
                           <td className="pb-4 pr-4">temperature:</td>
                           <td className="tracking-wide font-bold text-black">
                             <select name="temperature" id="temperature" className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer mb-2 p-4 min-w-24 font-sans rounded-xl text-black" onChange={(e) => handleTempChange(e)} value={temperature}>
-                              <option value="0.0">0.0</option>
+                              <option value="0">0</option>
                               <option value="0.01">0.01</option>
                               <option value="0.02">0.02</option>
                               <option value="0.03">0.03</option>
@@ -531,7 +527,7 @@ function App() {
                               <option value="0.7">0.7</option>
                               <option value="0.8">0.8</option>
                               <option value="0.9">0.9</option>
-                              <option value="1.0">1.0</option>
+                              <option value="1">1</option>
                             </select>
                           </td>
                         </tr>
@@ -541,6 +537,7 @@ function App() {
                           <td className="pb-4">top-p:</td>
                           <td className="tracking-wide font-bold text-black">
                             <select name="topp" id="topp" className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer mb-1 p-4 min-w-24 font-sans rounded-xl text-black" onChange={(e) => handleToppChange(e)} value={topp}>
+                              <option value="0">0</option>
                               <option value="0.01">0.01</option>
                               <option value="0.02">0.02</option>
                               <option value="0.03">0.03</option>
@@ -559,10 +556,42 @@ function App() {
                               <option value="0.7">0.7</option>
                               <option value="0.8">0.8</option>
                               <option value="0.9">0.9</option>
-                              <option value="1.0">1.0</option>
+                              <option value="1">1</option>
                             </select>
                           </td>
                         </tr>
+
+                        { /* top-k */ }
+                        { ( (chatType.includes("OpenAI")) || (chatType.includes("Grok")) ) ?
+                          <></> :
+                          <tr>
+                            <td className="pb-4">top-k:</td>
+                            <td className="tracking-wide font-bold text-black">
+                              <select name="topk" id="topk" className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer mb-1 p-4 min-w-24 font-sans rounded-xl text-black" onChange={(e) => handleTopkChange(e)} value={topk}>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                                <option value="6">6</option>
+                                <option value="7">7</option>
+                                <option value="8">8</option>
+                                <option value="9">9</option>
+                                <option value="10">10</option>
+                                <option value="11">11</option>
+                                <option value="12">12</option>
+                                <option value="13">13</option>
+                                <option value="14">14</option>
+                                <option value="15">15</option>
+                                <option value="16">16</option>
+                                <option value="17">17</option>
+                                <option value="18">18</option>
+                                <option value="19">19</option>
+                                <option value="20">20</option>
+                              </select>
+                            </td>
+                          </tr>
+                        }
                       </>
                     }
                   </tbody>
@@ -579,17 +608,17 @@ function App() {
                         ]}
                         delay={200}>
                         {styles => (
-                          <animated.div onClick={debounce(() => { makeNewChat(""); }, 250)} style={styles} className="self-start text-black place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-2xl font-bold m-2 p-4 flex items-center justify-center mb-5 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-dracula-700 cursor-pointer">
+                          <animated.div onClick={() => { debouncedMakeNewChat(chatType); }} style={styles} className="self-start text-black place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-2xl font-bold p-4 flex items-center justify-center mb-2 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-dracula-700 cursor-pointer">
                             <i className="fa-solid fa-keyboard mr-4"></i>
-                            <h1>New Text</h1>
+                            <h1>+Text</h1>
                           </animated.div>
                         )}
                       </Spring>
 
-                      { /* Middle display of selections */ }
-                      <div className="rounded-lg border-solid border-2 border-aro-800 bg-aro-300 text-black text-center pt-1 cursor-text">
-                        <p className="underline text-2xl">Model Selected:</p>
-                        <p className="text-xl">{chatType}: <span className="italic">{model.name}</span></p>
+                      { /* Info of selected model */ }
+                      <div className="col-span-2 rounded-lg border-solid border-2 border-aro-800 bg-aro-300 text-black self-start place-self-center text-center items-center justify-center p-2 cursor-text">
+                        <p className="underline text-2xl">Text Model:</p>
+                        <p className="text-xl">{model.name}</p>
                         {chatType.includes("LangChain") ?
                           <p><a className="underline hover:no-underline" alt={langchainURL} target="_blank" rel="noopener noreferrer" href={langchainURL}>{langchainURL}</a></p> :
                           <></>
@@ -597,7 +626,8 @@ function App() {
                       </div>
 
                       { /* New Voice button */ }
-                      { ( chatType.includes("OpenAI") && !componentList.some(container => container.chatType.includes("(Voice)")) ) ?
+                      { ( chatType.includes("OpenAI") && (!componentList.some(container => container.chatType.includes("(Voice)"))) ) ?
+                      <>
                       <Spring
                         from={{ opacity: 0 }}
                         to={[
@@ -605,12 +635,17 @@ function App() {
                         ]}
                         delay={200}>
                         {styles => (
-                          <animated.div onClick={debounce(() => { makeNewChat(" (Voice)"); }, 250)} style={styles} className="self-start text-black place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-2xl font-bold m-2 p-4 flex items-center justify-center mb-5 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-buffy-700 shadow-xl cursor-pointer">
+                          <animated.div onClick={() => { debouncedMakeNewChat("(Voice)"); }} style={styles} className="self-start text-black place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-2xl font-bold p-4 flex items-center justify-center mb-1 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-buffy-700 shadow-xl cursor-pointer">
                             <i className="fa-solid fa-microphone-lines mr-4"></i>
-                            <h1>New Voice</h1>
+                            <h1>+Voice</h1>
                           </animated.div>
                         )}
-                      </Spring> :
+                      </Spring>
+                      <div className="col-span-2 rounded-lg border-solid border-2 border-aro-800 bg-aro-300 text-black self-start place-self-center text-center items-center justify-center p-2 cursor-text">
+                        <p className="underline text-2xl">Voice Model:</p>
+                        <p className="text-xl">gpt-4o-realtime-preview</p>
+                      </div>
+                      </> :
                     <></>
                     }
                     </div>
@@ -641,6 +676,7 @@ function App() {
               model={container.model}
               temperature={container.temperature}
               topp={container.topp}
+              topk={container.topk}
               numba={container.numba}
               langchainURL={container.langchainURL}
               listModels={container.listModels}

@@ -1,10 +1,6 @@
 config.jsx
 
 state management: redux, context api, useReducer
-const [settings, setSettings] = useState({
-    temperature: "1.0",
-
-Memoize event handlers (e.g., handleSysMsgChange, handleRespChange) with useCallback
 
 form libraries (like Formik, React Hook Form)
 
@@ -14,10 +10,14 @@ repeated strings and magic numbers
 
 checkModels() toast notification
 
-
 typescript interfaces
 
+Verify the source of the X-Forwarded-For header.
 
- Ensure that JWTs are properly verified for expiration. The expiresIn: '1d' setting is good for setting expiration, but ensure that the jwt.verify() method handles this aspect properly.
+realtime jwt token
 
- Ensure that you trust the source of the X-Forwarded-For header. Consider using reverse proxies like Nginx that can be configured to properly append this header.
+realtime scroll
+
+realtime d/c retain chat
+
+token pass method

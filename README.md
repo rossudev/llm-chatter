@@ -1,4 +1,4 @@
-# LLM Chatter, v0.0.6
+# LLM Chatter, v0.0.7
 
 A web interface to chat by text (and voice!) with various large language models.
 
@@ -45,17 +45,23 @@ Built with:
 - [OpenAI](https://platform.openai.com/docs/overview)
 
 # Proprietary Models List
+- o1-preview
+- o1-mini
+- gpt-4o-realtime-preview (voice-in, voice/text-out)
 - gpt-4o
 - gpt-4o-mini
 - gpt-4-turbo
 - gpt-4
 - gpt-3.5-turbo
+
 - claude-3-5-sonnet-20241022
 - claude-3-5-haiku-20241022
 - claude-3-opus-20240229
 - claude-3-sonnet-20240229
 - claude-3-haiku-20240307
+
 - gemini-1.5-pro
 - gemini-1.5-flash
 - gemini-1.5-flash-8b
+
 - grok-beta

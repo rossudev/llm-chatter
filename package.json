@@ -40,6 +40,7 @@
     "save": "^2.9.0",
     "tailwind-dracula": "^1.1.0",
     "typescript": "^5.7.2",
+    "uuid": "^11.0.3",
     "vite-plugin-singlefile": "^2.0.2",
     "web-vitals": "^2.1.4",
     "ws": "^8.18.0"
