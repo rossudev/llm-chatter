@@ -5,6 +5,7 @@ import { randomBytes } from 'crypto';
 import axios from "axios";
 import debounce from "lodash/debounce";
 import Chat from "./components/Chat";
+import { ConsolePage } from './console/ConsolePage.jsx';
 export const dataContext = createContext();
 
 function App() {
@@ -17,8 +18,8 @@ function App() {
 
     //Not yet supported.
     //{ name: "gpt-4o-realtime-preview" },
-    //{ name: "o1-preview" },
-    //{ name: "o1-mini" },
+    { name: "o1-preview" },
+    { name: "o1-mini" },
   ];
 
   const anthropicAImodels = [
@@ -39,6 +40,10 @@ function App() {
     { name: "grok-beta" },
   ];
 
+/*   const realtimeAImodels = [
+    { name: "realtime" },
+  ] */
+
   //Which model type is chosen by default
   const [chatType, setChatType] = useState("OpenAI");
   const [model, setModel] = useState(openAImodels[0]);
@@ -47,6 +52,11 @@ function App() {
   //Other defaults
   const [serverPassphrase, setServerPassphrase] = useState("");
   const [serverURL, setServerURL] = useState("http://localhost:8080");
+  //const [serverURL, setServerURL] = useState("https://x.rossu.dev");
+  // eslint-disable-next-line no-unused-vars
+  const [relayWS, setRelayWS] = useState("http://localhost:8081");
+  // eslint-disable-next-line no-unused-vars
+  //const [relayWS, setRelayWS] = useState("https://x.rossu.dev/relay");
   const [sysMsg, setSysMsg] = useState("Let's work this out in a step by step way to be sure we have the right answer.");
   const [temperature, setTemperature] = useState("0.8");
   const [topp, setTopp] = useState("1.0");
@@ -67,6 +77,7 @@ function App() {
   const [chosenGrokAI, setChosenGrokAI] = useState(grokAImodels[0]);
   const [chosenOllama, setChosenOllama] = useState(localModels[0]);
   const [chosenOpenAI, setChosenOpenAI] = useState(openAImodels[0]);
+  //const [chosenRealtimeAI, setChosenRealtimeAI] = useState(realtimeAImodels[0]);
   const intervalIdRef = useRef(null);
 
 // Check if the arrays contains elements before adding related keys
@@ -85,9 +96,14 @@ function App() {
     modelOptions["Ollama"] = localModels;
     modelOptions["Ollama - LangChain"] = localModels;
   }
+
   if (openAImodels.length > 0) {
     modelOptions["OpenAI"] = openAImodels;
   }
+  
+/*   if (realtimeAImodels.length > 0) {
+    modelOptions["Realtime"] = realtimeAImodels;
+  } */
 
   const makeNewChat = useCallback((typeOfComponent) => {
     let response = "OpenAI";
@@ -100,6 +116,7 @@ function App() {
       "Ollama": `Ollama${inputDescriptor}`,
       "Ollama - LangChain": `Ollama: LangChain${inputDescriptor}`,
       "OpenAI": `OpenAI${inputDescriptor}`,
+      //"Realtime": `Realtime${inputDescriptor}`,
     };
 
     // Default to an empty string if chatType doesn't match
@@ -226,6 +243,7 @@ function App() {
         "Google": googleAImodels,
         "Grok": grokAImodels,
         "OpenAI": openAImodels,
+        //"Realtime": realtimeAImodels,
       };
 
       const randomOllama = getRandomModel(allModels);
@@ -246,6 +264,7 @@ function App() {
       "Google": { modelState: chosenGoogle, list: googleAImodels },
       "Grok": { modelState: chosenGrokAI, list: grokAImodels },
       "OpenAI": { modelState: chosenOpenAI, list: openAImodels },
+      //"Realtime": { modelState: chosenRealtimeAI, list: realtimeAImodels },
       "default": { modelState: chosenOllama, list: localModels }, //Ollama
     };
 
@@ -269,6 +288,7 @@ function App() {
       "Grok": setChosenGrokAI,
       "Ollama": setChosenOllama,
       "OpenAI": setChosenOpenAI,
+      //"Realtime": setChosenRealtimeAI,
     };
 
     (setChosenMapping[chatType] || setChosenOllama)(modelObj);
@@ -373,7 +393,7 @@ function App() {
                       <td className="pb-4 pr-4">Server Check:</td>
                       <td className="pb-4 font-sans">
                         {serverCheck ?
-                          <p>Node.js Server: <span className="text-blade-700">Online</span><span className="ml-6">{serverURL}</span></p>
+                          <p>Node.js Server: <span className="text-blade-700">Online</span><span className="ml-6">{serverURL} &amp; {relayWS}</span></p>
                           :
                           <><p>Node.js Server: <span className="text-marcelin-900">Offline</span> <i className="fa-solid fa-triangle-exclamation text-marcelin-900 text-2xl"></i></p></>
                         }
@@ -577,6 +597,7 @@ function App() {
                       </div>
 
                       { /* New Voice button */ }
+                      { ( chatType.includes("OpenAI") && !componentList.some(container => container.chatType.includes("(Voice)")) ) ?
                       <Spring
                         from={{ opacity: 0 }}
                         to={[
@@ -589,7 +610,9 @@ function App() {
                             <h1>New Voice</h1>
                           </animated.div>
                         )}
-                      </Spring>
+                      </Spring> :
+                    <></>
+                    }
                     </div>
                 }
               </div>
@@ -600,22 +623,32 @@ function App() {
 
       { /* All the Chats */ }
       <div className={getGridClasses(itemCount)}>
-      {componentList.slice().reverse().map((container) => (
-          <Chat
-            key={container.id}
-            closeID={container.id}
-            systemMessage={container.systemMessage}
-            chatType={container.chatType}
-            model={container.model}
-            temperature={container.temperature}
-            topp={container.topp}
-            numba={container.numba}
-            langchainURL={container.langchainURL}
-            listModels={container.listModels}
-            serverURL={container.serverURL}
-            modelOptions={container.modelOptions}
-            localModels={container.localModels}
-          />
+        {componentList.slice().reverse().map((container) => (
+          container.chatType.includes("(Voice)") ? (
+            <ConsolePage
+              key={container.id}
+              instructions={container.systemMessage}
+              closeID={container.id}
+              numba={container.numba}
+              relayWS={relayWS}
+            />
+          ) : (
+            <Chat
+              key={container.id}
+              closeID={container.id}
+              systemMessage={container.systemMessage}
+              chatType={container.chatType}
+              model={container.model}
+              temperature={container.temperature}
+              topp={container.topp}
+              numba={container.numba}
+              langchainURL={container.langchainURL}
+              listModels={container.listModels}
+              serverURL={container.serverURL}
+              modelOptions={container.modelOptions}
+              localModels={container.localModels}
+            />
+          )
         ))}
       </div>
     </dataContext.Provider>

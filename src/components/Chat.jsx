@@ -7,7 +7,7 @@ import axios from "axios";
 import copy from "copy-to-clipboard";
 import { debounce } from "lodash";
 import XClose from "./XClose";
-import Voice from "./Voice";
+//import Voice from "./Voice";
 import ContentText from "./ContentText";
 import { dataContext } from "../App";
 
@@ -17,29 +17,42 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
     let sysMsgs = [];
     let firstMeta = [];
 
-    switch (chatType) {
-        case "Anthropic":
-        case "Anthropic (Voice)":
-        case "Ollama: LangChain":
-        case "Ollama: LangChain (Voice)":
-        case "Google":
-        case "Google (Voice)":
+    const nonOpenAIChatTypes = [
+        "Anthropic",
+        "Anthropic (Voice)",
+        "Ollama: LangChain",
+        "Ollama: LangChain (Voice)",
+        "Google",
+        "Google (Voice)"
+    ];
+    const nonDefaultModels = ["o1-mini", "o1-preview"];
+    function setMessagesAndMeta(isDefault = true) {
+        if (isDefault) {
+            sysMsgs = [{ role: "system", content: systemMessage }];
+            firstMeta = [["Starting Prompt", ""]];
+        } else {
             sysMsgs = [];
             firstMeta = [];
-            break;
-        default: //OpenAI
-            sysMsgs = [{ "role": "system", "content": systemMessage }];
-            firstMeta = [["Starting Prompt", ""]];
-            break;
+        }
+    }
+    if (nonOpenAIChatTypes.includes(chatType)) {
+        setMessagesAndMeta(false);
+    } else { // OpenAI
+        if (nonDefaultModels.includes(model)) {
+            setMessagesAndMeta(false);
+        } else {
+            setMessagesAndMeta(true);
+        }
     }
 
     const [chatInput, setChatInput] = useState("");
+    //const [streamedData, setStreamedData] = useState("");
     const [messageMetas, setMessageMetas] = useState(firstMeta);
     const [chatMessages, setChatMessages] = useState(sysMsgs);
     const [chatMessagesPlusMore, setChatMessagesPlusMore] = useState(sysMsgs);
     const [addedModels, setAddedModels] = useState([]);
     const [chatContext, setChatContext] = useState([]);
-    const [media, setMedia] = useState(undefined);
+    //const [media, setMedia] = useState(undefined);
     const [addSetting, setAddSetting] = useState(true);
     const [isClicked, setIsClicked] = useState(false);
     const [isError, setIsError] = useState(false);
@@ -75,23 +88,25 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
         switch (chatType) {
             case "OpenAI":
             case "OpenAI (Voice)":
+                //endPath = serverURL + "/openai-stream";
                 endPath = serverURL + "/openai";
                 sendPacket = {
                     model: modelThisFetch,
                     messages: chatMessages.concat({ "role": "user", "content": [{ "type": "text", "text": input }] }),
                     temperature: parseFloat(temperature),
-                    top_p: parseFloat(topp)
+                    top_p: parseFloat(topp),
                 };
                 break;
 
             case "Grok":
             case "Grok (Voice)":
+                //endPath = serverURL + "/grok-stream";
                 endPath = serverURL + "/grok";
                 sendPacket = {
                     model: modelThisFetch,
                     messages: chatMessages.concat({ "role": "user", "content": [{ "type": "text", "text": input }] }),
                     temperature: parseFloat(temperature),
-                    top_p: parseFloat(topp)
+                    top_p: parseFloat(topp),
                 };
                 break;
 
@@ -148,14 +163,61 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
         try {
             const startTime = Date.now();
 
-            let response = await axios.post(
-                endPath,
-                sendPacket,
-                { headers: { 
-                    "Content-Type": "application/json",
-                    'Authorization': `Bearer ${clientJWT}`, 
-                } },
-            );
+            let response;
+
+            switch (chatType) {
+                /*case "OpenAI":
+                case "OpenAI (Voice)":
+                case "Grok":
+                case "Grok (Voice)":
+                    //Streaming responses
+                    {
+                        try {
+                            await axios.post(
+                                endPath + "-init",
+                                sendPacket,
+                                {
+                                    headers: {
+                                        "Content-Type": "application/json",
+                                        'Authorization': `Bearer ${clientJWT}`,
+                                    }
+                                },
+                            );
+
+                            const eventSource = new EventSource(`${endPath}?token=${encodeURIComponent(clientJWT)}`);
+                        
+                            //eventSource.onopen = () => {};
+                            eventSource.onmessage = (event) => {
+                                // Append new data to the current streamed data
+                                if (event.data === undefined || event.data === '') {
+                                    return;
+                                };
+                                setStreamedData(prevData => prevData + event.data);
+                                console.log(event.data);
+                            };
+                            eventSource.onerror = () => {
+                                //console.error("EventSource failed:", err);
+                                eventSource.close();
+                            };
+                            eventSource.close();
+                        } catch(error) {
+                            console.log("Stream Init Error");
+                        }
+                    } 
+                    break; */
+                default:
+                    response = await axios.post(
+                        endPath,
+                        sendPacket,
+                        {
+                            headers: {
+                                "Content-Type": "application/json",
+                                'Authorization': `Bearer ${clientJWT}`,
+                            }
+                        },
+                    );
+                    break;
+            }
 
             const endTime = Date.now();
             const durTime = ((endTime - startTime) / 1000).toFixed(2);
@@ -184,8 +246,6 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                     theEnd = [{ type: "text", text: normalizeText(response.data) }];
                     break;
                 default: // Handles Ollama and any other case
-                    //theEnd = normalizeText(response.data.response);
-                    //setChatContext(normalizeText(response.data.context));
                     theEnd = response.data.response;
                     setChatContext(response.data.context);
                     break;
@@ -235,7 +295,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                 if (addedModels.length === 0) {
                     setSentOne(true);
                     setIsClicked(false);
-                    if (isVoice) setMedia();
+                    //if (isVoice) setMedia();
                 }
             } catch (error) {
                 setIsClicked(false);
@@ -260,14 +320,14 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                 } finally {
                     setSentOne(true);
                     setIsClicked(false);
-                    if (isVoice) setMedia();
+                    //if (isVoice) setMedia();
                 }
             }
         }
     }, 1000, { leading: true, trailing: false }));
 
     const handleChat = useCallback(() => handleInput(chatInput, false));
-    const handleVoice = useCallback(() => handleInput(media, true));
+    //const handleVoice = useCallback(() => handleInput(media, true));
 
     const handleSave = useCallback(async (url) => {
         const audioBlob = await fetch(url).then((r) => r.blob());
@@ -462,12 +522,12 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                 )
                             })}
 
-                            {/* Voice component */}
+                            {/* Voice component 
                             {(chatType.includes("(Voice")) &&
                                 <tr>
                                     <td colSpan="3"><Voice setMedia={setMedia} handleVoice={handleVoice} media={media} isClicked={isClicked} /></td>
                                 </tr>
-                            }
+                            } */}
 
                             {/* Regular text chat input box, and the Send button */}
                             {(!isError && ((!chatType.includes("LangChain") || !sentOne))) &&
@@ -499,7 +559,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                     }
                                 </>
                             }
-
+                            {/* <tr><td colSpan={3}><p>{streamedData}</p></td></tr> */}
                             {/*  Settings */}
                             <tr><td colSpan={3}><i className="fa-solid fa-gear text-4xl text-aro-800 text-center mb-2 ml-8 mt-4"></i></td></tr>
                             <tr className="align-top">
