@@ -14,7 +14,7 @@ A web interface to chat by text (and voice!) with various large language models.
 
 # Server setup
 
-1. `mkdir langchain-ollama; cd langchain-ollama; wget https://raw.githubusercontent.com/rossudev/llm-chatter/master/langchain-ollama/index.js; wget https://raw.githubusercontent.com/rossudev/llm-chatter/master/langchain-ollama/package.json; wget https://raw.githubusercontent.com/rossudev/llm-chatter/master/langchain-ollama/.env; npm install`
+1. `mkdir llm-chatter-server; cd llm-chatter-server; wget https://raw.githubusercontent.com/rossudev/llm-chatter/master/server/index.js; wget https://raw.githubusercontent.com/rossudev/llm-chatter/master/server/package.json; wget https://raw.githubusercontent.com/rossudev/llm-chatter/master/server/.env; wget https://raw.githubusercontent.com/rossudev/llm-chatter/master/server/relay.js; npm install`
 2. Configure .env file
    - [LLM_CHATTER_PASSPHRASE](https://bcrypt.online/)
    - [LLM_SERVER_HASH](https://duckduckgo.com/?q=generate+password+32+characters)

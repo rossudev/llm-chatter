@@ -1,5 +1,5 @@
 {
-  "name": "llm-chatter-console",
+  "name": "llm-chatter",
   "private": true,
   "version": "0.0.7",
   "type": "module",
