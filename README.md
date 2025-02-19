@@ -1,4 +1,4 @@
-# LLM Chatter, v0.0.7
+# LLM Chatter, v0.0.8
 
 A web interface to chat by text (and voice!) with various large language models.
 
@@ -19,6 +19,7 @@ A web interface to chat by text (and voice!) with various large language models.
    - [LLM_CHATTER_PASSPHRASE](https://bcrypt.online/)
    - [LLM_SERVER_HASH](https://duckduckgo.com/?q=generate+password+32+characters)
    - [ANTHROPIC_API_KEY](https://www.anthropic.com/api)
+   - [DEEPSEEK_API_KEY](https://platform.deepseek.com/api_keys)
    - [GOOGLE_API_KEY](https://ai.google.dev/gemini-api/docs/billing)
    - [GROK_API_KEY](https://console.x.ai/)
    - [OPENAI_API_KEY](https://platform.openai.com/account/billing)
@@ -62,5 +63,5 @@ Built with:
 - gemini-1.5-pro
 - gemini-1.5-flash
 - gemini-1.5-flash-8b
-- grok-3
 - grok-2
+- grok-beta

@@ -26,8 +26,8 @@ function App() {
 
   //Other defaults
   const [serverPassphrase, setServerPassphrase] = useState("");
-  const [serverURL, setServerURL] = useState("https://x.rossu.dev");
-  const [relayWS, setRelayWS] = useState("https://x.rossu.dev/relay");
+  const [serverURL, setServerURL] = useState("https://ai.rossu.dev");
+  const [relayWS, setRelayWS] = useState("https://ai.rossu.dev/relay");
   const [sysMsg, setSysMsg] = useState("Let's work this out in a step by step way to be sure we have the right answer.");
   const [temperature, setTemperature] = useState("0.8");
   const [topp, setTopp] = useState("1");
