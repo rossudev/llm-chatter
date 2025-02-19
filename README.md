@@ -45,6 +45,7 @@ Built with:
 - [OpenAI](https://platform.openai.com/docs/overview)
 
 # Proprietary Models List
+- o3-mini
 - o1-preview
 - o1-mini
 - gpt-4o-realtime-preview (voice-in, voice/text-out)
@@ -61,4 +62,5 @@ Built with:
 - gemini-1.5-pro
 - gemini-1.5-flash
 - gemini-1.5-flash-8b
-- grok-beta
+- grok-3
+- grok-2

@@ -5,55 +5,32 @@ import Hyphenated from "react-hyphen";
 import { RealtimeClient } from '@openai/realtime-api-beta';
 import { WavRecorder, WavStreamPlayer } from '../wavtools/index.js';
 import { WavRenderer } from '../utils/wav_renderer';
-import { X, Zap, ArrowUp, ArrowDown } from 'react-feather';
+import { X, Zap } from 'react-feather';
 import copy from "copy-to-clipboard";
-import ContentText from "../components/ContentText";
 import { Button } from './Button';
 import { Toggle } from './Toggle';
 import './ConsolePage.scss';
 import { dataContext } from "../App";
 import XClose from "../components/XClose";
 
-/**
- * ConsolePage Component
- */
 export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
-    const { clientJWT, checkedIn, componentList, setComponentList } = useContext(dataContext);
+  const { clientJWT, checkedIn, componentList, setComponentList } = useContext(dataContext);
 
-    const onClose = useCallback((id) => {
-        setComponentList(componentList.filter((container) => container.id !== id));
-    })
+  const onClose = useCallback((id) => {
+      setComponentList(componentList.filter((container) => container.id !== id));
+  })
 
-  /**
-   * Instantiate:
-   * - WavRecorder (speech input)
-   * - WavStreamPlayer (speech output)
-   * - RealtimeClient (API client)
-   */
   const wavRecorderRef = useRef(new WavRecorder({ sampleRate: 24000 }));
   const wavStreamPlayerRef = useRef(new WavStreamPlayer({ sampleRate: 24000 }));
   const clientRef = useRef(new RealtimeClient({ url: relayWS }));
-  /**
-   * References for
-   * - Rendering audio visualization (canvas)
-   * - Autoscrolling event logs
-   * - Timing delta for event log displays
-   */
+
   const clientCanvasRef = useRef(null);
   const serverCanvasRef = useRef(null);
-  const eventsScrollHeightRef = useRef(0);
-  const eventsScrollRef = useRef(null);
   const startTimeRef = useRef(new Date().toISOString());
-  /**
-   * All of our variables for displaying application state
-   * - items are all conversation items (dialog)
-   * - realtimeEvents are event logs, which can be expanded
-   * - memoryKv is for set_memory() function
-   * - coords, marker are for get_weather() function
-   */
+
   const [items, setItems] = useState([]);
   const [realtimeEvents, setRealtimeEvents] = useState([]);
-  const [expandedEvents, setExpandedEvents] = useState({});
+  const [allConvo, setAllConvo] = useState([]);
   const [isConnected, setIsConnected] = useState(false);
   const [canPushToTalk, setCanPushToTalk] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
@@ -62,31 +39,7 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
     lat: 37.775593,
     lng: -122.418137,
   });
-  const [marker, setMarker] = useState(null);
-  /**
-   * Utility for formatting the timing of logs
-   */
-  const formatTime = useCallback((timestamp) => {
-    const startTime = startTimeRef.current;
-    const t0 = new Date(startTime).valueOf();
-    const t1 = new Date(timestamp).valueOf();
-    const delta = t1 - t0;
-    const hs = Math.floor(delta / 10) % 100;
-    const s = Math.floor(delta / 1000) % 60;
-    const m = Math.floor(delta / 60000) % 60;
-    const pad = (n) => {
-      let s = n + '';
-      while (s.length < 2) {
-        s = '0' + s;
-      }
-      return s;
-    };
-    return `${pad(m)}:${pad(s)}.${pad(hs)}`;
-  }, []);
-  /**
-   * Connect to conversation:
-   * WavRecorder takes speech input, WavStreamPlayer output, client is API client
-   */
+
   const connectConversation = useCallback(async () => {
     if (!checkedIn) {return};
 
@@ -107,16 +60,15 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
     client.sendUserMessageContent([
       {
         type: `input_text`,
-        text: `Hello!`,
+        text: allConvo.length === 0 ? "Hello!" : JSON.stringify(allConvo),
       },
     ]);
     if (client.getTurnDetectionType() === 'server_vad') {
       await wavRecorder.record((data) => client.appendInputAudio(data.mono));
     }
   }, []);
-  /**
-   * Disconnect and reset conversation state
-   */
+
+  /* Disconnect and reset conversation state */
   const disconnectConversation = useCallback(async () => {
     setIsConnected(false);
     setRealtimeEvents([]);
@@ -126,7 +78,6 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
       lat: 37.775593,
       lng: -122.418137,
     });
-    setMarker(null);
     const client = clientRef.current;
     client.disconnect();
     const wavRecorder = wavRecorderRef.current;
@@ -138,10 +89,12 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
     const client = clientRef.current;
     client.deleteItem(id);
   }, []);
+
   /**
    * In push-to-talk mode, start recording
    * .appendInputAudio() for each sample
    */
+
   const startRecording = async () => {
     if (!checkedIn) {disconnectConversation; return};
     setIsRecording(true);
@@ -155,20 +108,30 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
     }
     await wavRecorder.record((data) => client.appendInputAudio(data.mono));
   };
-  /**
-   * In push-to-talk mode, stop recording
-   */
+
+  /* In push-to-talk mode, stop recording */
   const stopRecording = async () => {
+    if (!checkedIn) {disconnectConversation; return};
     setIsRecording(false);
     const client = clientRef.current;
     const wavRecorder = wavRecorderRef.current;
     await wavRecorder.pause();
     client.createResponse();
   };
-  /**
-   * Switch between Manual <> VAD mode for communication
-   */
+
+  // Prevent any default touch behavior
+  const handleStartRecording = (event) => {
+    event.preventDefault();
+    startRecording();
+  };
+  const handleStopRecording = (event) => {
+    event.preventDefault();
+    stopRecording();
+  };
+
+  /* Switch between Manual <> VAD mode for communication */
   const changeTurnEndType = async (value) => {
+    if (!checkedIn) {disconnectConversation; return};
     const client = clientRef.current;
     const wavRecorder = wavRecorderRef.current;
     if (value === 'none' && wavRecorder.getStatus() === 'recording') {
@@ -182,34 +145,23 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
     }
     setCanPushToTalk(value === 'none');
   };
-  /**
-   * Auto-scroll the event logs
-   */
+
+  /* Auto-scroll */
   useEffect(() => {
-    if (eventsScrollRef.current) {
-      const eventsEl = eventsScrollRef.current;
-      const scrollHeight = eventsEl.scrollHeight;
-      // Only scroll if height has just changed
-      if (scrollHeight !== eventsScrollHeightRef.current) {
-        eventsEl.scrollTop = scrollHeight;
-        eventsScrollHeightRef.current = scrollHeight;
-      }
+    // Automatically scroll to the bottom controls
+    const eventsSection = document.querySelector('.content-actions.btns');
+    if (eventsSection) {
+      eventsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
-  }, [realtimeEvents]);
-  /**
-   * Auto-scroll the conversation logs
-   */
-  useEffect(() => {
-    const conversationEls = Array.from(
-      document.querySelectorAll('[data-conversation-content]')
-    );
-    conversationEls.forEach((el) => {
-      el.scrollTop = el.scrollHeight;
-    });
   }, [items]);
-  /**
-   * Set up render loops for the visualization canvas
-   */
+
+  useEffect(() => {
+    if (!checkedIn) {
+      disconnectConversation();
+    }
+  }, [checkedIn]);
+
+  /* Set up render loops for the visualization canvas */
   useEffect(() => {
     let isLoaded = true;
     const wavRecorder = wavRecorderRef.current;
@@ -272,10 +224,12 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
       isLoaded = false;
     };
   }, []);
+
   /**
    * Core RealtimeClient and audio capture setup
    * Set all of our instructions, tools, events and more
    */
+
   useEffect(() => {
     // Get refs
     const wavStreamPlayer = wavStreamPlayerRef.current;
@@ -288,7 +242,8 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
     client.updateSession({ input_audio_transcription: { model: 'whisper-1' } });
 
     // Set voice randomly (missing: 'fable', 'onyx', 'nova')
-    client.updateSession({ voice: ['alloy', 'echo',  'shimmer', 'ash', 'ballad', 'coral', 'sage', 'verse'][Math.floor(Math.random() * 8)] });
+    //exempt 'alloy', 'echo',  'shimmer'
+    client.updateSession({ voice: ['ash', 'ballad', 'coral', 'sage', 'verse'][Math.floor(Math.random() * 8)] });
 
     // Add tools
     client.addTool(
@@ -320,6 +275,7 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
         return { ok: true };
       }
     );
+
     client.addTool(
       {
         name: 'get_weather',
@@ -345,7 +301,6 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
         },
       },
       async ({ lat, lng, location }) => {
-        setMarker({ lat, lng, location });
         setCoords({ lat, lng, location });
         const result = await fetch(
           `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,wind_speed_10m`
@@ -359,10 +314,10 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
           value: json.current.wind_speed_10m,
           units: json.current_units.wind_speed_10m,
         };
-        setMarker({ lat, lng, location, temperature, wind_speed });
         return json;
       }
     );
+
     // handle realtime events from client + server for event logging
     client.on('realtime.event', (realtimeEvent) => {
       setRealtimeEvents((realtimeEvents) => {
@@ -376,7 +331,9 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
         }
       });
     });
+
     client.on('error', (event) => console.error(event));
+
     client.on('conversation.interrupted', async () => {
       const trackSampleOffset = await wavStreamPlayer.interrupt();
       if (trackSampleOffset?.trackId) {
@@ -384,6 +341,7 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
         await client.cancelResponse(trackId, offset);
       }
     });
+
     client.on('conversation.updated', async ({ item, delta }) => {
       const items = client.conversation.getItems();
       if (delta?.audio) {
@@ -398,8 +356,11 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
         item.formatted.file = wavFile;
       }
       setItems(items);
+      setAllConvo((prev) => [...prev, { role: item.role, text: item.formatted.text }]);
     });
+
     setItems(client.conversation.getItems());
+
     return () => {
       // cleanup; resets to defaults
       client.reset();
@@ -408,7 +369,7 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
 
   const copyClick = useCallback((value) => {
     if (typeof value === 'string') {
-        copy(value);
+      copy(value);
     }
   });
 
@@ -423,153 +384,170 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
   });
 
   return (
-        <div className="min-w-[99%] self-start mt-2 mb-2 mb-1 inline p-2 bg-nosferatu-200 rounded-3xl bg-gradient-to-tl from-nosferatu-500 shadow-sm">
-          {/* Chat ID number, Type of Model, X-Close button */}
-          <table className="min-w-[99%] border-separate border-spacing-y-2 border-spacing-x-2">
-            <tbody>
-              <tr>
-                <td colSpan="2" className="pb-4 tracking-wide text-4xl text-center font-bold text-black">
-                    <span className="mr-6">#{numba}</span>
-                    <i className="fa-regular fa-comments mr-6 text-black"></i>
-                    OpenAI Realtime
-                </td>
-                <td>
-                    <XClose onClose={onClose} closeID={closeID} />
-                </td>
-              </tr>
-              <tr>
-                <td onCopy={handleCopy} colSpan="3" className="py-3 p-3 bg-morbius-300 font-sans rounded-xl text-black-800 text-md whitespace-pre-wrap">
-                    <div className="mb-3 grid grid-cols-3">
-                        <span className="font-bold text-xl text-aro-900">Starting Prompt</span>
-                        <span></span>
-                        <span className="text-right cursor-copy">
-                            <i onClick={() => copyClick(instructions)} className="text-aro-900 m-2 fa-solid fa-copy fa-2x cursor-copy shadow-xl hover:shadow-dracula-900"></i>
-                        </span>
-                    </div>
-                    <div>
-                        <Hyphenated>{instructions}</Hyphenated>
-                    </div>
-                </td>
-              </tr>
-              <tr>
-                <td colSpan="3">
-                  <div data-component="ConsolePage">
-                    <div className="content-main">
-                      <div className="content-logs">
-                        <div className="content-block conversation">
-                          <div className="content-block-body" data-conversation-content>
-                            {!items.length && 
-                                <div className="py-3 whitespace-pre-wrap p-3 bg-nosferatu-100 font-mono rounded-xl text-vanHelsing-200 text-sm">
-                                    <div><span className="font-bold text-xl text-aro-900">OpenAI Realtime</span></div>
-                                    <div className="mt-6 text-black"><span>Awaiting Connection...</span></div>
-                                </div>
-                            }
-                            {items.map((conversationItem) => {
-                              return (
-                                <div className={conversationItem.role === "user" ?
-                                    "p-3 mt-2 bg-morbius-300 font-sans rounded-xl text-black text-md whitespace-pre-wrap" :
-                                    "p-3 mt-2 whitespace-pre-wrap bg-nosferatu-100 font-mono rounded-xl text-black text-md"} key={conversationItem.id}>
-                                    {/* tool response */}
-                                    {conversationItem.type === 'function_call_output' && (
-                                      <div>{conversationItem.formatted.output}</div>
-                                    )}
-                                    {/* tool call */}
-                                    {conversationItem.formatted.tool && (
-                                      <div>
-                                        {conversationItem.formatted.tool.name}(
-                                        {conversationItem.formatted.tool.arguments})
-                                      </div>
-                                    )}
-                                    {!conversationItem.formatted.tool &&
-                                      conversationItem.role === 'user' && (
-                                        <>
-                                            <div className="flex">
-                                                <div className="flex-1"><span className="font-bold text-xl text-aro-900 mb-3">User</span></div>
-                                            </div>
-                                            <div className="mt-3">
-                                            {conversationItem.formatted.transcript ||
-                                                (conversationItem.formatted.audio?.length
-                                                ? '(awaiting transcript)'
-                                                : conversationItem.formatted.text ||
-                                                    '(item sent)')}
-                                            </div>
-                                        </>
-                                      )}
-                                    {!conversationItem.formatted.tool &&
-                                      conversationItem.role === 'assistant' && (
-                                        <>
-                                            <div className="flex">
-                                                <div className="flex-1"><span className="font-bold text-xl text-aro-900 mb-3">OpenAI Realtime</span></div>
-                                            </div>
-                                            <div className="mt-3">
-                                            {conversationItem.formatted.transcript ||
-                                                conversationItem.formatted.text ||
-                                                '(truncated)'}
-                                            </div>
-                                        </>
-                                      )}
-                                    {conversationItem.formatted.file && (
-                                      <audio
-                                        className="mt-6"
-                                        src={conversationItem.formatted.file.url}
-                                        controls
-                                      />
-                                    )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        <div className="content-block events">
-                          <div className="visualization">
-                            <div className="visualization-entry client">
-                              <canvas ref={clientCanvasRef} />
+    <div className="min-w-[99%] self-start mt-2 mb-2 mb-1 inline p-2 bg-nosferatu-200 rounded-3xl bg-gradient-to-tl from-nosferatu-500 shadow-sm">
+      {/* Chat ID number, Type of Model, X-Close button */}
+      <table className="min-w-[99%] border-separate border-spacing-y-2 border-spacing-x-2">
+        <tbody>
+          <tr>
+            <td colSpan="2" className="pb-4 tracking-wide text-4xl text-center font-bold text-black">
+                <span className="mr-6">#{numba}</span>
+                <i className="fa-regular fa-comments mr-6 text-black"></i>
+                OpenAI Realtime
+            </td>
+            <td>
+                <XClose onClose={onClose} closeID={closeID} />
+            </td>
+          </tr>
+          <tr>
+            <td onCopy={handleCopy} colSpan="3" className="py-3 p-3 bg-morbius-300 font-sans rounded-xl text-black-800 text-md whitespace-pre-wrap">
+                <div className="mb-3 grid grid-cols-3">
+                    <span className="font-bold text-xl text-aro-900">Starting Prompt</span>
+                    <span></span>
+                    <span className="text-right cursor-copy">
+                        <i onClick={() => copyClick(instructions)} className="text-aro-900 m-2 fa-solid fa-copy fa-2x cursor-copy shadow-xl hover:shadow-dracula-900"></i>
+                    </span>
+                </div>
+                <div>
+                  <Hyphenated>{instructions}</Hyphenated>
+                </div>
+            </td>
+          </tr>
+          <tr>
+            <td colSpan="3">
+              <div data-component="ConsolePage">
+                <div className="content-main">
+                  <div className="content-logs">
+                    <div className="content-block conversation">
+                      <div className="content-block-body" data-conversation-content>
+                        {!items.length && 
+                            <div className="py-3 whitespace-pre-wrap p-3 bg-nosferatu-100 font-mono rounded-xl text-vanHelsing-200 text-sm">
+                                <div><span className="font-bold text-xl text-aro-900">OpenAI Realtime</span></div>
+                                <div className="mt-6 text-black"><span>Awaiting Connection...</span></div>
                             </div>
-                            <div className="visualization-entry server">
-                              <canvas ref={serverCanvasRef} />
-                            </div>
-                          </div>
-                        </div>
-
-                        { checkedIn ? 
-                            <div className="content-actions mt-3">
-                            <Toggle
-                                defaultValue={false}
-                                labels={['PTT', 'VAD']}
-                                values={['none', 'server_vad']}
-                                onChange={(_, value) => changeTurnEndType(value)}
-                            />
-                            <div className="spacer" />
-                            {isConnected && canPushToTalk && (
-                                <Button
-                                label={isRecording ? 'release to send' : 'push to talk'}
-                                buttonStyle={isRecording ? 'alert' : 'regular'}
-                                disabled={!isConnected || !canPushToTalk}
-                                onMouseDown={startRecording}
-                                onMouseUp={stopRecording}
-                                />
-                            )}
-                            <div className="spacer" />
-                            <Button
-                                label={isConnected ? 'Disconnect' : 'Connect'}
-                                iconPosition={isConnected ? 'end' : 'start'}
-                                icon={isConnected ? X : Zap}
-                                buttonStyle={isConnected ? 'regular' : 'action'}
-                                onClick={
-                                isConnected ? disconnectConversation : connectConversation
-                                }
-                            />
-                            </div> :
-                            <></>
                         }
+                        {items.map((conversationItem) => {
+                          const role = conversationItem.role;
+                          const transcript = conversationItem.formatted.transcript;
+                          const text = conversationItem.formatted.text;
+                          
+                          return (
+                            <div
+                              className={
+                                role === "user"
+                                  ? "p-3 mt-2 bg-morbius-300 font-sans rounded-xl text-black text-md whitespace-pre-wrap"
+                                  : "p-3 mt-2 whitespace-pre-wrap bg-nosferatu-100 font-mono rounded-xl text-black text-md"
+                              }
+                              key={conversationItem.id}
+                            >
+                              {conversationItem.type === 'function_call_output' && (
+                                <div>{conversationItem.formatted.output}</div>
+                              )}
+                              {conversationItem.formatted.tool && (
+                                <div>
+                                  {conversationItem.formatted.tool.name}({conversationItem.formatted.tool.arguments})
+                                </div>
+                              )}
+                              {!conversationItem.formatted.tool &&
+                                (role === 'user' ? (
+                                  <>
+                                    <div className="flex">
+                                      <div className="flex-1">
+                                        <span className="font-bold text-xl text-aro-900 mb-3">User</span>
+                                      </div>
+                                    </div>
+                                    <div className="mt-3">
+                                      {transcript || text || '(item sent)'}
+                                    </div>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="flex">
+                                      <div className="flex-1">
+                                        <span className="font-bold text-xl text-aro-900 mb-3">OpenAI Realtime</span>
+                                      </div>
+                                    </div>
+                                    <div className="mt-3">
+                                      {transcript || text || '(awaiting response or snipped)'}
+                                    </div>
+                                  </>
+                                ))}
+                              {(conversationItem.formatted.file && (role != 'user')) && (
+                                <audio
+                                  className="mt-6"
+                                  src={conversationItem.formatted.file.url}
+                                  controls
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
+
+                    <div className="content-block events">
+                      <div className="visualization">
+                        <div className="visualization-entry client">
+                          <canvas ref={clientCanvasRef} />
+                        </div>
+                        <div className="visualization-entry server">
+                          <canvas ref={serverCanvasRef} />
+                        </div>
+                      </div>
+                    </div>
+
+                    { checkedIn ? 
+                      <>
+                        { (isConnected && canPushToTalk) ? 
+                            <div className="content-actions ptt mt-3">
+                              <Button
+                              label={isRecording ? 'release to send' : 'push to talk'}
+                              buttonStyle={isRecording ? 'alert' : 'regular'}
+                              disabled={!isConnected || !canPushToTalk}
+                              onMouseDown={startRecording}
+                              onMouseUp={stopRecording}
+                              onTouchStart={handleStartRecording}
+                              onTouchEnd={handleStopRecording}
+                              />
+                            </div>
+                        : <></>
+                        }
+                        { (!isConnected) ? 
+                            <div className="content-actions ptt mt-3">
+                              <i className="fa-solid fa-triangle-exclamation text-marcelin-900 text-4xl" />
+                            </div>
+                        : <></>
+                        }
+                        
+                        <div className="content-actions btns mt-1">
+                          <Toggle
+                              defaultValue={false}
+                              labels={['PTT', 'VAD']}
+                              values={['none', 'server_vad']}
+                              onChange={(_, value) => changeTurnEndType(value)}
+                          />
+                          <div className="spacer" />
+                          <Button
+                              label={isConnected ? 'Disconnect' : 'Connect'}
+                              iconPosition={isConnected ? 'end' : 'start'}
+                              icon={isConnected ? X : Zap}
+                              buttonStyle={isConnected ? 'regular' : 'action'}
+                              onClick={
+                              isConnected ? disconnectConversation : connectConversation
+                              }
+                          />
+                        </div>
+                      </> :
+                      <div className="content-actions ptt mt-3">
+                        <i className="fa-solid fa-triangle-exclamation text-marcelin-900 text-4xl" />
+                      </div>
+                    }
                   </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+                </div>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   );
 }

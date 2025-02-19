@@ -10,17 +10,17 @@ import ContentText from "./ContentText";
 import { dataContext } from "../App";
 
 const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, topp, topk, langchainURL, listModels, serverURL, modelOptions, localModels, }) => {
-    const { componentList, setComponentList, chatCount, setChatCount, chosenAnthropic, chosenGoogle, chosenGrokAI, chosenOllama, chosenOpenAI, clientJWT, checkedIn } = useContext(dataContext);
+    const { componentList, setComponentList, chatCount, setChatCount, chosenAnthropic, chosenGoogle, chosenGrokAI, chosenDeepseekAI, chosenOllama, chosenOpenAI, clientJWT, checkedIn } = useContext(dataContext);
 
     let sysMsgs = [];
     let firstMeta = [];
 
     const nonOpenAIChatTypes = [
         "Anthropic",
-        "Ollama: LangChain",
+        "LangChain",
         "Google",
     ];
-    const nonDefaultModels = ["o1-mini", "o1-preview"];
+    const nonDefaultModels = ["o1-mini", "o1-preview", "o3-mini"];
     function setMessagesAndMeta(isDefault = true) {
         if (isDefault) {
             sysMsgs = [{ role: "system", content: systemMessage }];
@@ -40,7 +40,6 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
         }
     }
 
-   //const [streamedData, setStreamedData] = useState("");
     const [chatInput, setChatInput] = useState("");
     const [messageMetas, setMessageMetas] = useState(firstMeta);
     const [chatMessages, setChatMessages] = useState(sysMsgs);
@@ -58,7 +57,6 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
 
         switch (chatType) {
             case "OpenAI":
-                //endPath = serverURL + "/openai-stream";
                 endPath = serverURL + "/openai";
                 sendPacket = {
                     model: modelThisFetch,
@@ -69,7 +67,6 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                 break;
 
             case "Grok":
-                //endPath = serverURL + "/grok-stream";
                 endPath = serverURL + "/grok";
                 sendPacket = {
                     model: modelThisFetch,
@@ -80,6 +77,17 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                 };
                 break;
 
+            case "Deepseek":
+                endPath = serverURL + "/deepseek";
+                sendPacket = {
+                    model: modelThisFetch,
+                    messages: chatMessages.concat({ "role": "user", "content": [{ "type": "text", "text": input }] }),
+                    temperature: parseFloat(temperature),
+                    top_p: parseFloat(topp),
+                    top_k: parseFloat(topk),
+                };
+                break;
+    
             case "Anthropic":
                 endPath = serverURL + "/anthropic";
                 sendPacket = {
@@ -104,7 +112,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                 };
                 break;
 
-            case "Ollama: LangChain":
+            case "LangChain":
                 endPath = serverURL + "/langchain";
                 sendPacket = {
                     model: modelThisFetch,
@@ -135,43 +143,6 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
             let response;
 
             switch (chatType) {
-                /* case "OpenAI":
-                case "Grok":
-                    //Streaming responses
-                    {
-                        try {
-                            await axios.post(
-                                endPath + "-init",
-                                sendPacket,
-                                {
-                                    headers: {
-                                        "Content-Type": "application/json",
-                                        'Authorization': `Bearer ${clientJWT}`,
-                                    }
-                                },
-                            );
-
-                            const eventSource = new EventSource(`${endPath}?token=${encodeURIComponent(clientJWT)}`);
-                        
-                            //eventSource.onopen = () => {};
-                            eventSource.onmessage = (event) => {
-                                // Append new data to the current streamed data
-                                if (event.data === undefined || event.data === '') {
-                                    return;
-                                };
-                                setStreamedData(prevData => prevData + event.data);
-                                console.log(event.data);
-                            };
-                            eventSource.onerror = () => {
-                                //console.error("EventSource failed:", err);
-                                eventSource.close();
-                            };
-                            eventSource.close();
-                        } catch(error) {
-                            console.log("Stream Init Error");
-                        }
-                    } 
-                    break; */
                 default:
                     response = await axios.post(
                         endPath,
@@ -195,12 +166,13 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
             switch (chatType) {
                 case "OpenAI":
                 case "Grok":
+                case "Deepseek":
                     theEnd = normalizeText(response.data.choices[0].message.content);
                     break;
                 case "Anthropic":
                     theEnd = normalizeText(response.data.content[0].text);
                     break;
-                case "Ollama: LangChain":
+                case "LangChain":
                     theEnd = normalizeText(response.data.text);
                     break;
                 case "Google":
@@ -367,6 +339,9 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
             case "Grok":
                 pickModel = chosenGrokAI;
             break;
+            case "Deepseek":
+                pickModel = chosenDeepseekAI;
+            break;
             case "Ollama":
                 pickModel = chosenOllama;
             break;
@@ -478,35 +453,30 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
 
                             {/* Regular text chat input box, and the Send button */}
                             {(!isError && ((!chatType.includes("LangChain") || !sentOne))) &&
-                                <>
-                                    {(!(chatType.includes("(Voice"))) &&
-                                        <tr>
-                                            <td colSpan="3">
-                                                <TextareaAutosize
-                                                    autoFocus
-                                                    onKeyDown={checkedIn ? handleEnterKey : null}
-                                                    minRows="3"
-                                                    maxRows="15"
-                                                    className="placeholder:text-6xl placeholder:italic mt-3 p-4 min-w-full bg-nosferatu-100 text-sm font-mono text-black rounded-xl"
-                                                    placeholder="Chat"
-                                                    onChange={chatHandler()}
-                                                    value={chatInput}
-                                                />
-                                            </td>
-                                            <td className="items-baseline justify-evenly text-center align-middle text-4xl">
-                                                { checkedIn ?
-                                                    <i
-                                                        onClick={!isClicked ? () => handleChat() : null}
-                                                        className={isClicked ? "text-dracula-900 mt-4 m-2 fa-solid fa-hat-wizard fa-2x cursor-pointer hover:text-dracula-100" : "text-blade-300 mt-4 m-2 fa-solid fa-message fa-2x cursor-pointer hover:text-vanHelsing-700"}
-                                                    /> :
-                                                    <i className="fa-solid fa-triangle-exclamation text-marcelin-900 text-4xl" />
-                                                }
-                                            </td>
-                                        </tr>
-                                    }
-                                </>
+                                <tr>
+                                    <td colSpan="3">
+                                        <TextareaAutosize
+                                            autoFocus
+                                            onKeyDown={checkedIn ? handleEnterKey : null}
+                                            minRows="3"
+                                            maxRows="15"
+                                            className="placeholder:text-6xl placeholder:italic mt-3 p-4 min-w-full bg-nosferatu-100 text-sm font-mono text-black rounded-xl"
+                                            placeholder="Chat"
+                                            onChange={chatHandler()}
+                                            value={chatInput}
+                                        />
+                                    </td>
+                                    <td className="items-baseline justify-evenly text-center align-middle text-4xl">
+                                        { checkedIn ?
+                                            <i
+                                                onClick={!isClicked ? () => handleChat() : null}
+                                                className={isClicked ? "text-dracula-900 mt-4 m-2 fa-solid fa-hat-wizard fa-2x cursor-pointer hover:text-dracula-100" : "text-blade-300 mt-4 m-2 fa-solid fa-message fa-2x cursor-pointer hover:text-vanHelsing-700"}
+                                            /> :
+                                            <i className="fa-solid fa-triangle-exclamation text-marcelin-900 text-4xl" />
+                                        }
+                                    </td>
+                                </tr>
                             }
-                            {/* <tr><td colSpan={3}><p>{streamedData}</p></td></tr> */}
                             {/*  Settings */}
                             <tr><td colSpan={3}><i className="fa-solid fa-gear text-4xl text-aro-800 text-center mb-2 ml-8 mt-4"></i></td></tr>
                             <tr className="align-top">
@@ -541,7 +511,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                 </td>
 
                                 {/* top-p info */}
-                                <td colSpan={( (chatType.includes("OpenAI")) || (chatType.includes("Grok")) ) ? 2 : 1} className="w-1/6 bg-cullen-200 rounded-xl bg-gradient-to-tl from-cullen-500">
+                                <td colSpan={( (chatType.includes("OpenAI")) || (chatType.includes("Grok")) || (chatType.includes("Deepseek")) ) ? 2 : 1} className="w-1/6 bg-cullen-200 rounded-xl bg-gradient-to-tl from-cullen-500">
                                     <table><tbody><tr className="align-top">
                                         <td className="w-1/6"><i className="ml-2 fa-brands fa-react text-2xl text-vanHelsing-900"></i></td>
                                         <td className="w-5/6 p-1"><b>top-p:</b><br /><i className="fa-solid fa-caret-right text-sm text-vanHelsing-900"></i> {topp}</td>
@@ -549,7 +519,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                 </td>
 
                                 {/* top-k info */}
-                                { ( (chatType.includes("OpenAI")) || (chatType.includes("Grok")) ) ?
+                                { ( (chatType.includes("OpenAI")) || (chatType.includes("Grok")) || (chatType.includes("Deepseek")) ) ?
                                     <></> :
                                     <td className="w-1/6 bg-cullen-200 rounded-xl bg-gradient-to-tl from-cullen-500">
                                         <table><tbody><tr className="align-top">

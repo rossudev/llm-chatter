@@ -7,40 +7,17 @@ import debounce from "lodash/debounce";
 import { v4 as uuidv4 } from 'uuid';
 import Chat from "./components/Chat";
 import { ConsolePage } from './console/ConsolePage.jsx';
+import Config from './Config';
 export const dataContext = createContext();
 
 function App() {
-  const openAImodels = [
-    { name: "gpt-4o" },
-    { name: "gpt-4o-mini" },
-    { name: "gpt-4-turbo" },
-    { name: "gpt-4" },
-    { name: "gpt-3.5-turbo" },
-    { name: "o1-preview" },
-    { name: "o1-mini" },
-  ];
-
-  const anthropicAImodels = [
-    { name: "claude-3-5-sonnet-20241022" },
-    { name: "claude-3-5-haiku-20241022" },
-    { name: "claude-3-opus-20240229" },
-    { name: "claude-3-sonnet-20240229" },
-    { name: "claude-3-haiku-20240307" },
-  ];
-
-  const googleAImodels = [
-    { name: "gemini-1.5-pro" },
-    { name: "gemini-1.5-flash" },
-    { name: "gemini-1.5-flash-8b" },
-  ];
-
-  const grokAImodels = [
-    { name: "grok-beta" },
-  ];
-
-/*   const realtimeAImodels = [
-    { name: "realtime" },
-  ] */
+  const {
+    openAI: openAImodels,
+    anthropic: anthropicAImodels,
+    google: googleAImodels,
+    grok: grokAImodels,
+    deepseek: deepseekAImodels,
+  } = Config.models;
 
   //Which model type is chosen by default
   const [chatType, setChatType] = useState("OpenAI");
@@ -49,8 +26,8 @@ function App() {
 
   //Other defaults
   const [serverPassphrase, setServerPassphrase] = useState("");
-  const [serverURL, setServerURL] = useState("http://localhost:8080");
-  const [relayWS, setRelayWS] = useState("http://localhost:8081");
+  const [serverURL, setServerURL] = useState("https://x.rossu.dev");
+  const [relayWS, setRelayWS] = useState("https://x.rossu.dev/relay");
   const [sysMsg, setSysMsg] = useState("Let's work this out in a step by step way to be sure we have the right answer.");
   const [temperature, setTemperature] = useState("0.8");
   const [topp, setTopp] = useState("1");
@@ -70,9 +47,9 @@ function App() {
   const [chosenAnthropic, setChosenAnthropic] = useState(anthropicAImodels[0]);
   const [chosenGoogle, setChosenGoogle] = useState(googleAImodels[0]);
   const [chosenGrokAI, setChosenGrokAI] = useState(grokAImodels[0]);
+  const [chosenDeepseekAI, setChosenDeepseekAI] = useState(deepseekAImodels[0]);
   const [chosenOllama, setChosenOllama] = useState(localModels[0]);
   const [chosenOpenAI, setChosenOpenAI] = useState(openAImodels[0]);
-  //const [chosenRealtimeAI, setChosenRealtimeAI] = useState(realtimeAImodels[0]);
   const intervalIdRef = useRef(null);
 
 // Check if the arrays contains elements before adding related keys
@@ -86,19 +63,18 @@ function App() {
   if (grokAImodels.length > 0) {
     modelOptions["Grok"] = grokAImodels;
   }
+  if (deepseekAImodels.length > 0) {
+    modelOptions["Deepseek"] = deepseekAImodels;
+  }
 
   if (localModels.length > 0) {
     modelOptions["Ollama"] = localModels;
-    modelOptions["Ollama - LangChain"] = localModels;
+    modelOptions["LangChain"] = localModels;
   }
 
   if (openAImodels.length > 0) {
     modelOptions["OpenAI"] = openAImodels;
   }
-  
-/*   if (realtimeAImodels.length > 0) {
-    modelOptions["Realtime"] = realtimeAImodels;
-  } */
 
   function useDebouncedCallback(callback, delay) {
     const debouncedFn = useMemo(() => debounce(callback, delay), [callback, delay]);
@@ -133,7 +109,7 @@ function App() {
 
   const debouncedMakeNewChat = useDebouncedCallback(makeNewChat, 250);
 
-  //Loop every second to check if server is available
+  //Loop every 3 seconds to check if server is available
   const startInterval = useCallback(() => {
     // Ensure not to start multiple intervals
     if (intervalIdRef.current) {
@@ -146,8 +122,13 @@ function App() {
     // Start the interval
     intervalIdRef.current = setInterval(() => {
       checkBackServer();
-    }, 1000);
+    }, 3000);
   });
+
+  //Starts the interval on first load
+  useEffect(() => {
+    startInterval();
+  }, []);
 
   const checkBackServer = useCallback(debounce(async () => {
     try {
@@ -157,7 +138,6 @@ function App() {
       // Only update state if the value has changed
       if (backServerCheck === "ok") {
         setServerCheck(true);
-        //clientCheckIn();
       } else {
         setServerCheck(false);
         setClientJWT("");
@@ -191,7 +171,7 @@ function App() {
         const newToken = theJWT.data;
         setClientJWT(newToken);
         setCheckedIn(true);
-        //checkModels(newToken);
+        checkModels(newToken);
       }
     } catch (error) { console.log(error); }
   }, 250), [clientJWT, serverPassphrase, sessionHash]);
@@ -233,8 +213,8 @@ function App() {
         "Anthropic": anthropicAImodels,
         "Google": googleAImodels,
         "Grok": grokAImodels,
+        "Deepseek": deepseekAImodels,
         "OpenAI": openAImodels,
-        //"Realtime": realtimeAImodels,
       };
 
       const randomOllama = getRandomModel(allModels);
@@ -254,8 +234,8 @@ function App() {
       "Anthropic": { modelState: chosenAnthropic, list: anthropicAImodels },
       "Google": { modelState: chosenGoogle, list: googleAImodels },
       "Grok": { modelState: chosenGrokAI, list: grokAImodels },
+      "Deepseek": { modelState: chosenDeepseekAI, list: deepseekAImodels },
       "OpenAI": { modelState: chosenOpenAI, list: openAImodels },
-      //"Realtime": { modelState: chosenRealtimeAI, list: realtimeAImodels },
       "default": { modelState: chosenOllama, list: localModels }, //Ollama
     };
 
@@ -266,7 +246,7 @@ function App() {
 
     setModel(previousSelectedModel);
     setListModels(selected.list);
-  }, [chosenOpenAI, chosenAnthropic, chosenGoogle, chosenGrokAI, chosenOllama, localModels]);
+  }, [chosenOpenAI, chosenAnthropic, chosenGoogle, chosenGrokAI, chosenDeepseekAI, chosenOllama, localModels]);
 
 
   const handleModelChange = useCallback((e) => {
@@ -277,40 +257,27 @@ function App() {
       "Anthropic": setChosenAnthropic,
       "Google": setChosenGoogle,
       "Grok": setChosenGrokAI,
+      "Deepseek": setChosenDeepseekAI,
       "Ollama": setChosenOllama,
       "OpenAI": setChosenOpenAI,
-      //"Realtime": setChosenRealtimeAI,
     };
 
     (setChosenMapping[chatType] || setChosenOllama)(modelObj);
   }, [chatType]);
 
-  const handleSysMsgChange = useCallback((e) => {
-    setSysMsg(e.target.value);
+  const handleChange = useCallback((setter) => (e) => {
+    setter(e.target.value);
   }, []);
 
-  const handleToppChange = useCallback((e) => {
-    setTopp(e.target.value);
-  }, []);
-
-  const handleTopkChange = useCallback((e) => {
-    setTopk(e.target.value);
-  }, []);
-
-  const handleTempChange = useCallback((e) => {
-    setTemperature(e.target.value);
-  }, []);
-
-  const handleURLChange = useCallback((e) => {
-    setServerURL(e.target.value);
-  }, []);
+  const handleSysMsgChange = handleChange(setSysMsg);
+  const handleToppChange = handleChange(setTopp);
+  const handleTopkChange = handleChange(setTopk);
+  const handleTempChange = handleChange(setTemperature);
+  const handleURLChange = handleChange(setServerURL);
+  const handlePassphraseChange = handleChange(setServerPassphrase);
 
   const handleCheckboxChange = useCallback((e) => {
     setAdvancedSetting(e.target.checked);
-  }, []);
-
-  const handlePassphraseChange = useCallback((e) => {
-    setServerPassphrase(e.target.value);
   }, []);
 
   const handleLangchainURLChange = useCallback((e) => {
@@ -354,7 +321,7 @@ function App() {
   const itemCount = componentList.length;
 
   return (
-    <dataContext.Provider value={{ componentList, setComponentList, chatCount, setChatCount, chosenAnthropic, chosenGoogle, chosenGrokAI, chosenOllama, chosenOpenAI, clientJWT, checkedIn }}>
+    <dataContext.Provider value={{ componentList, setComponentList, chatCount, setChatCount, chosenAnthropic, chosenGoogle, chosenGrokAI, chosenDeepseekAI, chosenOllama, chosenOpenAI, clientJWT, checkedIn }}>
       <div>
         <Spring
           from={{ opacity: 0 }}
@@ -363,7 +330,7 @@ function App() {
           ]}
           delay={400}>
           {styles => (
-            <animated.div style={styles} className="min-w-[50%] text-aro-100 place-self-center cursor-default bg-vonCount-600 bg-gradient-to-tl from-vonCount-700 rounded-3xl font-bold p-1 flex items-center justify-center">
+            <animated.div style={styles} className="min-w-[50%] text-aro-100 place-self-center cursor-default bg-vonCount-600 bg-gradient-to-tl from-vonCount-700 rounded-3xl font-bold p-2 flex items-center justify-center">
 
             { /* Settings box */ }
               <div className="w-full">
@@ -394,14 +361,14 @@ function App() {
                           <><p>Node.js Server: <span className="text-marcelin-900">Offline</span> <i className="fa-solid fa-triangle-exclamation text-marcelin-900 text-2xl"></i></p></>
                         }
                         { !intervalIdRef.current &&
-                          <div onClick={debounce(() => { startInterval() }, 250)} className="bg-nosferatu-200 hover:bg-nosferatu-300 rounded-3xl text-2xl font-bold m-2 text-center p-4"><p>Connect</p></div>
+                          <div onClick={debounce(() => { startInterval() }, 250)} className="bg-nosferatu-200 hover:bg-nosferatu-300 rounded-3xl text-2xl font-bold m-2 text-center p-4 cursor-pointer"><p>Connect</p></div>
                         }
                         { (serverCheck && !checkedIn && serverPassphrase) &&
-                          <div onClick={debounce(() => { clientCheckIn() }, 250)} className="bg-nosferatu-200 hover:bg-nosferatu-300 rounded-3xl text-2xl font-bold m-2 text-center p-4"><p>Sign In</p></div>
+                          <div onClick={debounce(() => { clientCheckIn() }, 250)} className="bg-nosferatu-200 hover:bg-nosferatu-300 rounded-3xl text-2xl font-bold m-2 text-center p-4 cursor-pointer"><p>Sign In</p></div>
                         }
-                        { (serverCheck && (localModels.length === 0) && checkedIn) &&
-                          <div onClick={debounce(() => { checkModels(clientJWT) }, 250)} className="bg-nosferatu-200 hover:bg-nosferatu-300 rounded-3xl text-2xl font-bold m-2 text-center p-4"><p>Connect Ollama</p></div>
-                        }
+                        { /* { (serverCheck && (localModels.length === 0) && checkedIn) && */ }
+                        { /* <div onClick={debounce(() => { checkModels(clientJWT) }, 250)} className="bg-nosferatu-200 hover:bg-nosferatu-300 rounded-3xl text-2xl font-bold m-2 text-center p-4 cursor-pointer"><p>Connect Ollama</p></div> */ }
+                        { /* } */ }
                       </td>
                     </tr>
 
@@ -562,7 +529,7 @@ function App() {
                         </tr>
 
                         { /* top-k */ }
-                        { ( (chatType.includes("OpenAI")) || (chatType.includes("Grok")) ) ?
+                        { ( (chatType.includes("OpenAI")) || (chatType.includes("Grok")) || (chatType.includes("Deepseek")) ) ?
                           <></> :
                           <tr>
                             <td className="pb-4">top-k:</td>

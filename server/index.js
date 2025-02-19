@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 import express from "express";
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
@@ -97,7 +96,7 @@ console.log = function (...args) {
 
 
 
-//Heartbeat: Clients ping this /check URL every second
+//Heartbeat: Clients ping this /check URL every few seconds seconds
 app.post('/check', async (req, res) => {
   res.send("ok");
 }); 
@@ -128,16 +127,22 @@ const validateGetModels =[
 app.post('/checkin', validateGetModels, async (req, res) => {
   const errors = validationResult(req);
   
+  const clientIp = ( req.headers['x-forwarded-for'] || req.ip );
+  const origin = req.headers.origin;
+
   if (!errors.isEmpty()) {
     console.log(errors);
     res.status(400).json({ error: 'Internal Server Error' });
   }
 
   const checkPass = await verifyPassphrase(req.body.serverPassphrase, process.env['LLM_CHATTER_PASSPHRASE']);
-  if (!checkPass) { return res.status(400).json({ error: 'Passphrase Failure' }); }
-  
-  const clientIp = ( req.headers['x-forwarded-for'] || req.ip );
-  const origin = req.headers.origin;
+  if (!checkPass) { 
+    console.log(chalk.cyan("\nWrong password." +
+      "\nSource (Origin): " + origin +
+      "\nConnector's Address (IP): " + clientIp + "\n"));
+    return res.status(400).json({ error: 'Passphrase Failure' }); 
+  }
+
   const token = generateToken(req.body.sessionHash);
 
   console.log(chalk.cyan("\nClient successfully checked in." +
@@ -397,142 +402,7 @@ app.post('/anthropic', validateInput, async (req, res) => {
 
 
 
-const streamInfo = [];
-
-function addOrUpdateStreamInfo(newObject) {
-  // Find the index of the existing object with the same token
-  const index = streamInfo.findIndex((element) => element.token === newObject.token);
-  if (index !== -1) {
-    // If the object is found, update it with the new values
-    streamInfo[index] = newObject;
-    //console.log("Updated existing object:", streamInfo[index]);
-  } else {
-    // If the object is not found, push the new object to the array
-    streamInfo.push(newObject);
-    //console.log("Added new object:", newObject);
-  }
-}
-
-//OpenAI and Grok stream initialization
-async function initStream(req, res) {
-  // Handle validation errors
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    console.log(errors);
-    res.status(400).json({ error: 'Internal Server Error' });
-  }
-
-  try {
-    const { model, messages, temperature, top_p } = req.body;
-
-    const token = req.headers['authorization']?.split(' ')[1];
-
-    // Validate required fields
-    if (!model || !messages) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    addOrUpdateStreamInfo({
-      token: token,
-      model: model,
-      messages: messages,
-      temperature: temperature,
-      top_p: top_p,
-    });
-    res.status(200).json({msg: "hello"});
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: `API Failure` }); // Generic error message
-  }
-}
-
-app.post('/openai-stream-init', validateInput, (req, res) => initStream(req, res));
-app.post('/grok-stream-init', validateInput, (req, res) => initStream(req, res));
-
-
-
-
-//Stream Requests
-async function makeStream(req, res, apiKeyEnvVar, baseUrl = null) {
-  // Handle validation errors
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    console.log(errors);
-    res.status(400).json({ error: 'Internal Server Error' });
-  }
-
-  try {
-    const result = streamInfo.find((element) => element.token === req.query.token);
-
-    const { model, messages, temperature, top_p } = result;
-
-    // Validate required fields
-    if (!model || !messages) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    // Set up client with the appropriate API key and optional base URL
-    const client = new OpenAI({
-      apiKey: process.env[apiKeyEnvVar],
-      ...(baseUrl && { baseURL: baseUrl })
-    });
-
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-
-    // Make the API call
-    const completion = await client.chat.completions.create({
-      model,
-      max_tokens: 1000,
-      temperature,
-      top_p: top_p,
-      messages,
-      stream: true,
-    });
-
-    let fullMsg = ''; // Initialize fullMsg as an empty string
-    for await (const chunk of completion) {
-      const respondChunk = chunk.choices[0].delta.content;
-      // Check if respondChunk is undefined or an empty string
-      if (respondChunk === undefined || respondChunk === '') {
-        continue; // Skip the rest of the loop iteration
-      }
-      res.write(`data: ${JSON.stringify(respondChunk)}\n\n`);
-      fullMsg += respondChunk;
-    }
-
-    res.end();
-
-    const {
-      xForwardedFor = req.ip,
-    } = req.headers;
-    console.log(`
-    ${chalk.bgGreen.bold('\n////////////////////////////////////////')}
-    ${chalk.underline('Remote IP:')} ${chalk.white(xForwardedFor)}
-    ${chalk.blue.bold.underline('Model')}: ${chalk.blue(model)}
-    ${chalk.yellow.bold.underline('Temperature')}: ${chalk.yellow(temperature)}
-    ${chalk.red.bold.underline('Top-P')}: ${chalk.red(top_p)}
-    ${chalk.magenta.bold.underline('System')}:
-    ${chalk.magenta(messages[0].content)}
-    ${chalk.cyan.bold.underline('Prompt')}:
-    ${chalk.cyan(((messages[messages.length - 1])).content[0].text)}
-    ${chalk.white.bold.underline('Response')}:
-    ${chalk.bgBlack.white(fullMsg)}
-    ${chalk.bgGreen.bold('////////////////////////////////////////\n')}
-    `);
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: `API Failure` }); // Generic error message
-  }
-}
-
-app.get('/openai-stream', validateInput, (req, res) => makeStream(req, res, 'OPENAI_API_KEY'));
-app.get('/grok-stream', validateInput, (req, res) => makeStream(req, res, 'GROK_API_KEY', "https://api.x.ai/v1"));
-
-
-
-//OpenAI and Grok share the same SDK -- Grok needs to have baseUrl set
+//OpenAI and Grok, Deepseek share the same SDK -- Grok and DeepSeek need to have baseUrl set
 async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
   // Handle validation errors
   const errors = validationResult(req);
@@ -549,7 +419,7 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
     // Check the model and alter messages if necessary
-    if (model === "o1-preview" || model === "o1-mini") {
+      if (model === "o3-mini" || model === "o1-mini" || model === "o1-preview") {
       // Filter out the object with role "system"
       //messages = messages.filter(message => message.role !== "system");
       temperature = 1;
@@ -600,6 +470,7 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
 }
 app.post('/openai', validateInput, (req, res) => makeAIRequest(req, res, 'OPENAI_API_KEY'));
 app.post('/grok', validateInput, (req, res) => makeAIRequest(req, res, 'GROK_API_KEY', "https://api.x.ai/v1"));
+app.post('/deepseek', validateInput, (req, res) => makeAIRequest(req, res, 'DEEPSEEK_API_KEY', "https://api.deepseek.com"));
 
 
 
