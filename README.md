@@ -39,6 +39,7 @@ Built with:
 
 # Models Documentation Reference
 - [Anthropic](https://docs.anthropic.com/)
+- [Deepseek](https://api-docs.deepseek.com/)
 - [Google](https://ai.google.dev/gemini-api/docs)
 - [Grok](https://docs.x.ai/docs)
 - [Ollama](https://github.com/jmorganca/ollama/blob/main/docs/api.md)
@@ -60,6 +61,8 @@ Built with:
 - claude-3-opus-20240229
 - claude-3-sonnet-20240229
 - claude-3-haiku-20240307
+- deepseek-chat
+- deepseek-reasoner
 - gemini-1.5-pro
 - gemini-1.5-flash
 - gemini-1.5-flash-8b
