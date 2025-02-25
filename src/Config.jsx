@@ -14,6 +14,7 @@ const config = {
         { name: "gpt-3.5-turbo" },
       ],
       anthropic: [
+        { name: "claude-3-7-sonnet-20250219" },
         { name: "claude-3-5-sonnet-20241022" },
         { name: "claude-3-5-haiku-20241022" },
         { name: "claude-3-opus-20240229" },
