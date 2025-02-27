@@ -4,6 +4,7 @@ const config = {
     // Default AI models available for different providers.
     models: {
       openAI: [
+        { name: "gpt-4.5-preview" },
         { name: "o3-mini" },
         { name: "o1-preview" },
         { name: "o1-mini" },
