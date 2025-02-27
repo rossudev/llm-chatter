@@ -47,6 +47,7 @@ Built with:
 - [OpenAI](https://platform.openai.com/docs/overview)
 
 # Proprietary Models List
+- gpt-4.5-preview
 - o3-mini
 - o1-preview
 - o1-mini
