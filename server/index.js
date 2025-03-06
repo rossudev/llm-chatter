@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 import express from "express";
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
@@ -419,7 +420,7 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
     // Check the model and alter messages if necessary
-      if (model === "o3-mini" || model === "o1-mini" || model === "o1-preview") {
+      if (model === "o3-mini" || model === "o1-mini" || model === "o1-preview" || model === "o1") {
       // Filter out the object with role "system"
       //messages = messages.filter(message => message.role !== "system");
       temperature = 1;

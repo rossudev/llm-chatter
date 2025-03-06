@@ -46,11 +46,12 @@ Built with:
 - [Ollama LangChain](https://js.langchain.com/docs/integrations/llms/ollama/)
 - [OpenAI](https://platform.openai.com/docs/overview)
 
-# Proprietary Models List
-- gpt-4.5-preview
+# Models List
 - o3-mini
+- o1
 - o1-preview
 - o1-mini
+- gpt-4.5-preview
 - gpt-4o-realtime-preview
 - gpt-4o
 - gpt-4o-mini

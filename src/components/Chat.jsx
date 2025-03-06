@@ -7,9 +7,10 @@ import copy from "copy-to-clipboard";
 import { debounce } from "lodash";
 import XClose from "./XClose";
 import ContentText from "./ContentText";
+import ImageUploader from "./ImageUploader";
 import { dataContext } from "../App";
 
-const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, topp, topk, langchainURL, listModels, serverURL, modelOptions, localModels, }) => {
+const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, topp, topk, langchainURL, listModels, serverURL, modelOptions, localModels, visionModels }) => {
     const { componentList, setComponentList, chatCount, setChatCount, chosenAnthropic, chosenGoogle, chosenGrokAI, chosenDeepseekAI, chosenOllama, chosenOpenAI, clientJWT, checkedIn } = useContext(dataContext);
 
     let sysMsgs = [];
@@ -20,7 +21,8 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
         "LangChain",
         "Google",
     ];
-    const nonDefaultModels = ["o1-mini", "o1-preview", "o3-mini"];
+    const nonDefaultModels = ["o1", "o1-mini", "o1-preview", "o3-mini"];
+
     function setMessagesAndMeta(isDefault = true) {
         if (isDefault) {
             sysMsgs = [{ role: "system", content: systemMessage }];
@@ -30,6 +32,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
             firstMeta = [];
         }
     }
+
     if (nonOpenAIChatTypes.includes(chatType)) {
         setMessagesAndMeta(false);
     } else { // OpenAI
@@ -41,6 +44,8 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
     }
 
     const [chatInput, setChatInput] = useState("");
+    const [base64Image, setBase64Image] = useState("");
+    const [fileFormat, setFileFormat] = useState("");
     const [messageMetas, setMessageMetas] = useState(firstMeta);
     const [chatMessages, setChatMessages] = useState(sysMsgs);
     const [chatMessagesPlusMore, setChatMessagesPlusMore] = useState(sysMsgs);
@@ -50,17 +55,22 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
     const [isClicked, setIsClicked] = useState(false);
     const [isError, setIsError] = useState(false);
     const [sentOne, setSentOne] = useState(false);
-
+    
     const fetchData = useCallback(async (input, modelThisFetch) => {
         let endPath = "";
         let sendPacket = {};
+        let msgs = chatMessages.concat({ "role": "user", "content": [{ "type": "text", "text": input }] });
+
+        if (!sentOne && base64Image && visionModels.includes(modelThisFetch)) {
+            msgs = msgs.concat( { "role": "user", "content": [{ "type": "image_url", "image_url": {"url": base64Image }}]});
+        };
 
         switch (chatType) {
             case "OpenAI":
                 endPath = serverURL + "/openai";
                 sendPacket = {
                     model: modelThisFetch,
-                    messages: chatMessages.concat({ "role": "user", "content": [{ "type": "text", "text": input }] }),
+                    messages: msgs,
                     temperature: parseFloat(temperature),
                     top_p: parseFloat(topp),
                 };
@@ -70,7 +80,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                 endPath = serverURL + "/grok";
                 sendPacket = {
                     model: modelThisFetch,
-                    messages: chatMessages.concat({ "role": "user", "content": [{ "type": "text", "text": input }] }),
+                    messages: msgs,
                     temperature: parseFloat(temperature),
                     top_p: parseFloat(topp),
                     top_k: parseFloat(topk),
@@ -81,7 +91,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                 endPath = serverURL + "/deepseek";
                 sendPacket = {
                     model: modelThisFetch,
-                    messages: chatMessages.concat({ "role": "user", "content": [{ "type": "text", "text": input }] }),
+                    messages: msgs,
                     temperature: parseFloat(temperature),
                     top_p: parseFloat(topp),
                     top_k: parseFloat(topk),
@@ -92,7 +102,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                 endPath = serverURL + "/anthropic";
                 sendPacket = {
                     model: modelThisFetch,
-                    messages: chatMessages.concat({ "role": "user", "content": [{ "type": "text", "text": input }] }),
+                    messages: msgs,
                     temperature: parseFloat(temperature),
                     top_p: parseFloat(topp),
                     top_k: parseFloat(topk),
@@ -104,7 +114,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                 endPath = serverURL + "/google";
                 sendPacket = {
                     model: modelThisFetch,
-                    messages: chatMessages.concat({ "role": "user", "content": [{ "type": "text", "text": input }] }),
+                    messages: msgs,
                     temperature: parseFloat(temperature),
                     top_p: parseFloat(topp),
                     top_k: parseFloat(topk),
@@ -206,8 +216,6 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                 setChatInput("");
             }
 
-            //const finalInput = isVoice ? await fetchVoice(await handleSave(input)) : [input, ""];
-
             const finalInput = [input, ""];
 
             try {
@@ -293,6 +301,23 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
         const value = event.target.value;
         setChatInput(value);
     }
+
+    const handlePaste = (event) => {
+        if (!sentOne) {
+            const items = event.clipboardData.items;
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    const blob = items[i].getAsFile();
+                    const reader = new FileReader();
+                    
+                    reader.onload = (e) => {
+                    setBase64Image(e.target.result);
+                    };
+                    reader.readAsDataURL(blob);
+                }
+            }
+        }
+    };
 
     const handleCopy = useCallback((e) => {
         e.preventDefault();
@@ -458,11 +483,12 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                         <TextareaAutosize
                                             autoFocus
                                             onKeyDown={checkedIn ? handleEnterKey : null}
+                                            onChange={chatHandler()}
+                                            onPaste={handlePaste}
                                             minRows="3"
                                             maxRows="15"
                                             className="placeholder:text-6xl placeholder:italic mt-3 p-4 min-w-full bg-nosferatu-100 text-sm font-mono text-black rounded-xl"
                                             placeholder="Chat"
-                                            onChange={chatHandler()}
                                             value={chatInput}
                                         />
                                     </td>
@@ -477,8 +503,11 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                     </td>
                                 </tr>
                             }
+
                             {/*  Settings */}
-                            <tr><td colSpan={3}><i className="fa-solid fa-gear text-4xl text-aro-800 text-center mb-2 ml-8 mt-4"></i></td></tr>
+                            <tr>
+                                <td colSpan={3}><i className="fa-solid fa-gear text-4xl text-aro-800 text-center mb-2 ml-8 mt-4"></i> <ImageUploader  base64Image={base64Image} setBase64Image={setBase64Image} sentOne={sentOne} fileFormat={fileFormat} setFileFormat={setFileFormat} /></td>
+                            </tr>
                             <tr className="align-top">
 
                                 {/*  Model info */}

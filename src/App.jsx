@@ -52,7 +52,7 @@ function App() {
   const [chosenOpenAI, setChosenOpenAI] = useState(openAImodels[0]);
   const intervalIdRef = useRef(null);
 
-// Check if the arrays contains elements before adding related keys
+  // Check if the arrays contains elements before adding related keys
   const modelOptions = {};
   if (anthropicAImodels.length > 0) {
     modelOptions["Anthropic"] = anthropicAImodels;
@@ -151,8 +151,8 @@ function App() {
       setLocalModels([]);
     }
   }, 250,
-  [serverCheck] // Add dependencies
-));
+    [serverCheck] // Add dependencies
+  ));
 
   //Ping the backend server to check in, validate passphrase and acquire the JWT for later API calls
   const clientCheckIn = useCallback(debounce(async () => {
@@ -192,10 +192,12 @@ function App() {
       const theModels = await axios.post(
         serverURL + "/getmodels",
         {},
-        { headers: { 
-          "Content-Type": "application/json",
-          'Authorization': `Bearer ${bearer}`,
-         } },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            'Authorization': `Bearer ${bearer}`,
+          }
+        },
       );
 
       const allModels = theModels.data;
@@ -307,7 +309,7 @@ function App() {
   const getGridClasses = (itemCount) => {
     let classes = 'grid gap-3 place-items-center mt-1 ';
     if (itemCount === 1) {
-      classes += 'sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-1 xl:grid-cols-1 2xl:grid-cols-1';
+      classes += 'min-w-[50%] place-self-center items-center justify-center sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-1 xl:grid-cols-1 2xl:grid-cols-1';
     } else if (itemCount === 2) {
       classes += 'sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2';
     } else if (itemCount === 3) {
@@ -332,7 +334,7 @@ function App() {
           {styles => (
             <animated.div style={styles} className="min-w-[50%] text-aro-100 place-self-center cursor-default bg-vonCount-600 bg-gradient-to-tl from-vonCount-700 rounded-3xl font-bold p-2 flex items-center justify-center">
 
-            { /* Settings box */ }
+              { /* Settings box */}
               <div className="w-full">
                 <table className="min-w-full text-black">
                   <tbody>
@@ -351,51 +353,61 @@ function App() {
                       </td>
                     </tr>
 
-                    { /* NodeJS server check display */ }
+                    { /* NodeJS server check display */}
                     <tr>
-                      <td className="pb-4 pr-4">Server Check:</td>
+                      <td className="pb-4 pr-4">Server:</td>
                       <td className="pb-4 font-sans">
                         {serverCheck ?
-                          <p>Node.js Server: <span className="text-blade-700">Online</span><span className="ml-6">{serverURL}</span></p>
+                          <p><span className="text-blade-700">Online</span><span className="ml-6">{serverURL}</span></p>
                           :
-                          <><p>Node.js Server: <span className="text-marcelin-900">Offline</span> <i className="fa-solid fa-triangle-exclamation text-marcelin-900 text-2xl"></i></p></>
+                          <><p><span className="text-marcelin-900">Offline</span> <i className="fa-solid fa-triangle-exclamation text-marcelin-900 text-2xl"></i></p></>
                         }
-                        { !intervalIdRef.current &&
-                          <div onClick={debounce(() => { startInterval() }, 250)} className="bg-nosferatu-200 hover:bg-nosferatu-300 rounded-3xl text-2xl font-bold m-2 text-center p-4 cursor-pointer"><p>Connect</p></div>
-                        }
-                        { (serverCheck && !checkedIn && serverPassphrase) &&
-                          <div onClick={debounce(() => { clientCheckIn() }, 250)} className="bg-nosferatu-200 hover:bg-nosferatu-300 rounded-3xl text-2xl font-bold m-2 text-center p-4 cursor-pointer"><p>Sign In</p></div>
-                        }
-                        { /* { (serverCheck && (localModels.length === 0) && checkedIn) && */ }
-                        { /* <div onClick={debounce(() => { checkModels(clientJWT) }, 250)} className="bg-nosferatu-200 hover:bg-nosferatu-300 rounded-3xl text-2xl font-bold m-2 text-center p-4 cursor-pointer"><p>Connect Ollama</p></div> */ }
-                        { /* } */ }
                       </td>
                     </tr>
+                    {!intervalIdRef.current &&
+                      <tr>
+                        <td></td>
+                        <td>
+                          <div onClick={debounce(() => { startInterval() }, 250)} className="bg-nosferatu-200 hover:bg-nosferatu-300 rounded-3xl text-2xl font-bold m-2 text-center p-4 cursor-pointer"><p>Connect</p></div>
+                        </td>
+                      </tr>
+                    }
+                    {(serverCheck && !checkedIn && serverPassphrase) &&
+                      <tr>
+                        <td></td>
+                        <td>
+                          <div onClick={debounce(() => { clientCheckIn() }, 250)} className="bg-nosferatu-200 hover:bg-nosferatu-300 rounded-3xl text-2xl font-bold m-2 text-center p-4 cursor-pointer mb-4"><p>Sign In</p></div>
+                        </td>
+                      </tr>
+                    }
+                        { /* { (serverCheck && (localModels.length === 0) && checkedIn) && */}
+                        { /* <div onClick={debounce(() => { checkModels(clientJWT) }, 250)} className="bg-nosferatu-200 hover:bg-nosferatu-300 rounded-3xl text-2xl font-bold m-2 text-center p-4 cursor-pointer"><p>Connect Ollama</p></div> */}
+                        { /* } */}
 
-                    { /* Configure NodeJS server URL */ }
+                    { /* Configure NodeJS server URL */}
                     {!serverCheck &&
-                        <tr>
-                          <td className="pb-4 pr-4">Server URL:</td>
-                          <td className="pb-4">
-                            <TextareaAutosize minRows="1" maxRows="2" className="w-full font-bold hover:bg-vonCount-300 bg-vonCount-200 p-4 text-sm font-sans text-black rounded-xl" placeholder="http://localhost:8080" onChange={(e) => handleURLChange(e)} value={serverURL} />
-                          </td>
-                        </tr>
+                      <tr>
+                        <td className="pb-4 pr-4">Server URL:</td>
+                        <td className="pb-4">
+                          <TextareaAutosize minRows="1" maxRows="2" className="w-full font-bold hover:bg-vonCount-300 bg-vonCount-200 p-4 text-sm font-sans text-black rounded-xl" placeholder="http://localhost:8080" onChange={(e) => handleURLChange(e)} value={serverURL} />
+                        </td>
+                      </tr>
                     }
 
-                    { /* NodeJS server passphrase */ }
+                    { /* NodeJS server passphrase */}
                     {!clientJWT &&
-                        <tr>
-                          <td className="pb-4 pr-4">Server Passphrase:</td>
-                          <td className="pb-4 font-sans">
-                            <input type="password" className="min-w-full font-bold hover:bg-vonCount-300 bg-vonCount-200 p-4 text-sm font-sans text-black rounded-xl" placeholder="Server Passphrase" onChange={(e) => handlePassphraseChange(e)} value={serverPassphrase} />
-                          </td>
-                        </tr>
+                      <tr>
+                        <td className="pb-4 pr-4">Server Passphrase:</td>
+                        <td className="pb-4 font-sans">
+                          <input type="password" className="min-w-full font-bold hover:bg-vonCount-300 bg-vonCount-200 p-4 text-sm font-sans text-black rounded-xl" placeholder="Server Passphrase" onChange={(e) => handlePassphraseChange(e)} value={serverPassphrase} />
+                        </td>
+                      </tr>
                     }
 
 
 
-                    { /* System Message */ }
-                    {!chatType.includes("LangChain") &&
+                    { /* System Message */}
+                    { ( !chatType.includes("LangChain") && checkedIn ) &&
                       <tr>
                         <td className="pb-4 pr-4">
                           Starting Prompt:
@@ -406,8 +418,8 @@ function App() {
                       </tr>
                     }
 
-                    { /* LangChain Embed URL */ }
-                    {chatType.includes("LangChain") ?
+                    { /* LangChain Embed URL */}
+                    { ( chatType.includes("LangChain") && checkedIn ) ?
                       <>
                         <tr>
                           {urlValid ?
@@ -421,37 +433,39 @@ function App() {
                       : <></>
                     }
 
-                    { /* Input Type */ }
-                    <tr>
-                      <td className="pb-2 pr-4">Input Type:</td>
-                      <td className="pb-2 tracking-wide font-bold text-black">
-                        <select
-                          name="chatType"
-                          id="chatType"
-                          className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer p-4 min-w-full font-sans rounded-xl text-black"
-                          onChange={(e) => handleChatTypeChange(e)}
-                          value={chatType}
-                        >
-                          {Object.keys(modelOptions).map((optionKey) => (
-                            <option key={optionKey} value={optionKey}>
-                              {optionKey}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                    </tr>
+                    { /* Input Type */}
+                    { checkedIn &&
+                      <tr>
+                        <td className="pb-2 pr-4">Input Type:</td>
+                        <td className="pb-2 tracking-wide font-bold text-black">
+                          <select
+                            name="chatType"
+                            id="chatType"
+                            className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer p-4 min-w-full font-sans rounded-xl text-black"
+                            onChange={(e) => handleChatTypeChange(e)}
+                            value={chatType}
+                          >
+                            {Object.keys(modelOptions).map((optionKey) => (
+                              <option key={optionKey} value={optionKey}>
+                                {optionKey}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                      </tr>
+                    }
 
-                    { /* Model Selection */ }
-                    {advancedSetting &&
+                    { /* Model Selection */}
+                    { ( advancedSetting && checkedIn ) &&
                       <>
                         <tr>
                           <td className="pb-2 pr-4">Model:</td>
                           <td className="pb-2 tracking-wide font-bold text-black">
-                            <select 
-                              name="model" 
-                              id="model" 
-                              className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer p-4 min-w-full font-sans rounded-xl text-black" 
-                              onChange={(e) => handleModelChange(e)} 
+                            <select
+                              name="model"
+                              id="model"
+                              className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer p-4 min-w-full font-sans rounded-xl text-black"
+                              onChange={(e) => handleModelChange(e)}
                               value={model.name}
                               disabled={!modelOptions[chatType] || modelOptions[chatType].length === 0}
                             >
@@ -470,7 +484,7 @@ function App() {
                           </td>
                         </tr>
 
-                        { /* Temperature */ }
+                        { /* Temperature */}
                         <tr>
                           <td className="pb-4 pr-4">temperature:</td>
                           <td className="tracking-wide font-bold text-black">
@@ -499,7 +513,7 @@ function App() {
                           </td>
                         </tr>
 
-                        { /* top-p */ }
+                        { /* top-p */}
                         <tr>
                           <td className="pb-4">top-p:</td>
                           <td className="tracking-wide font-bold text-black">
@@ -528,8 +542,8 @@ function App() {
                           </td>
                         </tr>
 
-                        { /* top-k */ }
-                        { ( (chatType.includes("OpenAI")) || (chatType.includes("Grok")) || (chatType.includes("Deepseek")) ) ?
+                        { /* top-k */}
+                        {((chatType.includes("OpenAI")) || (chatType.includes("Grok")) || (chatType.includes("Deepseek"))) ?
                           <></> :
                           <tr>
                             <td className="pb-4">top-k:</td>
@@ -575,14 +589,14 @@ function App() {
                         ]}
                         delay={200}>
                         {styles => (
-                          <animated.div onClick={() => { debouncedMakeNewChat(chatType); }} style={styles} className="self-start text-black place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-2xl font-bold p-4 flex items-center justify-center mb-2 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-dracula-700 cursor-pointer">
+                          <animated.div onClick={() => { debouncedMakeNewChat(chatType); }} style={styles} className="border-solid border-2 border-aro-800 self-start text-black place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-2xl font-bold p-4 flex items-center justify-center mb-2 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-dracula-700 cursor-pointer">
                             <i className="fa-solid fa-keyboard mr-4"></i>
-                            <h1>+Text</h1>
+                            <h1>Text</h1>
                           </animated.div>
                         )}
                       </Spring>
 
-                      { /* Info of selected model */ }
+                      { /* Info of selected model */}
                       <div className="col-span-2 rounded-lg border-solid border-2 border-aro-800 bg-aro-300 text-black self-start place-self-center text-center items-center justify-center p-2 cursor-text">
                         <p className="underline text-2xl">Text Model:</p>
                         <p className="text-xl">{model.name}</p>
@@ -592,29 +606,29 @@ function App() {
                         }
                       </div>
 
-                      { /* New Voice button */ }
-                      { ( chatType.includes("OpenAI") && (!componentList.some(container => container.chatType.includes("(Voice)"))) ) ?
-                      <>
-                      <Spring
-                        from={{ opacity: 0 }}
-                        to={[
-                          { opacity: 1 }
-                        ]}
-                        delay={200}>
-                        {styles => (
-                          <animated.div onClick={() => { debouncedMakeNewChat("(Voice)"); }} style={styles} className="self-start text-black place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-2xl font-bold p-4 flex items-center justify-center mb-1 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-buffy-700 shadow-xl cursor-pointer">
-                            <i className="fa-solid fa-microphone-lines mr-4"></i>
-                            <h1>+Voice</h1>
-                          </animated.div>
-                        )}
-                      </Spring>
-                      <div className="col-span-2 rounded-lg border-solid border-2 border-aro-800 bg-aro-300 text-black self-start place-self-center text-center items-center justify-center p-2 cursor-text">
-                        <p className="underline text-2xl">Voice Model:</p>
-                        <p className="text-xl">gpt-4o-realtime-preview</p>
-                      </div>
-                      </> :
-                    <></>
-                    }
+                      { /* New Voice button */}
+                      {(chatType.includes("OpenAI") && (!componentList.some(container => container.chatType.includes("(Voice)")))) ?
+                        <>
+                          <Spring
+                            from={{ opacity: 0 }}
+                            to={[
+                              { opacity: 1 }
+                            ]}
+                            delay={300}>
+                            {styles => (
+                              <animated.div onClick={() => { debouncedMakeNewChat("(Voice)"); }} style={styles} className="border-solid border-2 border-aro-800 self-start text-black place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-2xl font-bold p-4 flex items-center justify-center mb-1 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-buffy-700 shadow-xl cursor-pointer">
+                                <i className="fa-solid fa-microphone-lines mr-4"></i>
+                                <h1>Voice</h1>
+                              </animated.div>
+                            )}
+                          </Spring>
+                          <div className="col-span-2 rounded-lg border-solid border-2 border-aro-800 bg-aro-300 text-black self-start place-self-center text-center items-center justify-center p-2 cursor-text">
+                            <p className="underline text-2xl">Voice Model:</p>
+                            <p className="text-xl">gpt-4o-realtime-preview</p>
+                          </div>
+                        </> :
+                        <></>
+                      }
                     </div>
                 }
               </div>
@@ -623,7 +637,7 @@ function App() {
         </Spring>
       </div>
 
-      { /* All the Chats */ }
+      { /* All the Chats */}
       <div className={getGridClasses(itemCount)}>
         {componentList.slice().reverse().map((container) => (
           container.chatType.includes("(Voice)") ? (
@@ -650,6 +664,7 @@ function App() {
               serverURL={container.serverURL}
               modelOptions={container.modelOptions}
               localModels={container.localModels}
+              visionModels={Config.visionModels}
             />
           )
         ))}
