@@ -23,8 +23,8 @@ npm install
 # Prompt for .env configuration
 echo -e "${YELLOW}Configuration needed:${NC}"
 echo -e "Please configure your .env file at $(pwd)/.env with the following:"
-echo -e "- LLM_CHATTER_PASSPHRASE (generate at https://bcrypt.online/)"
-echo -e "- LLM_SERVER_HASH (generate a 32-character password)"
+echo -e "- LLM_CHATTER_PASSPHRASE (generate at https://bcrypt.online/) default: password"
+echo -e "- LLM_SERVER_HASH (please generate a fresh 32-character string: https://duckduckgo.com/?q=generate+password+32+characters)"
 echo -e "- ANTHROPIC_API_KEY (from https://www.anthropic.com/api)"
 echo -e "- DEEPSEEK_API_KEY (from https://platform.deepseek.com/api_keys)"
 echo -e "- GOOGLE_API_KEY (from https://ai.google.dev/gemini-api/docs/billing)"

@@ -11,8 +11,8 @@ Large Language Model chat by text, vision and voice. Proprietary models by API r
 
 1. `curl -fsSL https://raw.githubusercontent.com/rossudev/llm-chatter/master/install.sh | sh`
 2. Configure .env file
-   - [LLM_CHATTER_PASSPHRASE](https://bcrypt.online/)
-   - [LLM_SERVER_HASH](https://duckduckgo.com/?q=generate+password+32+characters)
+   - [LLM_CHATTER_PASSPHRASE](https://bcrypt.online/) - The 'input' at bcrypt.online will be the app's passphrase, and required for logins. The generated hash is placed in .env.
+   - [LLM_SERVER_HASH](https://duckduckgo.com/?q=generate+password+32+characters) - Any 32-character string.
    - [ANTHROPIC_API_KEY](https://www.anthropic.com/api)
    - [DEEPSEEK_API_KEY](https://platform.deepseek.com/api_keys)
    - [GOOGLE_API_KEY](https://ai.google.dev/gemini-api/docs/billing)

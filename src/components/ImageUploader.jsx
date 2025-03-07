@@ -48,7 +48,6 @@ const ImageUploader = ({base64Image, setBase64Image, sentOne, fileFormat, setFil
           {error && <p style={{ color: 'red' }}>{error}</p>}
         </>
       }
-      {/* Here we're going to need to add a way to reset base64Image, like if the user hovers their mouse cursor over this image preview, in the corner there needs to be <i className="fa-solid fa-circle-xmark text-marcelin-900 cursor-pointer" onClick={() => setBase64Image('')}></i> which, when clicked, resets base64Image. */}
       {base64Image && (
         <div style={{ position: 'relative', display: 'inline-block' }}>
           <img src={base64Image} alt="Preview" style={{ maxWidth: '300px', marginTop: '10px' }} />
