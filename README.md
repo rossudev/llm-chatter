@@ -33,7 +33,7 @@ Built with:
 - [TailwindCSS](https://tailwindcss.com/)
 - [FontAwesome](https://fontawesome.com/)
 
-# Models Documentation Reference
+# LLM Documentation
 - [Anthropic](https://docs.anthropic.com/)
 - [Deepseek](https://api-docs.deepseek.com/)
 - [Google](https://ai.google.dev/gemini-api/docs)

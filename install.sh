@@ -4,7 +4,7 @@ set -e
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
-echo -e "${GREEN}Installing LLM-Chatter v0.0.9ls...${NC}"
+echo -e "${GREEN}Installing LLM-Chatter v0.0.9...${NC}"
 # Create main directory
 mkdir -p llm-chatter/client
 cd llm-chatter
@@ -43,8 +43,8 @@ chmod +x start-server.sh
 cat > start-client.sh << 'EOF'
 #!/bin/bash
 cd "$(dirname "$0")/client"
-python3 -m http.server 8181
 echo "Client running at http://localhost:8181"
+python3 -m http.server 8181
 EOF
 chmod +x start-client.sh
 echo -e "${GREEN}Installation complete!${NC}"
@@ -52,9 +52,3 @@ echo -e "Navigate to the installation: ${YELLOW}cd llm-chatter${NC}"
 echo -e "To start the server: ${YELLOW}./start-server.sh${NC}"
 echo -e "To start the client: ${YELLOW}./start-client.sh${NC}"
 echo -e "Then open ${YELLOW}http://localhost:8181${NC} in your browser"
-# Check if Ollama is installed
-if ! command -v ollama &> /dev/null; then
-    echo -e "${YELLOW}Note: Ollama is required but not detected.${NC}"
-    echo -e "Install Ollama with: ${YELLOW}curl -fsSL https://ollama.com/install.sh | sh${NC}"
-    echo -e "Then add at least one model from: https://www.ollama.ai/library"
-fi
