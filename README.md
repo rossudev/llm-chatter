@@ -20,9 +20,10 @@ Large Language Model chat by text, vision and voice. Proprietary models by API r
    - [OPENAI_API_KEY](https://platform.openai.com/account/billing)
 
 # Startup
-
-1. To start the server: `./start-server.sh`
-2. To start the client: `./start-client.sh`
+* `cd llm-chatter`
+* To start both server and client: `./start-all.sh`
+* To start the server: `./start-server.sh`
+* To start the client: `./start-client.sh`
 
 # Thanks!
 
