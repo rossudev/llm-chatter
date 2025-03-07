@@ -26,8 +26,8 @@ function App() {
 
   //Other defaults
   const [serverPassphrase, setServerPassphrase] = useState("");
-  const [serverURL, setServerURL] = useState("http://localhost");
-  const [relayWS, setRelayWS] = useState("http://localhost");
+  const [serverURL, setServerURL] = useState("http://localhost:8080");
+  const [relayWS, setRelayWS] = useState("http://localhost:8081");
   const [sysMsg, setSysMsg] = useState("Let's work this out in a step by step way to be sure we have the right answer.");
   const [temperature, setTemperature] = useState("0.8");
   const [topp, setTopp] = useState("1");
@@ -309,7 +309,7 @@ function App() {
   const getGridClasses = (itemCount) => {
     let classes = 'grid gap-3 place-items-center mt-1 ';
     if (itemCount === 1) {
-      classes += 'min-w-[50%] place-self-center items-center justify-center sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-1 xl:grid-cols-1 2xl:grid-cols-1';
+      classes += 'w-[50%] place-self-center items-center justify-center sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-1 xl:grid-cols-1 2xl:grid-cols-1';
     } else if (itemCount === 2) {
       classes += 'sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2';
     } else if (itemCount === 3) {

@@ -1,20 +1,15 @@
-# LLM Chatter, v0.0.8
+# LLM Chatter, v0.0.9
 
-A web interface to chat by text (and voice!) with various large language models.
+Large Language Model chat by text, vision and voice. Proprietary models by API request, local Ollama model and LangChain (by URL) supported.
 
-# Client setup
+# Ollama Setup
 
 1. Install Ollama and [add at least one model](https://www.ollama.ai/library).
-2. `wget https://raw.githubusercontent.com/rossudev/llm-chatter/master/dist/index.html`
+   - `curl -fsSL https://ollama.com/install.sh | sh`
 
-# Client start-up
+# Installation
 
-1. `cd [path-to-file]; python3 -m http.server 8181`
-2. Open `localhost:8181` in your web browser.
-
-# Server setup
-
-1. `mkdir llm-chatter-server; cd llm-chatter-server; wget https://raw.githubusercontent.com/rossudev/llm-chatter/master/server/index.js; wget https://raw.githubusercontent.com/rossudev/llm-chatter/master/server/package.json; wget https://raw.githubusercontent.com/rossudev/llm-chatter/master/server/.env; wget https://raw.githubusercontent.com/rossudev/llm-chatter/master/server/relay.js; npm install`
+1. `curl -fsSL https://raw.githubusercontent.com/rossudev/llm-chatter/master/install.sh | sh`
 2. Configure .env file
    - [LLM_CHATTER_PASSPHRASE](https://bcrypt.online/)
    - [LLM_SERVER_HASH](https://duckduckgo.com/?q=generate+password+32+characters)
@@ -24,11 +19,12 @@ A web interface to chat by text (and voice!) with various large language models.
    - [GROK_API_KEY](https://console.x.ai/)
    - [OPENAI_API_KEY](https://platform.openai.com/account/billing)
 
-# Server start-up
+# Startup
 
-1. `cd [path-to-file]; node index.js`
+1. To start the server: `./start-server.sh`
+2. To start the client: `./start-client.sh`
 
-# Thanks
+# Thanks!
 
 Built with: 
 
@@ -48,26 +44,29 @@ Built with:
 
 # Models List
 - o3-mini
-- o1
+- o1*
 - o1-preview
 - o1-mini
-- gpt-4.5-preview
-- gpt-4o-realtime-preview
-- gpt-4o
-- gpt-4o-mini
-- gpt-4-turbo
+- gpt-4.5-preview*
+- gpt-4o-realtime-preview (Audio In/Out)
+- gpt-4o*
+- gpt-4o-mini*
+- gpt-4-turbo*
 - gpt-4
 - gpt-3.5-turbo
-- claude-3-7-sonnet-20250219
-- claude-3-5-sonnet-20241022
-- claude-3-5-haiku-20241022
-- claude-3-opus-20240229
-- claude-3-sonnet-20240229
-- claude-3-haiku-20240307
+- claude-3-7-sonnet-20250219*
+- claude-3-5-sonnet-20241022*
+- claude-3-5-haiku-20241022*
+- claude-3-opus-20240229*
+- claude-3-sonnet-20240229*
+- claude-3-haiku-20240307*
 - deepseek-chat
 - deepseek-reasoner
-- gemini-1.5-pro
-- gemini-1.5-flash
+- gemini-2.0-flash-exp*
+- gemini-1.5-pro*
+- gemini-1.5-flash*
 - gemini-1.5-flash-8b
 - grok-2
 - grok-beta
+
+ *Vision image support (img & text in, text out)
