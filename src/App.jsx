@@ -12,29 +12,33 @@ import Cookies from 'js-cookie';
 export const dataContext = createContext();
 
 function App() {
+  const modelSets = {};
+  Object.entries(Config.models).forEach(([provider, models]) => {
+    modelSets[provider] = models.map(name => ({ name }));
+  });
   const {
     openAI: openAImodels,
     anthropic: anthropicAImodels,
     google: googleAImodels,
     grok: grokAImodels,
     deepseek: deepseekAImodels,
-  } = Config.models;
+  } = modelSets;
 
   //Which model type is chosen by default
 
-  const [chatType, setChatType] = useState("OpenAI");
-  const [model, setModel] = useState(openAImodels[0]);
+  const [chatType, setChatType] = useState(Config.defaultChatType);
+  const [model, setModel] = useState(Config.defaultModel);
   const [listModels, setListModels] = useState(openAImodels);
 
   //Other defaults
 
   const [serverPassphrase, setServerPassphrase] = useState("");
-  const [serverURL, setServerURL] = useState("https://x.rossu.dev");
-  const [relayWS, setRelayWS] = useState("https://x.rossu.dev/relay");
-  const [sysMsg, setSysMsg] = useState("Let's work this out in a step by step way to be sure we have the right answer.");
-  const [temperature, setTemperature] = useState("0.8");
-  const [topp, setTopp] = useState("1");
-  const [topk, setTopk] = useState("1");
+  const [serverURL, setServerURL] = useState(Config.serverURL);
+  const [relayWS, setRelayWS] = useState(Config.relayURL);
+  const [sysMsg, setSysMsg] = useState(Config.sysMsg);
+  const [temperature, setTemperature] = useState(Config.temperature);
+  const [topp, setTopp] = useState(Config.topp);
+  const [topk, setTopk] = useState(Config.topk);
   const [langchainURL, setLangchainURL] = useState("https://");
 
   //Don't touch the rest of these.
@@ -702,7 +706,6 @@ function App() {
               serverURL={container.serverURL}
               modelOptions={container.modelOptions}
               localModels={container.localModels}
-              visionModels={Config.visionModels}
             />
           )
         ))}

@@ -1,42 +1,64 @@
-// Config.jsx
+// This file contains the configuration for the app.
+
+const openAIModels = [
+  "o1",
+  "o3-mini",
+  "o1-preview",
+  "o1-mini",
+  "gpt-4.5-preview",
+  "gpt-4o",
+  "gpt-4o-mini",
+  "gpt-4-turbo",
+  "gpt-4",
+  "gpt-3.5-turbo",
+];
+
+const anthropicModels = [
+  "claude-3-7-sonnet-20250219",
+  "claude-3-5-sonnet-20241022",
+  "claude-3-5-haiku-20241022",
+  "claude-3-opus-20240229",
+  "claude-3-sonnet-20240229",
+  "claude-3-haiku-20240307",
+];
+
+const googleModels = [
+  "gemini-2.0-flash-exp",
+  "gemini-1.5-pro",
+  "gemini-1.5-flash",
+  "gemini-1.5-flash-8b",
+];
+
+const grokModels = [
+  "grok-2",
+  "grok-beta",
+];
+
+const deepseekModels = [
+  "deepseek-chat",
+  "deepseek-reasoner",
+];
+
 const config = {
+  serverURL: "http://localhost:8080",
+  relayURL: "http://localhost:8081",
+
+  temperature: "0.8",
+  topp: "1",
+  topk: "1",
+
+  sysMsg: "Let's work this out in a step by step way to be sure we have the right answer.",
+
   defaultChatType: "OpenAI",
+  defaultModel: { name: "o1" },
+  defaultModelList: openAIModels,
 
   models: {
-    openAI: [
-      { name: "o1" },
-      { name: "o3-mini" },
-      { name: "o1-preview" },
-      { name: "o1-mini" },
-      { name: "gpt-4.5-preview" },
-      { name: "gpt-4o" },
-      { name: "gpt-4o-mini" },
-      { name: "gpt-4-turbo" },
-      { name: "gpt-4" },
-      { name: "gpt-3.5-turbo" },
-    ],
-    anthropic: [
-      { name: "claude-3-7-sonnet-20250219" },
-      { name: "claude-3-5-sonnet-20241022" },
-      { name: "claude-3-5-haiku-20241022" },
-      { name: "claude-3-opus-20240229" },
-      { name: "claude-3-sonnet-20240229" },
-      { name: "claude-3-haiku-20240307" },
-    ],
-    google: [
-      { name: "gemini-2.0-flash-exp" },
-      { name: "gemini-1.5-pro" },
-      { name: "gemini-1.5-flash" },
-      { name: "gemini-1.5-flash-8b" },
-    ],
-    grok: [
-      { name: "grok-2" },
-      { name: "grok-beta" },
-    ],
-    deepseek: [
-      { name: "deepseek-chat" },
-      { name: "deepseek-reasoner" },
-    ],
+    openAI: openAIModels,
+    anthropic: anthropicModels,
+    google: googleModels,
+    grok: grokModels,
+    deepseek: deepseekModels,
   },
 
   reasoningModels:

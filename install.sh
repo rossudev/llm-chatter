@@ -12,6 +12,7 @@ cd llm-chatter
 # Download server files
 echo -e "${GREEN}Downloading server files...${NC}"
 wget -q https://raw.githubusercontent.com/rossudev/llm-chatter/master/server/index.js
+wget -q https://raw.githubusercontent.com/rossudev/llm-chatter/master/server/config.js
 wget -q https://raw.githubusercontent.com/rossudev/llm-chatter/master/server/package.json
 wget -q https://raw.githubusercontent.com/rossudev/llm-chatter/master/server/.env
 wget -q https://raw.githubusercontent.com/rossudev/llm-chatter/master/server/relay.js

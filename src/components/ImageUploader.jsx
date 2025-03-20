@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const ImageUploader = ({base64Image, setBase64Image, sentOne, fileFormat, setFileFormat}) => {
+const ImageUploader = ({base64Image, setBase64Image, sentOne, setFileFormat}) => {
   const [error, setError] = useState("");
 
   const handleFileChange = (event) => {

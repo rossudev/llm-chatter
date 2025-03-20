@@ -9,9 +9,10 @@ import XClose from "./XClose";
 import ContentText from "./ContentText";
 import ImageUploader from "./ImageUploader";
 import { dataContext } from "../App";
+import Config from '../Config';
 import Cookies from 'js-cookie';
 
-const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, topp, topk, langchainURL, listModels, serverURL, modelOptions, localModels, visionModels }) => {
+const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, topp, topk, langchainURL, listModels, serverURL, modelOptions, localModels }) => {
     const { componentList, setComponentList, chatCount, setChatCount, chosenAnthropic, chosenGoogle, chosenGrokAI, chosenDeepseekAI, chosenOllama, chosenOpenAI, clientJWT, checkedIn, setClientJWT, setCheckedIn } = useContext(dataContext);
 
     let sysMsgs = [];
@@ -22,7 +23,6 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
         "LangChain",
         "Google",
     ];
-    const nonDefaultModels = ["o1", "o1-mini", "o1-preview", "o3-mini"];
 
     function setMessagesAndMeta(isDefault = true) {
         if (isDefault) {
@@ -37,7 +37,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
     if (nonOpenAIChatTypes.includes(chatType)) {
         setMessagesAndMeta(false);
     } else { // OpenAI
-        if (nonDefaultModels.includes(model)) {
+        if (Config.reasoningModels.includes(model)) {
             setMessagesAndMeta(false);
         } else {
             setMessagesAndMeta(true);
@@ -62,8 +62,34 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
         let sendPacket = {};
         let msgs = chatMessages.concat({ "role": "user", "content": [{ "type": "text", "text": input }] });
 
-        if (!sentOne && base64Image && visionModels.includes(modelThisFetch)) {
-            msgs = msgs.concat( { "role": "user", "content": [{ "type": "image_url", "image_url": {"url": base64Image }}]});
+        const visionMsg = ( chatType === "Anthropic" ) ? 
+        { 
+            "role": "user", 
+            "content": [
+                { 
+                    "type": "image", 
+                    "source": {
+                        "type": "base64",
+                        "media_type": fileFormat,
+                        "data": base64Image,
+                    }
+                },
+                {
+                    type: "text",
+                    text: "Image."
+                }
+            ] 
+        } : 
+        { 
+            "role": "user", 
+            "content": [{ 
+                "type": "image_url", 
+                "image_url": {"url": base64Image }
+            }] 
+        };
+
+        if (!sentOne && base64Image && Config.visionModels.includes(modelThisFetch)) {
+            msgs = msgs.concat(visionMsg);
         };
 
         switch (chatType) {
@@ -322,7 +348,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                     const reader = new FileReader();
                     
                     reader.onload = (e) => {
-                    setBase64Image(e.target.result);
+                        setBase64Image(e.target.result);
                     };
                     reader.readAsDataURL(blob);
                 }
@@ -517,7 +543,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
 
                             {/*  Settings */}
                             <tr>
-                                <td colSpan={3}><i className="fa-solid fa-gear text-4xl text-aro-800 text-center mb-2 ml-8 mt-4"></i> <ImageUploader  base64Image={base64Image} setBase64Image={setBase64Image} sentOne={sentOne} fileFormat={fileFormat} setFileFormat={setFileFormat} /></td>
+                                <td colSpan={3}><i className="fa-solid fa-gear text-4xl text-aro-800 text-center mb-2 ml-8 mt-4"></i> <ImageUploader  base64Image={base64Image} setBase64Image={setBase64Image} sentOne={sentOne} setFileFormat={setFileFormat} /></td>
                             </tr>
                             <tr className="align-top">
 
@@ -589,7 +615,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                                                 <ul>
                                                                     {listModels.map((model, index) => (
                                                                         <li key={index}>
-                                                                            <span className="ml-4 text-sm hover:text-aro-500 hover:underline hover:font-bold hover:cursor-pointer" onClick={() => handleAddModel(model.name)}><i className="fa-solid fa-caret-right text-sm text-blade-700 mr-1"></i>{model.name+ (visionModels.includes(model.name) ? " *" : "")}</span>
+                                                                            <span className="ml-4 text-sm hover:text-aro-500 hover:underline hover:font-bold hover:cursor-pointer" onClick={() => handleAddModel(model.name)}><i className="fa-solid fa-caret-right text-sm text-blade-700 mr-1"></i>{model.name+ (Config.visionModels.includes(model.name) ? " *" : "")}</span>
                                                                         </li>
                                                                     ))}
                                                                 </ul>

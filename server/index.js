@@ -23,6 +23,7 @@ import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from "@google/ge
 import { Ollama } from "langchain/llms/ollama";
 import OpenAI from 'openai';
 import { RealtimeRelay } from './relay.js';
+import Config from './config.js';
 
 
 
@@ -41,7 +42,7 @@ relay.listen(8081);
 const app = express();
 const port = 8080;
 
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '50mb' }));
 
 //Configure allowed-to-connect domains here, for real deployment
 app.use(cors());
@@ -425,7 +426,7 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
     // Check the model and alter messages if necessary
-      if (model === "o3-mini" || model === "o1-mini" || model === "o1-preview" || model === "o1") {
+      if (Config.reasoningModels.includes(model)) {
       // Filter out the object with role "system"
       //messages = messages.filter(message => message.role !== "system");
       temperature = 1;

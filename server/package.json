@@ -1,7 +1,7 @@
 {
   "name": "llm-chatter-server",
   "private": true,
-  "version": "0.0.8",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
-    "@google/generative-ai": "^0.23.0",
+    "@google/generative-ai": "^0.24.0",
     "@openai/realtime-api-beta": "github:openai/openai-realtime-api-beta",
     "@tensorflow-models/universal-sentence-encoder": "^1.3.3",
     "@tensorflow/tfjs-converter": "^3.21.0",
