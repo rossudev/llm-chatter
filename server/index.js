@@ -55,7 +55,7 @@ app.use(limiter);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ error: 'Internal Server Error' });
+  res.status(500).json({ error: 'Bad Request' });
 });
 
 
@@ -118,8 +118,6 @@ const generateToken = (userId) => {
   return token;
 };
 
-
-
 const validateGetModels =[
   body('serverPassphrase').isString().trim(),
 ];
@@ -133,7 +131,7 @@ app.post('/checkin', validateGetModels, async (req, res) => {
 
   if (!errors.isEmpty()) {
     console.log(errors);
-    res.status(400).json({ error: 'Internal Server Error' });
+    res.status(400).json({ error: 'Bad Request' });
   }
 
   const checkPass = await verifyPassphrase(req.body.serverPassphrase, process.env['LLM_CHATTER_PASSPHRASE']);
@@ -151,6 +149,13 @@ app.post('/checkin', validateGetModels, async (req, res) => {
   "\nConnector's Address (IP): " + clientIp + "\n"));
 
   res.send(token);
+
+/*   res.cookie('jwt', token, {
+    httpOnly: false, // Prevents client JS from reading it
+    secure: false, // Use HTTPS in prod
+    sameSite: 'lax', // 'strict' helps mitigate CSRF attacks
+    maxAge: 86400000 // 24 hr
+  }); */
 });
 
 
@@ -176,7 +181,7 @@ const validateInput = [
     // Validate input
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      res.status(400).json({ error: 'Internal Server Error' });
+      res.status(400).json({ error: 'Bad Request' });
     }
     // Verify token
     let token;
@@ -187,13 +192,13 @@ const validateInput = [
     }
 
     if (!token) {
-      return res.status(401).send('Access Denied');
+      return res.status(401).send('Access Denied. Please check in first.');
     }
     try {
       const verified = jwt.verify(token, process.env['LLM_SERVER_HASH']);
       req.user = verified; // Store user information in request
     } catch (err) {
-      return res.status(400).send('Invalid Token');
+      return res.status(401).send('Session Expired. Please check in again.');
     }
     // If both validation and token verification succeed, proceed
     next();
@@ -217,7 +222,7 @@ app.post('/getmodels', validateInput, async (req, res) => {
     res.send(response.data.models);
   } catch (error) {
     console.error('Error:', error);
-    res.status(500).json({ error: 'GetModels Failure' });
+    res.status(500).json({ error: 'Ollama GetModels Error' });
   }
 });
 
@@ -229,7 +234,7 @@ app.post('/ollama', validateInput, async (req, res) => {
 
   if (!errors.isEmpty()) {
     console.log(errors);
-    res.status(400).json({ error: 'Internal Server Error' });
+    res.status(400).json({ error: 'Bad Request' });
   }
 
   try {
@@ -273,14 +278,14 @@ app.post('/langchain', validateInput, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     console.log(errors);
-    res.status(400).json({ error: 'Internal Server Error' });
+    res.status(400).json({ error: 'Bad Request' });
   }
 
   const theData = req.body;
 
   if (!theData) {
     console.log("LangChain failed");
-    return res.status(400).send("Invalid request data.");
+    return res.status(400).send("LangChain error: No data received");
   }
 
   const requiredFields = ['model', 'input', 'langchainURL'];
@@ -350,7 +355,7 @@ app.post('/anthropic', validateInput, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     console.log(errors);
-    res.status(400).json({ error: 'Internal Server Error' });
+    res.status(400).json({ error: 'Bad Request' });
   }
 
   try {
@@ -409,7 +414,7 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     console.log(errors);
-    return res.status(400).json({ error: 'Internal Server Error' });
+    return res.status(400).json({ error: 'Bad Request' });
   }
   try {
     let { model, messages, temperature, top_p } = req.body;
@@ -498,7 +503,7 @@ app.post('/google', validateInput, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     console.log(errors);
-    res.status(400).json({ error: 'Internal Server Error' });
+    res.status(400).json({ error: 'Bad Request' });
   }
 
   try {

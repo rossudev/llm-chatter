@@ -9,9 +9,10 @@ import XClose from "./XClose";
 import ContentText from "./ContentText";
 import ImageUploader from "./ImageUploader";
 import { dataContext } from "../App";
+import Cookies from 'js-cookie';
 
 const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, topp, topk, langchainURL, listModels, serverURL, modelOptions, localModels, visionModels }) => {
-    const { componentList, setComponentList, chatCount, setChatCount, chosenAnthropic, chosenGoogle, chosenGrokAI, chosenDeepseekAI, chosenOllama, chosenOpenAI, clientJWT, checkedIn } = useContext(dataContext);
+    const { componentList, setComponentList, chatCount, setChatCount, chosenAnthropic, chosenGoogle, chosenGrokAI, chosenDeepseekAI, chosenOllama, chosenOpenAI, clientJWT, checkedIn, setClientJWT, setCheckedIn } = useContext(dataContext);
 
     let sysMsgs = [];
     let firstMeta = [];
@@ -198,10 +199,20 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
         } catch (error) {
             setIsError(true);
             console.log(error);
-            let errorMessage = "An unexpected error occurred.";
+            let errorMessage = "An error occurred.";
 
             if (error.response.status === 503) {
                 errorMessage = "Model Overloaded. Try again later.";
+            }
+
+            if (error.response.status === 401) {
+                errorMessage = "Session Expired. Please log in again.";
+                
+                setCheckedIn(false);
+                Cookies.set('checkedIn', JSON.stringify(false), { expires: 1 });
+
+                setClientJWT("");
+                Cookies.set('clientJWT', JSON.stringify(""), { expires: 1 });
             }
 
             return [[{ type: "text", text: errorMessage }], 0];
@@ -403,7 +414,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
             ]}
             delay={80}>
             {styles => (
-                <animated.div style={styles} className="min-w-[99%] self-start mt-2 mb-2 mb-1 inline p-0 bg-nosferatu-200 rounded-3xl bg-gradient-to-tl from-nosferatu-500 shadow-sm">
+                <animated.div style={styles} className="min-w-[100%] self-start mt-2 mb-2 inline p-0 bg-nosferatu-200 rounded-3xl bg-gradient-to-tl from-nosferatu-500 shadow-sm">
 
                     {/* Chat ID number, Type of Model, X-Close button */}
                     <table className="min-w-[99%] border-separate border-spacing-y-2 border-spacing-x-2">
@@ -578,7 +589,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                                                 <ul>
                                                                     {listModels.map((model, index) => (
                                                                         <li key={index}>
-                                                                            <span className="ml-4 text-sm hover:text-aro-500 hover:underline hover:font-bold hover:cursor-pointer" onClick={() => handleAddModel(model.name)}><i className="fa-solid fa-caret-right text-sm text-blade-700 mr-1"></i>{model.name}</span>
+                                                                            <span className="ml-4 text-sm hover:text-aro-500 hover:underline hover:font-bold hover:cursor-pointer" onClick={() => handleAddModel(model.name)}><i className="fa-solid fa-caret-right text-sm text-blade-700 mr-1"></i>{model.name+ (visionModels.includes(model.name) ? " *" : "")}</span>
                                                                         </li>
                                                                     ))}
                                                                 </ul>

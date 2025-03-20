@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import Chat from "./components/Chat";
 import { ConsolePage } from './console/ConsolePage.jsx';
 import Config from './Config';
+import Cookies from 'js-cookie';
 export const dataContext = createContext();
 
 function App() {
@@ -20,14 +21,16 @@ function App() {
   } = Config.models;
 
   //Which model type is chosen by default
+
   const [chatType, setChatType] = useState("OpenAI");
   const [model, setModel] = useState(openAImodels[0]);
   const [listModels, setListModels] = useState(openAImodels);
 
   //Other defaults
+
   const [serverPassphrase, setServerPassphrase] = useState("");
-  const [serverURL, setServerURL] = useState("http://localhost:8080");
-  const [relayWS, setRelayWS] = useState("http://localhost:8081");
+  const [serverURL, setServerURL] = useState("https://x.rossu.dev");
+  const [relayWS, setRelayWS] = useState("https://x.rossu.dev/relay");
   const [sysMsg, setSysMsg] = useState("Let's work this out in a step by step way to be sure we have the right answer.");
   const [temperature, setTemperature] = useState("0.8");
   const [topp, setTopp] = useState("1");
@@ -35,20 +38,34 @@ function App() {
   const [langchainURL, setLangchainURL] = useState("https://");
 
   //Don't touch the rest of these.
-  const [clientJWT, setClientJWT] = useState("");
+
+  const [clientJWT, setClientJWT] = useState(() => {
+    const cookieJWT = Cookies.get('clientJWT');
+    return cookieJWT ? JSON.parse(cookieJWT) : "";
+  });
+  const [checkedIn, setCheckedIn] = useState(() => {
+    const cookieCheckedIn = Cookies.get('checkedIn');
+    return cookieCheckedIn ? JSON.parse(cookieCheckedIn) : false;
+  });
+  const [localModels, setLocalModels] = useState(() => {
+    const cookieModels = JSON.parse(localStorage.getItem('localModels'));
+    return cookieModels ? cookieModels : [];
+  });
+  const [chosenOllama, setChosenOllama] = useState(() => {
+    const cookieOllama = Cookies.get('chosenOllama');
+    return cookieOllama ? JSON.parse(cookieOllama) : localModels[0];
+  });
+
   const [sessionHash, setSessionHash] = useState("");
-  const [localModels, setLocalModels] = useState([]);
   const [componentList, setComponentList] = useState([]);
   const [advancedSetting, setAdvancedSetting] = useState(false);
   const [serverCheck, setServerCheck] = useState(false);
-  const [checkedIn, setCheckedIn] = useState(false);
   const [urlValid, setUrlValid] = useState(false);
   const [chatCount, setChatCount] = useState(1);
   const [chosenAnthropic, setChosenAnthropic] = useState(anthropicAImodels[0]);
   const [chosenGoogle, setChosenGoogle] = useState(googleAImodels[0]);
   const [chosenGrokAI, setChosenGrokAI] = useState(grokAImodels[0]);
   const [chosenDeepseekAI, setChosenDeepseekAI] = useState(deepseekAImodels[0]);
-  const [chosenOllama, setChosenOllama] = useState(localModels[0]);
   const [chosenOpenAI, setChosenOpenAI] = useState(openAImodels[0]);
   const intervalIdRef = useRef(null);
 
@@ -140,15 +157,19 @@ function App() {
         setServerCheck(true);
       } else {
         setServerCheck(false);
-        setClientJWT("");
+        //setClientJWT("");
+        Cookies.set('checkedIn', JSON.stringify(false), { expires: 1 });
         setCheckedIn(false);
         setLocalModels([]);
+        localStorage.setItem('localModels', JSON.stringify([]));
       }
     } catch (error) {
       setServerCheck(false);
-      setClientJWT("");
+      //setClientJWT("");
+      Cookies.set('checkedIn', JSON.stringify(false), { expires: 1 });
       setCheckedIn(false);
       setLocalModels([]);
+      localStorage.setItem('localModels', JSON.stringify([]));
     }
   }, 250,
     [serverCheck] // Add dependencies
@@ -162,15 +183,22 @@ function App() {
       const theJWT = await axios.post(
         serverURL + "/checkin",
         { serverPassphrase: serverPassphrase, sessionHash: sessionHash },
-        { headers: { "Content-Type": "application/json" } },
+        { headers: { "Content-Type": "application/json" },
+        //withCredentials: true
+      },
       );
 
       const clientCheck = theJWT?.data || undefined;
 
       if (clientCheck) {
         const newToken = theJWT.data;
+
+        Cookies.set('clientJWT', JSON.stringify(newToken), { expires: 1 });
         setClientJWT(newToken);
+
+        Cookies.set('checkedIn', JSON.stringify(true), { expires: 1 });
         setCheckedIn(true);
+
         checkModels(newToken);
       }
     } catch (error) { console.log(error); }
@@ -186,7 +214,7 @@ function App() {
 
   //Ping the backend server for a list of Ollama locally downloaded list of models
   const checkModels = useCallback(debounce(async (bearer) => {
-    if (localModels.length > 0) { return };
+    //if (localModels.length > 0) { return };
 
     try {
       const theModels = await axios.post(
@@ -210,6 +238,7 @@ function App() {
       });
 
       setLocalModels(allModels);
+      localStorage.setItem('localModels', JSON.stringify(allModels));
 
       const modelMapping = {
         "Anthropic": anthropicAImodels,
@@ -222,7 +251,9 @@ function App() {
       const randomOllama = getRandomModel(allModels);
       setModel(modelMapping[chatType]?.[0] || randomOllama);
 
-      setChosenOllama({ name: randomOllama.name });
+      const randyOllama = { name: randomOllama.name };
+      setChosenOllama(randyOllama);
+      Cookies.set('chosenOllama', JSON.stringify(randyOllama), { expires: 1 });
     } catch (error) { console.log(error); }
   }, 250), [serverURL, localModels, chatType]);
 
@@ -309,7 +340,7 @@ function App() {
   const getGridClasses = (itemCount) => {
     let classes = 'grid gap-3 place-items-center mt-1 ';
     if (itemCount === 1) {
-      classes += 'w-[50%] place-self-center items-center justify-center sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-1 xl:grid-cols-1 2xl:grid-cols-1';
+      classes += 'w-[50%] place-self-center items-center justify-center gap-0 sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-1 xl:grid-cols-1 2xl:grid-cols-1';
     } else if (itemCount === 2) {
       classes += 'sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2';
     } else if (itemCount === 3) {
@@ -323,7 +354,7 @@ function App() {
   const itemCount = componentList.length;
 
   return (
-    <dataContext.Provider value={{ componentList, setComponentList, chatCount, setChatCount, chosenAnthropic, chosenGoogle, chosenGrokAI, chosenDeepseekAI, chosenOllama, chosenOpenAI, clientJWT, checkedIn }}>
+    <dataContext.Provider value={{ componentList, setComponentList, chatCount, setChatCount, chosenAnthropic, chosenGoogle, chosenGrokAI, chosenDeepseekAI, chosenOllama, chosenOpenAI, clientJWT, checkedIn, setClientJWT, setCheckedIn }}>
       <div>
         <Spring
           from={{ opacity: 0 }}
@@ -470,11 +501,15 @@ function App() {
                               disabled={!modelOptions[chatType] || modelOptions[chatType].length === 0}
                             >
                               {modelOptions[chatType] && modelOptions[chatType].length > 0 ? (
-                                modelOptions[chatType].map((option) => (
-                                  <option key={option.name} value={option.name}>
-                                    {truncateString(option.name, 40)}
-                                  </option>
-                                ))
+                                modelOptions[chatType].map((option) => {
+                                  const displayName = truncateString(option.name, 40) +
+                                    (Config.visionModels.includes(option.name) ? " *" : "");
+                                  return (
+                                    <option key={option.name} value={option.name}>
+                                      {displayName}
+                                    </option>
+                                  );
+                                })
                               ) : (
                                 <option value="" disabled>
                                   No models available
@@ -581,55 +616,58 @@ function App() {
                 { //New Chat button displays only when conditions allow.
                   !serverCheck || (chatType.includes("LangChain") && !urlValid) || !checkedIn ?
                     <></> :
-                    <div className="grid gap-2 grid-cols-3 mt-6 mb-2">
-                      <Spring
-                        from={{ opacity: 0 }}
-                        to={[
-                          { opacity: 1 }
-                        ]}
-                        delay={200}>
-                        {styles => (
-                          <animated.div onClick={() => { debouncedMakeNewChat(chatType); }} style={styles} className="border-solid border-2 border-aro-800 self-start text-black place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-2xl font-bold p-4 flex items-center justify-center mb-2 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-dracula-700 cursor-pointer">
-                            <i className="fa-solid fa-keyboard mr-4"></i>
-                            <h1>Text</h1>
-                          </animated.div>
-                        )}
-                      </Spring>
+                    <>
+                      <div className="grid gap-2 grid-cols-3 mt-6 mb-2">
+                        <Spring
+                          from={{ opacity: 0 }}
+                          to={[
+                            { opacity: 1 }
+                          ]}
+                          delay={200}>
+                          {styles => (
+                            <animated.div onClick={() => { debouncedMakeNewChat(chatType); }} style={styles} className="border-solid border-2 border-aro-800 self-start text-black place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-2xl font-bold p-4 flex items-center justify-center mb-2 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-dracula-700 cursor-pointer">
+                              <i className="fa-solid fa-keyboard mr-4"></i>
+                              <h1>Text</h1>
+                            </animated.div>
+                          )}
+                        </Spring>
 
-                      { /* Info of selected model */}
-                      <div className="col-span-2 rounded-lg border-solid border-2 border-aro-800 bg-aro-300 text-black self-start place-self-center text-center items-center justify-center p-2 cursor-text">
-                        <p className="underline text-2xl">Text Model:</p>
-                        <p className="text-xl">{model.name}</p>
-                        {chatType.includes("LangChain") ?
-                          <p><a className="underline hover:no-underline" alt={langchainURL} target="_blank" rel="noopener noreferrer" href={langchainURL}>{langchainURL}</a></p> :
+                        { /* Info of selected model */}
+                        <div className="col-span-2 rounded-lg border-solid border-2 border-aro-800 bg-aro-300 text-black self-start place-self-center text-center items-center justify-center p-2 cursor-text">
+                          <p className="underline text-2xl">Text Model:</p>
+                          <p className="text-xl">{model.name + (Config.visionModels.includes(model.name) ? " *" : "")}</p>
+                          {chatType.includes("LangChain") ?
+                            <p><a className="underline hover:no-underline" alt={langchainURL} target="_blank" rel="noopener noreferrer" href={langchainURL}>{langchainURL}</a></p> :
+                            <></>
+                          }
+                        </div>
+
+                        { /* New Voice button */}
+                        {(chatType.includes("OpenAI") && (!componentList.some(container => container.chatType.includes("(Voice)")))) ?
+                          <>
+                            <Spring
+                              from={{ opacity: 0 }}
+                              to={[
+                                { opacity: 1 }
+                              ]}
+                              delay={300}>
+                              {styles => (
+                                <animated.div onClick={() => { debouncedMakeNewChat("(Voice)"); }} style={styles} className="border-solid border-2 border-aro-800 self-start text-black place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-2xl font-bold p-4 flex items-center justify-center mb-1 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-buffy-700 shadow-xl cursor-pointer">
+                                  <i className="fa-solid fa-microphone-lines mr-4"></i>
+                                  <h1>Voice</h1>
+                                </animated.div>
+                              )}
+                            </Spring>
+                            <div className="col-span-2 rounded-lg border-solid border-2 border-aro-800 bg-aro-300 text-black self-start place-self-center text-center items-center justify-center p-2 cursor-text">
+                              <p className="underline text-2xl">Voice Model:</p>
+                              <p className="text-xl">gpt-4o-realtime-preview</p>
+                            </div>
+                          </> :
                           <></>
                         }
                       </div>
-
-                      { /* New Voice button */}
-                      {(chatType.includes("OpenAI") && (!componentList.some(container => container.chatType.includes("(Voice)")))) ?
-                        <>
-                          <Spring
-                            from={{ opacity: 0 }}
-                            to={[
-                              { opacity: 1 }
-                            ]}
-                            delay={300}>
-                            {styles => (
-                              <animated.div onClick={() => { debouncedMakeNewChat("(Voice)"); }} style={styles} className="border-solid border-2 border-aro-800 self-start text-black place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-2xl font-bold p-4 flex items-center justify-center mb-1 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-buffy-700 shadow-xl cursor-pointer">
-                                <i className="fa-solid fa-microphone-lines mr-4"></i>
-                                <h1>Voice</h1>
-                              </animated.div>
-                            )}
-                          </Spring>
-                          <div className="col-span-2 rounded-lg border-solid border-2 border-aro-800 bg-aro-300 text-black self-start place-self-center text-center items-center justify-center p-2 cursor-text">
-                            <p className="underline text-2xl">Voice Model:</p>
-                            <p className="text-xl">gpt-4o-realtime-preview</p>
-                          </div>
-                        </> :
-                        <></>
-                      }
-                    </div>
+                      <div className="place-self-center text-center items-center justify-center text-black"><p>* Vision support</p></div>
+                    </>
                 }
               </div>
             </animated.div>
