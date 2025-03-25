@@ -1,7 +1,7 @@
 {
   "name": "llm-chatter-server",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -29,7 +29,6 @@
     "jsonwebtoken": "^9.0.2",
     "openai": "^4.86.1",
     "path": "^0.12.7",
-    "strip-ansi": "^7.1.0",
     "ws": "^8.18.1"
   }
 }
