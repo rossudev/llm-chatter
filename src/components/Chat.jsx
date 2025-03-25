@@ -12,15 +12,16 @@ import { dataContext } from "../App";
 import Config from '../Config';
 import Cookies from 'js-cookie';
 
-const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, topp, topk, langchainURL, listModels, serverURL, modelOptions, localModels }) => {
+const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, topp, topk, listModels, serverURL, modelOptions, localModels, sessionHash, serverUsername }) => {
     const { componentList, setComponentList, chatCount, setChatCount, chosenAnthropic, chosenGoogle, chosenGrokAI, chosenDeepseekAI, chosenOllama, chosenOpenAI, clientJWT, checkedIn, setClientJWT, setCheckedIn } = useContext(dataContext);
 
     let sysMsgs = [];
     let firstMeta = [];
 
+    const uniqueChatID = sessionHash + numba;
+
     const nonOpenAIChatTypes = [
         "Anthropic",
-        "LangChain",
         "Google",
     ];
 
@@ -56,39 +57,57 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
     const [isClicked, setIsClicked] = useState(false);
     const [isError, setIsError] = useState(false);
     const [sentOne, setSentOne] = useState(false);
-    
+
     const fetchData = useCallback(async (input, modelThisFetch) => {
         let endPath = "";
         let sendPacket = {};
         let msgs = chatMessages.concat({ "role": "user", "content": [{ "type": "text", "text": input }] });
 
-        const visionMsg = ( chatType === "Anthropic" ) ? 
-        { 
-            "role": "user", 
-            "content": [
-                { 
-                    "type": "image", 
-                    "source": {
-                        "type": "base64",
-                        "media_type": fileFormat,
-                        "data": base64Image,
+        const visionMsg = (chatType === "Anthropic") ?
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": fileFormat,
+                            "data": base64Image.split(',')[1],
+                        }
+                    },
+                    {
+                        type: "text",
+                        text: "Image."
                     }
-                },
+                ]
+            } :
+            (chatType === "OpenAI") ?
                 {
-                    type: "text",
-                    text: "Image."
-                }
-            ] 
-        } : 
-        { 
-            "role": "user", 
-            "content": [{ 
-                "type": "image_url", 
-                "image_url": {"url": base64Image }
-            }] 
-        };
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Image.",
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": { "url": base64Image }
+                        }
+                    ]
+                } :
+                null;
 
-        if (!sentOne && base64Image && Config.visionModels.includes(modelThisFetch)) {
+        const googImg = base64Image ? [
+            {
+                inlineData: {
+                    data: base64Image.split(',')[1],
+                    mimeType: fileFormat,
+                },
+            },
+            input,
+        ] : [];
+
+        if (!sentOne && base64Image && Config.visionModels.includes(modelThisFetch) && (chatType !== "Google")) {
             msgs = msgs.concat(visionMsg);
         };
 
@@ -96,7 +115,6 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
             case "OpenAI":
                 endPath = serverURL + "/openai";
                 sendPacket = {
-                    model: modelThisFetch,
                     messages: msgs,
                     temperature: parseFloat(temperature),
                     top_p: parseFloat(topp),
@@ -106,7 +124,6 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
             case "Grok":
                 endPath = serverURL + "/grok";
                 sendPacket = {
-                    model: modelThisFetch,
                     messages: msgs,
                     temperature: parseFloat(temperature),
                     top_p: parseFloat(topp),
@@ -117,18 +134,16 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
             case "Deepseek":
                 endPath = serverURL + "/deepseek";
                 sendPacket = {
-                    model: modelThisFetch,
                     messages: msgs,
                     temperature: parseFloat(temperature),
                     top_p: parseFloat(topp),
                     top_k: parseFloat(topk),
                 };
                 break;
-    
+
             case "Anthropic":
                 endPath = serverURL + "/anthropic";
                 sendPacket = {
-                    model: modelThisFetch,
                     messages: msgs,
                     temperature: parseFloat(temperature),
                     top_p: parseFloat(topp),
@@ -140,40 +155,35 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
             case "Google":
                 endPath = serverURL + "/google";
                 sendPacket = {
-                    model: modelThisFetch,
                     messages: msgs,
                     temperature: parseFloat(temperature),
                     top_p: parseFloat(topp),
                     top_k: parseFloat(topk),
                     system: systemMessage,
                 };
-                break;
-
-            case "LangChain":
-                endPath = serverURL + "/langchain";
-                sendPacket = {
-                    model: modelThisFetch,
-                    input: input,
-                    temperature: parseFloat(temperature),
-                    topP: parseFloat(topp),
-                    topK: parseFloat(topk),
-                    langchainURL: langchainURL
-                };
+                if (googImg !== null) {
+                    sendPacket.images = googImg;
+                }
                 break;
 
             default: //Ollama
                 endPath = serverURL + "/ollama";
                 sendPacket = {
-                    model: modelThisFetch,
                     prompt: input,
                     system: systemMessage,
                     context: chatContext,
                     options: { "temperature": parseFloat(temperature), "top_p": parseFloat(topp), "top_k": parseFloat(topk) },
                     stream: false,
-                    keep_alive: 0
+                    keep_alive: 0,
+                    images: base64Image ? [base64Image.split(',')[1]] : [],
                 };
                 break;
         }
+
+        sendPacket.uniqueChatID = uniqueChatID;
+        sendPacket.model = modelThisFetch;
+        sendPacket.sentOne = sentOne;
+        sendPacket.serverUsername = serverUsername;
 
         try {
             const startTime = Date.now();
@@ -209,9 +219,6 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                 case "Anthropic":
                     theEnd = normalizeText(response.data.content[0].text);
                     break;
-                case "LangChain":
-                    theEnd = normalizeText(response.data.text);
-                    break;
                 case "Google":
                     theEnd = [{ type: "text", text: normalizeText(response.data) }];
                     break;
@@ -233,7 +240,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
 
             if (error.response.status === 401) {
                 errorMessage = "Session Expired. Please log in again.";
-                
+
                 setCheckedIn(false);
                 Cookies.set('checkedIn', JSON.stringify(false), { expires: 1 });
 
@@ -346,9 +353,10 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                 if (items[i].type.indexOf('image') !== -1) {
                     const blob = items[i].getAsFile();
                     const reader = new FileReader();
-                    
+
                     reader.onload = (e) => {
                         setBase64Image(e.target.result);
+                        setFileFormat(blob.type);
                     };
                     reader.readAsDataURL(blob);
                 }
@@ -394,22 +402,22 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
         switch (chosenType) {
             case "Anthropic":
                 pickModel = chosenAnthropic;
-            break;
+                break;
             case "Google":
                 pickModel = chosenGoogle;
-            break;
+                break;
             case "Grok":
                 pickModel = chosenGrokAI;
-            break;
+                break;
             case "Deepseek":
                 pickModel = chosenDeepseekAI;
-            break;
+                break;
             case "Ollama":
                 pickModel = chosenOllama;
-            break;
+                break;
             case "OpenAI":
                 pickModel = chosenOpenAI;
-            break;
+                break;
         }
 
         const newChat = {
@@ -422,12 +430,11 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
             topp: topp,
             topk: topk,
             localModels: localModels,
-            langchainURL: langchainURL,
             listModels: modelArray,
             serverURL: serverURL,
             modelOptions: modelOptions,
         };
-    
+
         setComponentList([...componentList, newChat]);
         setChatCount(chatCount + 1);
     });
@@ -443,12 +450,12 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                 <animated.div style={styles} className="min-w-[100%] self-start mt-2 mb-2 inline p-0 bg-nosferatu-200 rounded-3xl bg-gradient-to-tl from-nosferatu-500 shadow-sm">
 
                     {/* Chat ID number, Type of Model, X-Close button */}
-                    <table className="min-w-[99%] border-separate border-spacing-y-2 border-spacing-x-2">
+                    <table className="min-w-[100%] border-separate border-spacing-y-2 border-spacing-x-2">
                         <tbody>
                             <tr>
                                 <td colSpan="3" className="pb-4 tracking-wide text-4xl text-center font-bold text-black">
                                     <span className="mr-6">#{numba}</span>
-                                    <i className="fa-regular fa-comments mr-6 text-black"></i>
+                                    <i className="fa-regular fa-comments mr-6 text-nosferatu-800" />
                                     {chatType}
                                 </td>
                                 <td>
@@ -469,24 +476,6 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                         </div>
                                         <div>
                                             <Hyphenated className="text-black">{systemMessage}</Hyphenated>
-                                        </div>
-                                    </td>
-                                </tr>
-                            }
-
-                            {/* LangChain doesn't take System messages, so we show the Embed URL here instead */}
-                            {chatType.includes("LangChain") &&
-                                <tr>
-                                    <td onCopy={handleCopy} colSpan="4" className="py-3 p-3 bg-morbius-300 font-sans rounded-xl text-black-800 text-md whitespace-pre-wrap">
-                                        <div className="mb-3 grid grid-cols-3">
-                                            <span className="font-bold text-xl text-aro-900">Embed URL</span>
-                                            <span></span>
-                                            <span className="text-right cursor-copy">
-                                                <i onClick={() => copyClick(langchainURL)} className="text-aro-900 m-2 fa-solid fa-copy fa-2x cursor-copy shadow-xl hover:shadow-dracula-900"></i>
-                                            </span>
-                                        </div>
-                                        <div>
-                                            <Hyphenated><a className="text-black underline hover:no-underline" alt={langchainURL} target="_blank" rel="noopener noreferrer" href={langchainURL}>{langchainURL}</a></Hyphenated>
                                         </div>
                                     </td>
                                 </tr>
@@ -514,7 +503,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                             })}
 
                             {/* Regular text chat input box, and the Send button */}
-                            {(!isError && ((!chatType.includes("LangChain") || !sentOne))) &&
+                            {(!isError || !sentOne) &&
                                 <tr>
                                     <td colSpan="3">
                                         <TextareaAutosize
@@ -524,13 +513,13 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                             onPaste={handlePaste}
                                             minRows="3"
                                             maxRows="15"
-                                            className="placeholder:text-6xl placeholder:italic mt-3 p-4 min-w-full bg-nosferatu-100 text-sm font-mono text-black rounded-xl"
+                                            className="placeholder:text-6xl placeholder:italic mt-3 p-4 min-w-[100%] bg-nosferatu-100 text-sm font-mono text-black rounded-xl"
                                             placeholder="Chat"
                                             value={chatInput}
                                         />
                                     </td>
                                     <td className="items-baseline justify-evenly text-center align-middle text-4xl">
-                                        { checkedIn ?
+                                        {checkedIn ?
                                             <i
                                                 onClick={!isClicked ? () => handleChat() : null}
                                                 className={isClicked ? "text-dracula-900 mt-4 m-2 fa-solid fa-hat-wizard fa-2x cursor-pointer hover:text-dracula-100" : "text-blade-300 mt-4 m-2 fa-solid fa-message fa-2x cursor-pointer hover:text-vanHelsing-700"}
@@ -543,15 +532,15 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
 
                             {/*  Settings */}
                             <tr>
-                                <td colSpan={3}><i className="fa-solid fa-gear text-4xl text-aro-800 text-center mb-2 ml-8 mt-4"></i> <ImageUploader  base64Image={base64Image} setBase64Image={setBase64Image} sentOne={sentOne} setFileFormat={setFileFormat} /></td>
+                                <td colSpan={3}><i className="fa-solid fa-gear text-4xl text-aro-800 text-center mb-2 ml-8 mt-4"></i> <ImageUploader base64Image={base64Image} setBase64Image={setBase64Image} sentOne={sentOne} setFileFormat={setFileFormat} /></td>
                             </tr>
                             <tr className="align-top">
 
                                 {/*  Model info */}
                                 <td className="w-1/2 bg-blade-200 rounded-xl bg-gradient-to-tl from-blade-400 p-2">
-                                    <table className="min-w-full"><tbody>
+                                    <table className="min-w-[100%]"><tbody>
                                         <tr>
-                                            <td className="min-w-full">
+                                            <td className="min-w-[100%]">
                                                 <p className="mb-2"><i className="fa-solid fa-splotch text-2xl text-dracula-500 ml-1"></i> {addedModels.length > 0 ? <b>Models:</b> : <b>Model:</b>}</p>
                                             </td>
                                         </tr>
@@ -577,7 +566,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                 </td>
 
                                 {/* top-p info */}
-                                <td colSpan={( (chatType.includes("OpenAI")) || (chatType.includes("Grok")) || (chatType.includes("Deepseek")) ) ? 2 : 1} className="w-1/6 bg-cullen-200 rounded-xl bg-gradient-to-tl from-cullen-500">
+                                <td colSpan={((chatType.includes("OpenAI")) || (chatType.includes("Grok")) || (chatType.includes("Deepseek"))) ? 2 : 1} className="w-1/6 bg-cullen-200 rounded-xl bg-gradient-to-tl from-cullen-500">
                                     <table><tbody><tr className="align-top">
                                         <td className="w-1/6"><i className="ml-2 fa-brands fa-react text-2xl text-vanHelsing-900"></i></td>
                                         <td className="w-5/6 p-1"><b>top-p:</b><br /><i className="fa-solid fa-caret-right text-sm text-vanHelsing-900"></i> {topp}</td>
@@ -585,7 +574,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                 </td>
 
                                 {/* top-k info */}
-                                { ( (chatType.includes("OpenAI")) || (chatType.includes("Grok")) || (chatType.includes("Deepseek")) ) ?
+                                {((chatType.includes("OpenAI")) || (chatType.includes("Grok")) || (chatType.includes("Deepseek"))) ?
                                     <></> :
                                     <td className="w-1/6 bg-cullen-200 rounded-xl bg-gradient-to-tl from-cullen-500">
                                         <table><tbody><tr className="align-top">
@@ -598,15 +587,15 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
 
                             {/* Add Models interface */}
                             <tr className="align-top over">
-                                <td colSpan={chatType.includes("LangChain") ? 4 : 2} className="w-1/2">
-                                    {(!isError && ((!chatType.includes("LangChain") || !sentOne))) &&
+                                <td colSpan="2" className="w-1/2">
+                                    {(!isError || !sentOne) &&
                                         <>
                                             {addSetting ?
                                                 <div className="bg-blade-100 rounded-xl pb-2 pl-2">
-                                                    <table className="min-w-full"><tbody>
+                                                    <table className="min-w-[100%]"><tbody>
                                                         <tr>
-                                                            <td className="min-w-full pl-4">
-                                                                <i className="cursor-pointer mb-3 mt-2 fa-solid fa-plus text-blade-800 text-3xl hover:text-marcelin-900 fa-rotate-by" style={{ '--fa-rotate-angle': '45deg' }} onClick={handleModelToggle}></i> 
+                                                            <td className="min-w-[100%] pl-4">
+                                                                <i className="cursor-pointer mb-3 mt-2 fa-solid fa-plus text-blade-800 text-3xl hover:text-marcelin-900 fa-rotate-by" style={{ '--fa-rotate-angle': '45deg' }} onClick={handleModelToggle}></i>
                                                                 <span className="ml-4 font-bold hover:underline cursor-pointer hover:text-marcelin-900" onClick={handleModelToggle}>Add Model:</span>
                                                             </td>
                                                         </tr>
@@ -615,7 +604,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                                                 <ul>
                                                                     {listModels.map((model, index) => (
                                                                         <li key={index}>
-                                                                            <span className="ml-4 text-sm hover:text-aro-500 hover:underline hover:font-bold hover:cursor-pointer" onClick={() => handleAddModel(model.name)}><i className="fa-solid fa-caret-right text-sm text-blade-700 mr-1"></i>{model.name+ (Config.visionModels.includes(model.name) ? " *" : "")}</span>
+                                                                            <span className="ml-4 text-sm hover:text-aro-500 hover:underline hover:font-bold hover:cursor-pointer" onClick={() => handleAddModel(model.name)}><i className="fa-solid fa-caret-right text-sm text-blade-700 mr-1"></i>{model.name + (Config.visionModels.includes(model.name) ? " *" : "")}</span>
                                                                         </li>
                                                                     ))}
                                                                 </ul>
@@ -623,7 +612,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                                         </tr>
                                                     </tbody></table>
                                                 </div>
-                                                
+
                                                 :
                                                 <div className="bg-blade-100 rounded-xl mb-1"><i className="cursor-pointer m-3 ml-6 fa-solid fa-plus text-2xl hover:text-blade-800" onClick={handleModelToggle}></i> <span className="cursor-pointer hover:underline hover:text-blade-800" onClick={handleModelToggle}>Add Model</span></div>
                                             }
@@ -632,18 +621,14 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                 </td>
                                 {/* Copy System & first user prompt to a new Chat */}
                                 <td colSpan={2} className="w-1/2">
-                                    { !chatType.includes("LangChain") && //sentOne
-                                        <div className="bg-dracula-300 rounded-xl p-4 text-sm">
-                                            <p className="font-bold mb-1 text-base">New Chat:</p>
-                                            {Object.keys(modelOptions).map((optionKey) => (
-                                                optionKey.includes("LangChain") ? null : (
-                                                    <p key={optionKey}>
-                                                        <i className="fa-solid fa-caret-right text-sm text-vanHelsing-900 mr-1 mb-1"></i> <span className="hover:underline hover:font-bold cursor-pointer" onClick={() => makeNewChat(optionKey)}>{optionKey}</span>
-                                                    </p>
-                                                )
-                                            ))}
-                                        </div>
-                                    }
+                                    <div className="bg-dracula-300 rounded-xl p-4 text-sm">
+                                        <p className="font-bold mb-1 text-base">New Chat:</p>
+                                        {Object.keys(modelOptions).map((optionKey) => (
+                                            <p key={optionKey}>
+                                                <i className="fa-solid fa-caret-right text-sm text-vanHelsing-900 mr-1 mb-1"></i> <span className="hover:underline hover:font-bold cursor-pointer" onClick={() => makeNewChat(optionKey)}>{optionKey}</span>
+                                            </p>
+                                        ))}
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>

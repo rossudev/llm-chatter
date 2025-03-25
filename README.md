@@ -1,6 +1,6 @@
-# LLM Chatter, v0.1.0
+# LLM Chatter, v0.1.1
 
-Large Language Model chat by text, vision and voice. Proprietary models by API request, local Ollama model and LangChain (by URL) supported.
+Large Language Model chat by text, vision and voice. Proprietary models by API request and local Ollama models supported.
 
 # Ollama Setup
 
@@ -40,7 +40,6 @@ Built with:
 - [Google](https://ai.google.dev/gemini-api/docs)
 - [Grok](https://docs.x.ai/docs)
 - [Ollama](https://github.com/jmorganca/ollama/blob/main/docs/api.md)
-- [Ollama LangChain](https://js.langchain.com/docs/integrations/llms/ollama/)
 - [OpenAI](https://platform.openai.com/docs/overview)
 
 # Models List
@@ -71,3 +70,14 @@ Built with:
 - grok-beta
 
  *Vision image support (img & text in, text out)
+
+ # Ollama Vision Model List
+- granite3.2-vision
+- llava-phi3
+- bakllava
+- moondream
+- llava-llama3
+- minicpm-v
+- llama3.2-vision
+- llava
+- gemma3

@@ -40,7 +40,7 @@
 }
 
 /* For the pulsing icon separately on hover */
-.fa-circle-xmark:hover {  
+.fa-circle-xmark:hover, .fa-github:hover {  
     -webkit-animation: pulse 0.6s ease-in-out infinite;  /* For Safari */
     animation: pulse 0.6s ease-in-out infinite;          /* Standard syntax */
 }

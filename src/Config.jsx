@@ -40,8 +40,8 @@ const deepseekModels = [
 ];
 
 const config = {
-  serverURL: "http://localhost:8080",
-  relayURL: "http://localhost:8081",
+  serverURL: "https://x.rossu.dev",
+  relayURL: "https://x.rossu.dev/relay",
 
   temperature: "0.8",
   topp: "1",
@@ -85,6 +85,24 @@ const config = {
       "gemini-2.0-flash-exp",
       "gemini-1.5-pro",
       "gemini-1.5-flash",
+      "granite3.2-vision:latest",
+      "llava-phi3:latest",
+      "bakllava:latest",
+      "moondream:latest",
+      "llava-llama3:latest",
+      "minicpm-v:latest",
+      "llama3.2-vision:latest",
+      "llama3.2-vision:11b",
+      "llama3.2-vision:90b",
+      "llava:latest",
+      "llava:7b",
+      "llava:13b",
+      "llava:34b",
+      "gemma3:latest",
+      "gemma3:1b",
+      "gemma3:4b",
+      "gemma3:12b",
+      "gemma3:27b",
     ]
 };
 

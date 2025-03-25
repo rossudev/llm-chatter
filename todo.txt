@@ -1,0 +1,1 @@
+Check if the check-in cookie/jwt is expired (after 1 day).

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 
 const ImageUploader = ({base64Image, setBase64Image, sentOne, setFileFormat}) => {
   const [error, setError] = useState("");
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const handleFileChange = (event) => {
     setError('');
@@ -33,6 +34,10 @@ const ImageUploader = ({base64Image, setBase64Image, sentOne, setFileFormat}) =>
     reader.readAsDataURL(file);
   };
 
+  function ToggleImageSize() {
+    setIsExpanded(prev => !prev);
+  };
+
   return (
     <div>
       { ( !sentOne && !base64Image ) &&
@@ -50,12 +55,14 @@ const ImageUploader = ({base64Image, setBase64Image, sentOne, setFileFormat}) =>
       }
       {base64Image && (
         <div style={{ position: 'relative', display: 'inline-block' }}>
-          <img src={base64Image} alt="Preview" style={{ maxWidth: '300px', marginTop: '10px' }} />
-          <i
-            className="fa-solid fa-circle-xmark text-3xl text-morbius-500 cursor-pointer"
-            style={{ position: 'absolute', top: '-1em', right: '-1em' }}
-            onClick={() => setBase64Image('')}
-          />
+          <img onClick={ToggleImageSize} src={base64Image} alt="Preview" style={{ width: isExpanded ? '100%' : '300px', cursor: 'pointer', marginTop: '10px' }} />
+          {!sentOne &&
+            <i
+              className="fa-solid fa-circle-xmark text-3xl text-morbius-500 cursor-pointer"
+              style={{ position: 'absolute', top: '-1em', right: '-1em' }}
+              onClick={() => setBase64Image('')}
+            />
+          }
         </div>
       )}
     </div>
