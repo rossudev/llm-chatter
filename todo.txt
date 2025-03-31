@@ -1,1 +1,7 @@
-Check if the check-in cookie/jwt is expired (after 1 day).
+- Put in a check to see if the check-in cookie/jwt is expired (after 1 day).
+- WebRTC update (over WebSockets) for OpenAI realtime.
+- Google vision bugfix.
+- Image output.
+- Non-image file format input (PDF, audio).
+- grok-3 API
+- Model Context Protocol (MCP)

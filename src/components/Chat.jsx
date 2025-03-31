@@ -12,12 +12,12 @@ import { dataContext } from "../App";
 import Config from '../Config';
 import Cookies from 'js-cookie';
 
-const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, topp, topk, listModels, serverURL, modelOptions, localModels, sessionHash, serverUsername }) => {
+const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, topp, topk, listModels, serverURL, modelOptions, localModels, sessionHash, serverUsername, messages, context, thread, restoreID }) => {
     const { componentList, setComponentList, chatCount, setChatCount, chosenAnthropic, chosenGoogle, chosenGrokAI, chosenDeepseekAI, chosenOllama, chosenOpenAI, clientJWT, checkedIn, setClientJWT, setCheckedIn } = useContext(dataContext);
 
     let sysMsgs = [];
     let firstMeta = [];
-
+    
     const uniqueChatID = sessionHash + numba;
 
     const nonOpenAIChatTypes = [
@@ -25,15 +25,17 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
         "Google",
     ];
 
-    function setMessagesAndMeta(isDefault = true) {
-        if (isDefault) {
+    const setMessagesAndMeta = useCallback((isDefault = true) => {
+        const hasMessages = Object.keys(messages).length > 0;
+
+        sysMsgs = [];
+        firstMeta = [];
+
+        if (isDefault && !hasMessages) {
             sysMsgs = [{ role: "system", content: systemMessage }];
             firstMeta = [["Starting Prompt", ""]];
-        } else {
-            sysMsgs = [];
-            firstMeta = [];
         }
-    }
+    });
 
     if (nonOpenAIChatTypes.includes(chatType)) {
         setMessagesAndMeta(false);
@@ -45,14 +47,67 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
         }
     }
 
+    function convertFormat(inputData) {
+        const result = [];
+        
+        // Sort by item number to ensure correct order
+        const sortedKeys = Object.keys(inputData).sort((a, b) => {
+          const numA = parseInt(a.split('_')[1]);
+          const numB = parseInt(b.split('_')[1]);
+          return numA - numB;
+        });
+        
+        for (const key of sortedKeys) {
+          const item = inputData[key];
+          
+          // Determine the content format based on role
+          let content;
+          if (item.r === "assistant") {
+            // Assistant content is just a string
+            content = item.z;
+          } else {
+            // System and user content are arrays with type and text
+            content = [{ "type": "text", "text": item.z }];
+          }
+          
+          result.push({
+            "role": item.r,
+            "content": content
+          });
+        }
+        
+        return result;
+    };
+
+    function makeMetas(inputData) {
+        const result = [];
+        
+        // Sort by item number to ensure correct order
+        const sortedKeys = Object.keys(inputData).sort((a, b) => {
+          const numA = parseInt(a.split('_')[1]);
+          const numB = parseInt(b.split('_')[1]);
+          return numA - numB;
+        });
+        
+        for (const key of sortedKeys) {
+          const item = inputData[key];
+          const whichPrompt = item.r === "system" ? "Starting Prompt" : "Prompt";
+          result.push([item.r === "assistant" ? item.m : whichPrompt, item.d]);
+        }
+        
+        return result;
+    };
+    const hasMessages = Object.keys(messages).length > 0;
+    const theMsgs = hasMessages ? convertFormat(messages) : sysMsgs;
+
     const [chatInput, setChatInput] = useState("");
     const [base64Image, setBase64Image] = useState("");
     const [fileFormat, setFileFormat] = useState("");
-    const [messageMetas, setMessageMetas] = useState(firstMeta);
-    const [chatMessages, setChatMessages] = useState(sysMsgs);
-    const [chatMessagesPlusMore, setChatMessagesPlusMore] = useState(sysMsgs);
+    const [messageMetas, setMessageMetas] = useState(hasMessages ? makeMetas(messages) : firstMeta);
+    const [chatMessages, setChatMessages] = useState(theMsgs);
+    const [chatMessagesPlusMore, setChatMessagesPlusMore] = useState(theMsgs);
     const [addedModels, setAddedModels] = useState([]);
-    const [chatContext, setChatContext] = useState([]);
+    const [chatContext, setChatContext] = useState(context);
     const [addSetting, setAddSetting] = useState(true);
     const [isClicked, setIsClicked] = useState(false);
     const [isError, setIsError] = useState(false);
@@ -184,6 +239,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
         sendPacket.model = modelThisFetch;
         sendPacket.sentOne = sentOne;
         sendPacket.serverUsername = serverUsername;
+        sendPacket.thread = thread;
 
         try {
             const startTime = Date.now();
@@ -433,6 +489,10 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
             listModels: modelArray,
             serverURL: serverURL,
             modelOptions: modelOptions,
+            messages: {},
+            context: [],
+            thread: [],
+            restoreID: "",
         };
 
         setComponentList([...componentList, newChat]);
@@ -464,7 +524,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                             </tr>
 
                             {/* Two model types store the System message differently */}
-                            {(chatType.includes("Anthropic") || chatType.includes("Google")) &&
+                            {((chatType.includes("Anthropic") || chatType.includes("Google")) && !hasMessages) &&
                                 <tr>
                                     <td onCopy={handleCopy} colSpan="4" className="py-3 p-3 bg-morbius-300 font-sans rounded-xl text-black-800 text-md whitespace-pre-wrap">
                                         <div className="mb-3 grid grid-cols-3">
@@ -489,13 +549,17 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                         <td onCopy={handleCopy} colSpan="4" className={obj.role === "user" || obj.role === "system" ?
                                             "py-3 p-3 bg-morbius-300 font-sans rounded-xl text-black-800 text-md whitespace-pre-wrap" :
                                             "py-3 whitespace-pre-wrap p-3 bg-nosferatu-100 font-mono rounded-xl text-black text-sm"}>
-                                            <div className="mb-3 grid grid-cols-3">
-                                                <span className="font-bold text-xl text-aro-900">{messageMetas[index][0]}</span>
-                                                <span className="text-center text-sm text-aro-900">{messageMetas[index][1]}</span>
-                                                <span className="text-right">
-                                                    <i onClick={() => copyClick(contentText)} className="text-aro-900 m-2 fa-solid fa-copy fa-2x cursor-pointer shadow-xl hover:shadow-dracula-900"></i>
-                                                </span>
-                                            </div>
+                                            {messageMetas[index] && messageMetas[index].length > 0 ? (
+                                                <div className="mb-3 grid grid-cols-3">
+                                                    <span className="font-bold text-xl text-aro-900">{messageMetas[index][0]}</span>
+                                                    <span className="text-center text-sm text-aro-900">{messageMetas[index][1]}</span>
+                                                    <span className="text-right">
+                                                        <i onClick={() => copyClick(contentText)} className="text-aro-900 m-2 fa-solid fa-copy fa-2x cursor-pointer shadow-xl hover:shadow-dracula-900"></i>
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <div className="mb-3 text-center text-sm text-aro-900">Error</div>
+                                            )}
                                             <ContentText role={obj.role} txt={contentText} />
                                         </td>
                                     </tr>

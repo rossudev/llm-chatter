@@ -1,12 +1,14 @@
 // This file contains the configuration for the app.
 
 const openAIModels = [
-  "o1",
+  "chatgpt-4o-latest",
   "o3-mini",
   "o1-preview",
+  "o1",
   "o1-mini",
   "gpt-4.5-preview",
   "gpt-4o",
+  "gpt-4o-search-preview",
   "gpt-4o-mini",
   "gpt-4-turbo",
   "gpt-4",
@@ -23,7 +25,9 @@ const anthropicModels = [
 ];
 
 const googleModels = [
+  "gemini-2.5-pro-exp-03-25",
   "gemini-2.0-flash-exp",
+  "gemini-2.0-flash-lite",
   "gemini-1.5-pro",
   "gemini-1.5-flash",
   "gemini-1.5-flash-8b",
@@ -43,6 +47,8 @@ const config = {
   serverURL: "http://localhost:8080",
   relayURL: "http://localhost:8081",
 
+  ollamaEnabled: true,
+
   temperature: "0.8",
   topp: "1",
   topk: "1",
@@ -50,7 +56,7 @@ const config = {
   sysMsg: "Let's work this out in a step by step way to be sure we have the right answer.",
 
   defaultChatType: "OpenAI",
-  defaultModel: { name: "o1" },
+  defaultModel: { name: "chatgpt-4o-latest" },
   defaultModelList: openAIModels,
 
   models: {
@@ -71,6 +77,7 @@ const config = {
 
   visionModels:
     [
+      "chatgpt-4o-latest",
       "o1",
       "gpt-4.5-preview",
       "gpt-4o",
@@ -82,9 +89,12 @@ const config = {
       "claude-3-opus-20240229",
       "claude-3-sonnet-20240229",
       "claude-3-haiku-20240307",
+      "gemini-2.5-pro-exp-03-25",
       "gemini-2.0-flash-exp",
+      "gemini-2.0-flash-lite",
       "gemini-1.5-pro",
       "gemini-1.5-flash",
+      "gemini-1.5-flash-8b",
       "granite3.2-vision:latest",
       "llava-phi3:latest",
       "bakllava:latest",

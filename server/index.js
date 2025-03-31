@@ -16,7 +16,7 @@ import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from "@google/ge
 import OpenAI from 'openai';
 import { RealtimeRelay } from './relay.js';
 import Config from './config.js';
-import crypto from 'crypto';
+import dayjs from 'dayjs';
 
 
 
@@ -55,7 +55,7 @@ app.use((err, req, res, next) => {
 
 
 // Function to get the current time as a string in 'HH:MM:SS' format
-function getCurrentTime() {
+/* function getCurrentTime() {
   const now = new Date();
   const hours = String(now.getHours()).padStart(2, '0');
   const minutes = String(now.getMinutes()).padStart(2, '0');
@@ -63,7 +63,7 @@ function getCurrentTime() {
   return `${hours}:${minutes}:${seconds}`;
 }
 
-/* // Function to get the log file path, system local time
+// Function to get the log file path, system local time
 function getLogFilePath() {
   const now = new Date();
   const year = now.getFullYear();
@@ -103,7 +103,7 @@ if (!fs.existsSync(chatHistoryDir)) {
   fs.mkdirSync(chatHistoryDir);
 };
 
-const decrypt = (encrypted, pwd) => {
+/* const decrypt = (encrypted, pwd) => {
   const iv = encrypted.slice(0, 16);
   encrypted = encrypted.slice(16);
   const key = crypto.scryptSync(pwd, process.env['LLM_SERVER_HASH'], 32);
@@ -111,70 +111,50 @@ const decrypt = (encrypted, pwd) => {
   const result = Buffer.concat([decipher.update(encrypted), decipher.final()]);
 
   return result;
-};
+}; */
 
 //Read the chat history for a specific user
 function readChatHistory(username) {
-  const chatSpecificPath = path.join(chatHistoryDir, `${username}.chat`);
+  const chatSpecificPath = path.join(chatHistoryDir, `${username}.jsonl`);
   
   try {
     // Check if the file exists
     if (!fs.existsSync(chatSpecificPath)) {
-      // Get the user's passphrase
-      const passphraseData = JSON.parse(process.env['LLM_CHATTER_PASSPHRASE']);
-      const user = passphraseData.users.find(u => u.name === username);
-      
-      if (!user) {
-        console.error(`User ${username} not found in passphrase data`);
-        return [];
-      }
-      
-      const passphrase = user.value;
-      
-      // Create an empty chat history array
-      const emptyHistory = [];
-      
-      // Encrypt and save the empty array
-      const encrypted = encrypt(JSON.stringify(emptyHistory), passphrase);
-      
-      // Make sure the directory exists
-      if (!fs.existsSync(chatHistoryDir)) {
-        fs.mkdirSync(chatHistoryDir, { recursive: true });
-      }
-      
-      // Write the encrypted empty array to the file
-      fs.writeFileSync(chatSpecificPath, encrypted, 'utf8');
-      
-      // Return the empty array
-      return emptyHistory;
+      fs.writeFileSync(chatSpecificPath, {}, 'utf8');
+      return {};
     }
     
-    // If the file exists, read and decrypt it
-    const passphraseData = JSON.parse(process.env['LLM_CHATTER_PASSPHRASE']);
+/*     const passphraseData = JSON.parse(process.env['LLM_CHATTER_PASSPHRASE']);
     const user = passphraseData.users.find(u => u.name === username);
     
     if (!user) {
       console.error(`User ${username} not found in passphrase data`);
-      return [];
+      return {};
     }
     
-    const passphrase = user.value;
+    const passphrase = user.value; */
+
     const fileContent = fs.readFileSync(chatSpecificPath, 'utf8');
-    const decrypted = decrypt(fileContent, passphrase);
+    //const decrypted = decrypt(fileContent, passphrase);
     
-    return JSON.parse(decrypted);
+    //return JSON.parse(decrypted);
+    return fileContent ? JSON.parse(fileContent) : {};
   } catch (error) {
     console.error(`Error reading chat history for ${username}:`, error);
-    return [];
+    return {};
   }
 }
 
 // Function to log chat events
-function logChatEvent(username, data) {
+function logChatEvent(username, data, context = null, thread = null) {
   const logEntry = {
     ...data
   };
-  const passphraseData = JSON.parse(process.env['LLM_CHATTER_PASSPHRASE']);
+
+  const chatSpecificPath = path.join(chatHistoryDir, `${username}.jsonl`);
+  let chatHistory = {};
+
+/*   const passphraseData = JSON.parse(process.env['LLM_CHATTER_PASSPHRASE']);
   const user = passphraseData.users.find(u => u.name === username);
   
   if (!user) {
@@ -182,40 +162,44 @@ function logChatEvent(username, data) {
     return;
   }
   
-  const passphrase = user.value;
-  const chatSpecificPath = path.join(chatHistoryDir, `${username}.chat`);
-  
-  // Initialize with an empty array
-  let chatHistory = [];
-  
+  const passphrase = user.value; */
+
   // Check if the file exists
   if (fs.existsSync(chatSpecificPath)) {
     try {
       const fileContent = fs.readFileSync(chatSpecificPath, 'utf8');
-      chatHistory = JSON.parse(decrypt(fileContent, passphrase) || '[]');
+      chatHistory = JSON.parse(fileContent || '{}');
+      //chatHistory = JSON.parse(decrypt(fileContent, passphrase) || '{}');
     } catch (error) {
       console.error(`Error reading existing chat history for ${username}:`, error);
-      // Continue with empty array if there's an error reading the file
-    }
-  } else {
-    // Make sure the directory exists
-    if (!fs.existsSync(chatHistoryDir)) {
-      fs.mkdirSync(chatHistoryDir, { recursive: true });
     }
   }
   
   // Add the new log entry
-  chatHistory.push(logEntry);
+  const key = `i_${Object.keys(chatHistory).length}`;
+  chatHistory[key] = logEntry;
+
+  //Ollama context array
+  if (context) {
+    const contextKey = `c_${Object.keys(chatHistory).length}`;
+    chatHistory[contextKey] = context;
+  }
+
+  if (thread) {
+    const threadKey = `t_${Object.keys(chatHistory).length}`;
+    chatHistory[threadKey] = thread;
+  }
   
   // Encrypt and save
-  const stringy = JSON.stringify(chatHistory);
-  const buffer = Buffer.from(stringy, 'utf8');
+  const chatHistoryStr = JSON.stringify(chatHistory);
+ /*  const buffer = Buffer.from(chatHistoryStr, 'utf8');
   const key = crypto.scryptSync(passphrase, process.env['LLM_SERVER_HASH'], 32);
   const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv("aes-256-ctr", key, iv);
-  const result = Buffer.concat([iv, cipher.update(buffer), cipher.final()]);
-  // Use writeFileSync to ensure the file is written before continuing
-  fs.writeFileSync(chatSpecificPath, result);
+  const result = Buffer.concat([iv, cipher.update(buffer), cipher.final()]); */
+
+  //fs.writeFileSync(chatSpecificPath, result);
+  fs.writeFileSync(chatSpecificPath, chatHistoryStr);
 };
 
 
@@ -334,6 +318,7 @@ const validateInput = [
   body('model').optional().isString().trim(),
   body('prompt').optional().isString().trim(),
   body('system').optional().isString().trim(),
+  body('thread').optional().isArray(),
   body('context').optional().isArray(),
   body('options.temperature').optional().isFloat({ min: 0, max: 1 }),
   body('options.top_p').optional().isFloat({ min: 0, max: 1 }),
@@ -379,13 +364,18 @@ app.post('/getmodels', validateInput, async (req, res) => {
   const origin = req.headers['origin'];
 
   try {
-    const response = await axios.get('http://localhost:11434/api/tags');
+    if (Config.ollamaEnabled) {
+      const response = await axios.get('http://localhost:11434/api/tags');
 
-    console.log(chalk.cyan("\nSent model list.") +
-      "\nSource: " + origin +
-      "\nConnector IP: " + clientIp + "\n");
+      console.log(chalk.cyan("\nSent model list.") +
+        "\nSource: " + origin +
+        "\nConnector IP: " + clientIp + "\n");
 
-    res.send(response.data.models);
+      res.send(response.data.models);
+    } else {
+      console.error('Ollama disabled on server. Models not sent.');
+      res.status(500).json({ error: 'Ollama GetModels Error' });
+    }
   } catch (error) {
     console.error('Error:', error);
     res.status(500).json({ error: 'Ollama GetModels Error' });
@@ -409,35 +399,37 @@ app.post('/ollama', validateInput, async (req, res) => {
     delete theData.uniqueChatID;
     delete theData.sentOne;
     delete theData.serverUsername;
+    delete theData.thread;
 
-    const timeNow = new Date().toISOString();
+    const timeNow = dayjs().format(Config.timeFormat);
     const chatId = req.body.uniqueChatID;
     const sent1 = req.body.sentOne;
     const username = req.body.serverUsername;
+    const thread = req.body.thread;
 
     const logData = {
-      chatId: chatId,
-      model: theData.model,
-      temp: theData.options.temperature || 0.8,
-      topp: theData.options.top_p || 1,
-      topk: theData.options.top_k || 1,
+      u: chatId,
+      m: theData.model,
+      t: theData.options.temperature || 0.8,
+      p: theData.options.top_p || 1,
+      k: theData.options.top_k || 1,
     }
 
-    if (!sent1 && theData.system) {
+    if (!sent1 && theData.system && (thread.length === 0)) {
       logChatEvent(username, {
         ...logData,
-        role: "system",
-        time: timeNow,
-        message: theData.system,
-      });
+        r: "system",
+        d: timeNow,
+        z: theData.system,
+      }, [], thread);
     };
 
     logChatEvent(username, {
       ...logData,
-      role: "user",
-      time: timeNow,
-      message: theData.prompt,
-    });
+      r: "user",
+      d: timeNow,
+      z: theData.prompt,
+    }, [], thread);
 
     const response = await axios.post(
       "http://localhost:11434/api/generate",
@@ -447,14 +439,19 @@ app.post('/ollama', validateInput, async (req, res) => {
 
     res.send(response.data);
 
-    const timestamp = new Date().toISOString();
+    const timestamp = dayjs().format(Config.timeFormat);
 
-    logChatEvent(username, {
-      ...logData,
-      role: "assistant",
-      time: timestamp,
-      message: response.data.response,
-    });
+    logChatEvent(
+      username, 
+      {
+        ...logData,
+        r: "assistant",
+        d: timestamp,
+        z: response.data.response,
+      },
+      response.data.context,
+      thread
+    );
 
     console.log(`
     ${chalk.bgGreen.bold('\n////////////////////////////////////////')}
@@ -464,8 +461,6 @@ app.post('/ollama', validateInput, async (req, res) => {
     ${chalk.yellow.bold.underline('Temperature')}: ${chalk.yellow(theData.options.temperature)}
     ${chalk.red.bold.underline('Top-P')}: ${chalk.red(theData.options.top_p)}
     ${chalk.red.bold.underline('Top-K')}: ${chalk.red(theData.options.top_k)}
-    ${chalk.magenta.bold.underline('System')}:
-    ${chalk.magenta(theData.system)}
     ${chalk.cyan.bold.underline('Prompt')}:
     ${chalk.cyan(theData.prompt)}
     ${chalk.white.bold.underline('Response')}:
@@ -502,34 +497,34 @@ app.post('/anthropic', validateInput, async (req, res) => {
       apiKey: process.env['ANTHROPIC_API_KEY'],
     });
 
-    const timeNow = new Date().toISOString();
+    const timeNow = dayjs().format(Config.timeFormat);
     const chatId = req.body.uniqueChatID;
     const sent1 = req.body.sentOne;
     const username = req.body.serverUsername;
 
     const logData = {
-      chatId: chatId,
-      model: theData.model,
-      temp: theData.temperature || 0.8,
-      topp: theData.top_p || 1,
-      topk: theData.top_k || 1,
+      u: chatId,
+      m: theData.model,
+      t: theData.temperature || 0.8,
+      p: theData.top_p || 1,
+      k: theData.top_k || 1,
     }
 
-    if (!sent1 && theData.system) {
+    if (!sent1 && theData.system && (theData.thread.length === 0)) {
       logChatEvent(username, {
         ...logData,
-        role: "system",
-        time: timeNow,
-        message: theData.system,
-      });
+        r: "system",
+        d: timeNow,
+        z: theData.system,
+      }, [], theData.thread);
     };
 
     logChatEvent(username, {
       ...logData,
-      role: "user",
-      time: timeNow,
-      message: ((theMsgs[theMsgs.length - 1])).content[0].text,
-    });
+      r: "user",
+      d: timeNow,
+      z: ((theMsgs[theMsgs.length - 1])).content[0].text,
+    }, [], theData.thread);
 
     const msg = await anthropic.messages.create({
       model: theData.model,
@@ -543,14 +538,19 @@ app.post('/anthropic', validateInput, async (req, res) => {
 
     res.status(200).json(msg);
 
-    const timestamp = new Date().toISOString();
+    const timestamp = dayjs().format(Config.timeFormat);
 
-    logChatEvent(username, {
-      ...logData,
-      role: "assistant",
-      time: timestamp,
-      message: msg.content[0].text,
-    });
+    logChatEvent(
+      username,
+      {
+        ...logData,
+        r: "assistant",
+        d: timestamp,
+        z: msg.content[0].text,
+      },
+      [], //Context, Ollama only
+      theData.thread
+    );
 
     console.log(`
     ${chalk.bgGreen.bold('\n////////////////////////////////////////')}
@@ -560,8 +560,6 @@ app.post('/anthropic', validateInput, async (req, res) => {
     ${chalk.yellow.bold.underline('Temperature')}: ${chalk.yellow(theData.temperature)}
     ${chalk.red.bold.underline('Top-P')}: ${chalk.red(theData.top_p)}
     ${chalk.red.bold.underline('Top-K')}: ${chalk.red(theData.top_k)}
-    ${chalk.magenta.bold.underline('System')}:
-    ${chalk.magenta(theData.system)}
     ${chalk.cyan.bold.underline('Prompt')}:
     ${chalk.cyan(((theMsgs[theMsgs.length - 1])).content[0].text)}
     ${chalk.white.bold.underline('Response')}:
@@ -613,34 +611,34 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
     const lastMessage = messages[messages.length - 1];
     const promptText = lastMessage && lastMessage.content[0].text ? lastMessage.content[0].text : 'N/A';
 
-    const timeNow = new Date().toISOString();
+    const timeNow = dayjs().format(Config.timeFormat);
     const chatId = req.body.uniqueChatID;
     const sent1 = req.body.sentOne;
     const username = req.body.serverUsername;
 
     const logData = {
-      chatId: chatId,
-      model: model,
-      temp: temperature || 0.8,
-      topp: top_p || 1,
-      topk: theData.top_k || 1,
+      u: chatId,
+      m: model,
+      t: temperature || 0.8,
+      p: top_p || 1,
+      k: theData.top_k || 1,
     }
 
-    if (!sent1 && system) {
+    if (!sent1 && system && (theData.thread.length === 0)) {
       logChatEvent(username, {
         ...logData,
-        role: "system",
-        time: timeNow,
-        message: system,
-      });
+        r: "system",
+        d: timeNow,
+        z: system,
+      }, [], theData.thread);
     };
 
     logChatEvent(username, {
       ...logData,
-      role: "user",
-      time: timeNow,
-      message: promptText,
-    });
+      r: "user",
+      d: timeNow,
+      z: promptText,
+    }, [], theData.thread);
 
     // Set up client with the appropriate API key and optional base URL
     const client = new OpenAI({
@@ -660,14 +658,19 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
 
     res.status(200).json(response);
 
-    const timestamp = new Date().toISOString();
+    const timestamp = dayjs().format(Config.timeFormat);
 
-    logChatEvent(username, {
-      ...logData,
-      role: "assistant",
-      time: timestamp,
-      message: response.choices?.[0]?.message?.content || 'No response content available',
-    });
+    logChatEvent(
+      username,
+      {
+        ...logData,
+        r: "assistant",
+        d: timestamp,
+        z: response.choices?.[0]?.message?.content || 'No response content available',
+      },
+      [], //Context, Ollama only
+      theData.thread
+    );
 
     const responseContent = response.choices?.[0]?.message?.content || 'No response content available';
     console.log(`
@@ -677,8 +680,6 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
     ${chalk.blue.bold.underline('Model')}: ${chalk.blue(model)}
     ${chalk.yellow.bold.underline('Temperature')}: ${chalk.yellow(temperature)}
     ${chalk.red.bold.underline('Top-P')}: ${chalk.red(top_p)}
-    ${chalk.magenta.bold.underline('System')}:
-    ${chalk.magenta(system)}
     ${chalk.cyan.bold.underline('Prompt')}:
     ${chalk.cyan(promptText)}
     ${chalk.white.bold.underline('Response')}:
@@ -757,34 +758,34 @@ app.post('/google', validateInput, async (req, res) => {
       safetySettings: safetySettings
     });
 
-    const timeNow = new Date().toISOString();
+    const timeNow = dayjs().format(Config.timeFormat);
     const chatId = req.body.uniqueChatID;
     const sent1 = req.body.sentOne;
     const username = req.body.serverUsername;
 
     const logData = {
-      chatId: chatId,
-      model: theData.model,
-      temp: theData.temperature || 0.8,
-      topp: theData.top_p || 1,
-      topk: theData.top_k || 1,
+      u: chatId,
+      m: theData.model,
+      t: theData.temperature || 0.8,
+      p: theData.top_p || 1,
+      k: theData.top_k || 1,
     }
 
-    if (!sent1 && theData.system) {
+    if (!sent1 && theData.system && (theData.thread.length === 0)) {
       logChatEvent(username, {
         ...logData,
-        role: "system",
-        time: timeNow,
-        message: theData.system,
-      });
+        r: "system",
+        d: timeNow,
+        z: theData.system,
+      }, [], theData.thread);
     };
 
     logChatEvent(username, {
       ...logData,
-      role: "user",
-      time: timeNow,
-      message: ((theMsgs[theMsgs.length - 1])).content[0].text,
-    });
+      r: "user",
+      d: timeNow,
+      z: ((theMsgs[theMsgs.length - 1])).content[0].text,
+    }, [], theData.thread);
 
     const generationConfig = {
       temperature: theData.temperature,
@@ -806,14 +807,19 @@ app.post('/google', validateInput, async (req, res) => {
     const response = result.response.text();
     res.status(200).json(response);
 
-    const timestamp = new Date().toISOString();
+    const timestamp = dayjs().format(Config.timeFormat);
 
-    logChatEvent(username, {
-      ...logData,
-      role: "assistant",
-      time: timestamp,
-      message: response,
-    });
+    logChatEvent(
+      username,
+      {
+        ...logData,
+        r: "assistant",
+        d: timestamp,
+        z: response
+      },
+      [], //Context, Ollama only
+      theData.thread
+    );
 
     console.log(`
     ${chalk.bgGreen.bold('\n////////////////////////////////////////')}
@@ -823,8 +829,6 @@ app.post('/google', validateInput, async (req, res) => {
     ${chalk.yellow.bold.underline('Temperature')}: ${chalk.yellow(theData.temperature)}
     ${chalk.red.bold.underline('Top-P')}: ${chalk.red(theData.top_p)}
     ${chalk.red.bold.underline('Top-K')}: ${chalk.red(theData.top_k)}
-    ${chalk.magenta.bold.underline('System')}:
-    ${chalk.magenta(theData.system)}
     ${chalk.cyan.bold.underline('Prompt')}:
     ${chalk.cyan(((theMsgs[theMsgs.length - 1])).content[0].text)}
     ${chalk.white.bold.underline('Response')}:

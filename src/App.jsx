@@ -34,35 +34,49 @@ function App() {
   //Other defaults
 
   const [serverPassphrase, setServerPassphrase] = useState("");
-  const [serverUsername, setServerUsername] = useState("");
   const [serverURL, setServerURL] = useState(Config.serverURL);
   const [relayWS, setRelayWS] = useState(Config.relayURL);
-  const [sysMsg, setSysMsg] = useState(Config.sysMsg);
   const [temperature, setTemperature] = useState(Config.temperature);
   const [topp, setTopp] = useState(Config.topp);
   const [topk, setTopk] = useState(Config.topk);
 
   //Don't touch the rest of these.
+  const [sysMsg, setSysMsg] = useState(() => {
+    const cookieSysMsg = JSON.parse(localStorage.getItem('sysMsg'));
+    return cookieSysMsg ? cookieSysMsg : Config.sysMsg;
+  });
+
+  const [serverUsername, setServerUsername] = useState(() => {
+    const cookieUsername = Cookies.get('serverUsername');
+    return cookieUsername ? JSON.parse(cookieUsername) : "";
+  });
 
   const [clientJWT, setClientJWT] = useState(() => {
     const cookieJWT = Cookies.get('clientJWT');
     return cookieJWT ? JSON.parse(cookieJWT) : "";
   });
+
   const [checkedIn, setCheckedIn] = useState(() => {
     const cookieCheckedIn = Cookies.get('checkedIn');
     return cookieCheckedIn ? JSON.parse(cookieCheckedIn) : false;
   });
+
   const [localModels, setLocalModels] = useState(() => {
     const cookieModels = JSON.parse(localStorage.getItem('localModels'));
     return cookieModels ? cookieModels : [];
   });
+
   const [chosenOllama, setChosenOllama] = useState(() => {
     const cookieOllama = Cookies.get('chosenOllama');
     return cookieOllama ? JSON.parse(cookieOllama) : localModels[0];
   });
 
+  const [chatHistory, setChatHistory] = useState(() => {
+    const cookieHistory = JSON.parse(localStorage.getItem('chatHistory'));
+    return cookieHistory ? cookieHistory : {};
+  });
+
   const [sessionHash, setSessionHash] = useState("");
-  const [chatHistory, setChatHistory] = useState({});
   const [componentList, setComponentList] = useState([]);
   const [advancedSetting, setAdvancedSetting] = useState(false);
   const [serverCheck, setServerCheck] = useState(false);
@@ -77,20 +91,24 @@ function App() {
 
   // Check if the arrays contains elements before adding related keys
   const modelOptions = {};
+
   if (anthropicAImodels.length > 0) {
     modelOptions["Anthropic"] = anthropicAImodels;
   }
+
   if (googleAImodels.length > 0) {
     modelOptions["Google"] = googleAImodels;
   }
+
   if (grokAImodels.length > 0) {
     modelOptions["Grok"] = grokAImodels;
   }
+
   if (deepseekAImodels.length > 0) {
     modelOptions["Deepseek"] = deepseekAImodels;
   }
 
-  if (localModels.length > 0) {
+  if ((localModels.length > 0) && Config.ollamaEnabled) {
     modelOptions["Ollama"] = localModels;
   }
 
@@ -106,14 +124,14 @@ function App() {
     return debouncedFn;
   }
 
-  const makeNewChat = useCallback((additionalData) => {
+  const makeNewChat = useCallback((theChatType) => {
     const uuid = uuidv4();
 
     const newChat = {
       id: uuid,
       numba: chatCount,
       systemMessage: sysMsg,
-      chatType: additionalData,
+      chatType: theChatType,
       model: model.name,
       temperature: temperature,
       topp: topp,
@@ -124,6 +142,10 @@ function App() {
       modelOptions: modelOptions,
       sessionHash: sessionHash,
       serverUsername: serverUsername,
+      messages: {},
+      context: [],
+      thread: [],
+      restoreID: "",
     };
 
     setComponentList([...componentList, newChat]);
@@ -148,12 +170,16 @@ function App() {
     }, 3000);
   });
 
-  const clearStuff = useCallback(() => {
+  const clearStuff = useCallback((attempted) => {
     Cookies.set('clientJWT', JSON.stringify(""), { expires: 1 });
     setClientJWT("");
+    Cookies.set('serverUsername', JSON.stringify(""), { expires: 1 });
+    setServerUsername("");
     Cookies.set('checkedIn', JSON.stringify(false), { expires: 1 });
     setCheckedIn(false);
+    setSignInAttempted(attempted);
     localStorage.setItem('localModels', JSON.stringify([]));
+    localStorage.setItem('chatHistory', JSON.stringify({}));
     setLocalModels([]);
   });
 
@@ -171,11 +197,11 @@ function App() {
           setServerCheck(true);
         } else {
           setServerCheck(false);
-          clearStuff();
+          clearStuff(false);
         }
       } catch (error) {
         setServerCheck(false);
-        clearStuff();
+        clearStuff(false);
       }
     }, 250),
     [serverURL, clearStuff] // Add serverURL as a dependency
@@ -200,20 +226,22 @@ function App() {
         const data = checkinResp.data;
 
         setChatHistory(data.userChatHistory);
+        localStorage.setItem('chatHistory', JSON.stringify(data.userChatHistory));
 
         Cookies.set('clientJWT', JSON.stringify(data.token), { expires: 1 });
         setClientJWT(data.token);
 
+        Cookies.set('serverUsername', JSON.stringify(serverUsername), { expires: 1 });
+        setServerUsername(serverUsername);
+
         Cookies.set('checkedIn', JSON.stringify(true), { expires: 1 });
         setCheckedIn(true);
 
-        checkModels(data.token);
+        if (Config.ollamaEnabled) {checkModels(data.token)};
       }
     } catch (error) {
       console.log(error);
-
-      setSignInAttempted(true);
-      clearStuff();
+      clearStuff(true);
     }
   }, 250), [clientJWT, serverUsername, serverPassphrase, sessionHash]);
 
@@ -228,10 +256,14 @@ function App() {
   const logoutUser = useCallback(debounce(async () => {
     setCheckedIn(false);
     setClientJWT("");
+    setServerUsername("");
+    setSignInAttempted(false);
     Cookies.remove('checkedIn');
     Cookies.remove('clientJWT');
     Cookies.remove('chosenOllama');
+    Cookies.remove('serverUsername');
     localStorage.setItem('localModels', JSON.stringify([]));
+    localStorage.setItem('chatHistory', JSON.stringify({}));
     setLocalModels([]);
 
     return;
@@ -331,7 +363,6 @@ function App() {
   const handleToppChange = handleChange(setTopp);
   const handleTopkChange = handleChange(setTopk);
   const handleTempChange = handleChange(setTemperature);
-  const handleURLChange = handleChange(setServerURL);
   const handleUsernameChange = handleChange(setServerUsername);
   const handlePassphraseChange = handleChange(setServerPassphrase);
 
@@ -365,11 +396,11 @@ function App() {
     if (itemCount === 1) {
       classes += 'w-[50%] place-self-center items-center justify-center gap-0 sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-1 xl:grid-cols-1 2xl:grid-cols-1';
     } else if (itemCount === 2) {
-      classes += 'sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-1 xl:grid-cols-2 2xl:grid-cols-2';
+      classes += 'sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2';
     } else if (itemCount === 3) {
-      classes += 'sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3';
+      classes += 'sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3';
     } else {
-      classes += 'sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3';
+      classes += 'sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3';
     }
     return classes;
   };
@@ -386,10 +417,11 @@ function App() {
           ]}
           delay={400}>
           {styles => (
-            <animated.div style={styles} className="min-w-[50%] text-aro-100 place-self-center cursor-default bg-vonCount-600 bg-gradient-to-tl from-vonCount-700 rounded-3xl font-bold p-2 flex items-center justify-center">
+            <animated.div style={styles} className="w-[50%] text-aro-100 place-self-center cursor-default bg-vonCount-600 bg-gradient-to-tl from-vonCount-700 rounded-3xl font-bold p-2 flex items-center justify-center">
 
               { /* Settings box */}
               <div className="w-full">
+                {checkedIn && <ChatHistory chatHistory={chatHistory} componentList={componentList} chatCount={chatCount} localModels={localModels} serverURL={serverURL} modelOptions={modelOptions} setComponentList={setComponentList} setChatCount={setChatCount} />}
                 <table className="min-w-full text-black">
                   <tbody>
                     {(serverCheck && checkedIn) ?
@@ -397,13 +429,13 @@ function App() {
                         <td className="w-[10%] text-center">
                           <a alt="GitHub" target="_blank" rel="noopener noreferrer" href="https://github.com/rossudev/llm-chatter"><i className="fa-brands fa-github text-4xl text-aro-300 text-center mb-2"></i></a>
                         </td>
-                        <td className="2xl:w-[90%] xl:w-[86%] lg:w-[82%] md:w-[78%] sm:w-[74%] text-3xl tracking-normal text-center items-center font-bold text-black cursor-context-menu">
-                          <div className="border-solid border-2 border-aro-800 self-start text-black place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-2xl font-bold flex items-center justify-center mb-4 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-2xl hover:shadow-dracula-700 cursor-pointer">
+                        <td className="2xl:w-[90%] xl:w-[86%] lg:w-[82%] md:w-[78%] sm:w-[74%] text-3xl tracking-normal text-center items-center font-bold text-black">
+                          <div className="border-solid border border-aro-800 self-start text-black place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-2xl font-bold flex items-center justify-center mb-4 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 cursor-pointer">
                             <input className="hidden" type="checkbox" name="advancedSetting" id="advancedSettings" checked={advancedSetting} onChange={handleCheckboxChange} />
                             <label className="cursor-context-menu leading-6" htmlFor="advancedSettings">
                               <span className="mr-2 flex items-center text-black">
-                                <i className={`text-aro-200 text-5xl fa-solid fa-gear ml-2 p-4 hover:text-marcelin-900 ${advancedSetting ? 'fa-gear text-blade-500 fa-rotate-270' : 'hover:text-dracula-100 ml-2'}`}></i>
-                                <span className="hover:underline mr-4">Advanced Settings</span>
+                                <i className={`text-aro-200 text-4xl fa-solid fa-gear ml-2 p-4 hover:text-marcelin-900 ${advancedSetting ? 'fa-gear text-blade-500 fa-rotate-270' : 'hover:text-dracula-100 ml-2'}`}></i>
+                                <span className={advancedSetting ? "underline hover:no-underline mr-4": "hover:underline mr-4"}>Advanced Settings</span>
                               </span>
                             </label>
                           </div>
@@ -414,19 +446,19 @@ function App() {
                         <td className="w-[10%] text-5xl text-center items-center justify-center">
                           <a alt="GitHub" target="_blank" rel="noopener noreferrer" href="https://github.com/rossudev/llm-chatter"><i className="fa-brands fa-github text-5xl text-aro-300 text-center mb-2"></i></a>
                         </td>
-                        <td className="text-black text-3xl pl-12">LLM Chatter</td>
+                        <td className="text-black text-3xl pl-12 font-mono">LLM Chatter <span className="font-sans">login</span></td>
                       </tr>
                     }
 
                     { /* NodeJS server check display */}
                     <tr>
                       <td className="w-[10%] pb-4 pr-4 pt-6">Server:</td>
-                      <td className="pb-4 font-sans pt-6">
+                      <td className="pl-10 pb-4 font-sans pt-6">
                         {serverCheck ?
                           <>
-                            <span className="rounded-2xl p-3 bg-blade-700 text-black italic">Online</span>
+                            <span className="rounded-2xl p-3 border border-solid border-aro-100 bg-aro-500 text-black italic">Online</span>
                             {checkedIn &&
-                              <span onClick={logoutUser} className="border-solid border-2 border-marcelin-200 rounded-2xl p-3 bg-marcelin-400 ml-6 text-black cursor-pointer hover:font-extrabold hover:border-marcelin-600">Log Out</span>
+                              <span onClick={logoutUser} className="border-solid border border-cullen-200 rounded-2xl p-3 bg-cullen-600 ml-6 text-black cursor-pointer hover:font-extrabold hover:bg-cullen-400 hover:border-cullen-200 hover:border-2 hover:underline">Log Out</span>
                             }
                           </>
                           :
@@ -470,7 +502,7 @@ function App() {
                               ]}
                               delay={200}>
                               {styles => (
-                                <animated.div onClick={debounce(() => { clientCheckIn() }, 250)} style={styles} className="border-solid border-2 border-aro-800 hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-2xl font-bold p-4 flex mb-2 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-xl hover:shadow-dracula-700 cursor-pointer">
+                                <animated.div onClick={debounce(() => { clientCheckIn() }, 250)} style={styles} className="border-solid border border-aro-800 hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-2xl font-bold p-4 flex mb-2 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 shadow-xl hover:shadow-dracula-700 cursor-pointer">
                                   <i className="text-vonCount-900 fa-solid fa-plug-circle-bolt mr-4"></i>
                                   <h1 className="text-black">Sign In</h1>
                                   {(!checkedIn && signInAttempted) &&
@@ -490,20 +522,28 @@ function App() {
                 <table className="min-w-full text-black">
                   <tbody>
                     { /* System Message */}
-                    {checkedIn &&
-                      <tr>
-                        <td className="w-[10%] pb-4 pr-4">
-                          Starting Prompt:
-                        </td>
-                        <td>
-                          <TextareaAutosize minRows="3" maxRows="5" className="min-w-full font-bold hover:bg-vonCount-300 bg-vonCount-200 p-4 text-sm font-sans text-black rounded-xl" placeholder="'System' Message" onChange={(e) => handleSysMsgChange(e)} value={sysMsg} />
-                        </td>
-                      </tr>
-                    }
+                              {checkedIn &&
+                                <tr>
+                                  <td className="w-[10%] pb-4 pr-4">
+                                    Starting Prompt:
+                                  </td>
+                                  <td>
+                                    <TextareaAutosize 
+                                    minRows="3" 
+                                    maxRows="5" 
+                                    className="min-w-full font-bold hover:bg-vonCount-300 bg-vonCount-200 p-4 text-sm font-sans text-black rounded-xl" 
+                                    placeholder="'System' Message" 
+                                    onChange={(e) => {
+                                      handleSysMsgChange(e);
+                                      localStorage.setItem('sysMsg', JSON.stringify(""));
+                                    }} 
+                                    value={sysMsg} 
+                                    />
+                                  </td>
+                                </tr>
+                              }
 
-
-
-                    { /* Input Type */}
+                              { /* Input Type */}
                     {checkedIn &&
                       <tr>
                         <td className="pb-2 pr-4">Input Type:</td>
@@ -591,7 +631,7 @@ function App() {
                         <tr>
                           <td className="pb-4 text-blade-400">top-p:</td>
                           <td className="tracking-wide font-bold text-black">
-                            <select name="topp" id="topp" className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer mb-1 p-4 min-w-24 font-sans rounded-xl text-black" onChange={(e) => handleToppChange(e)} value={topp}>
+                            <select name="topp" id="topp" className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer mb-2 p-4 min-w-24 font-sans rounded-xl text-black" onChange={(e) => handleToppChange(e)} value={topp}>
                               <option value="0">0</option>
                               <option value="0.01">0.01</option>
                               <option value="0.02">0.02</option>
@@ -664,7 +704,7 @@ function App() {
                           ]}
                           delay={200}>
                           {styles => (
-                            <animated.div onClick={() => { debouncedMakeNewChat(chatType); }} style={styles} className="border-solid border-2 border-aro-800 self-start text-black place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-2xl font-bold p-4 flex items-center justify-center mb-2 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 hover:shadow-xl hover:shadow-marcelin-700 shadow-none cursor-pointer">
+                            <animated.div onClick={() => { debouncedMakeNewChat(chatType); }} style={styles} className="border-solid border border-aro-800 self-start text-black place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-2xl font-bold p-4 flex items-center justify-center mb-2 bg-gradient-to-tl from-nosferatu-500 hover:from-aro-600 cursor-pointer hover:border-2">
                               <i className="fa-solid fa-keyboard mr-4"></i>
                               <h1 className="hover:underline">Text</h1>
                             </animated.div>
@@ -672,8 +712,8 @@ function App() {
                         </Spring>
 
                         { /* Info of selected model */}
-                        <div className="col-span-2 rounded-lg border-solid border-2 border-aro-800 bg-aro-300 text-black self-start place-self-center text-center items-center justify-center p-2 cursor-text">
-                          <p className="underline text-2xl">Text Model:</p>
+                        <div className="col-span-2 rounded-lg border-solid border border-aro-800 bg-aro-300 text-black self-start place-self-center text-center items-center justify-center p-2 cursor-text">
+                          <p className="underline text-2xl">Text Model</p>
                           <p className="text-xl">{model.name + (Config.visionModels.includes(model.name) ? " *" : "")}</p>
                           {Config.visionModels.includes(model.name) ?
                             <p className="text-xs mt-2">* Vision</p> :
@@ -691,14 +731,14 @@ function App() {
                               ]}
                               delay={300}>
                               {styles => (
-                                <animated.div onClick={() => { debouncedMakeNewChat("(Voice)"); }} style={styles} className="border-solid border-2 border-aro-800 self-start text-black place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-2xl font-bold p-4 flex items-center justify-center mb-1 bg-gradient-to-tl from-nosferatu-500 hover:from-nosferatu-600 hover:shadow-xl hover:shadow-marcelin-700 shadow-none cursor-pointer">
+                                <animated.div onClick={() => { debouncedMakeNewChat("(Voice)"); }} style={styles} className="border-solid border border-aro-800 self-start text-black place-self-center hover:bg-nosferatu-300 cursor-default bg-nosferatu-200 rounded-3xl text-2xl font-bold p-4 flex items-center justify-center mb-1 bg-gradient-to-tl from-nosferatu-500 hover:from-aro-600 cursor-pointer hover:border-2">
                                   <i className="fa-solid fa-microphone-lines mr-4"></i>
                                   <h1 className="hover:underline">Voice</h1>
                                 </animated.div>
                               )}
                             </Spring>
-                            <div className="col-span-2 rounded-lg border-solid border-2 border-aro-800 bg-aro-300 text-black self-start place-self-center text-center items-center justify-center p-2 cursor-text">
-                              <p className="underline text-2xl">Voice Model:</p>
+                            <div className="col-span-2 rounded-lg border-solid border border-aro-800 bg-aro-300 text-black self-start place-self-center text-center items-center justify-center p-2 cursor-text">
+                              <p className="underline text-2xl">Voice Model</p>
                               <p className="text-xl">gpt-4o-realtime-preview</p>
                             </div>
                           </> :
@@ -707,7 +747,6 @@ function App() {
                       </div>
                     </>
                 }
-                {checkedIn  && <ChatHistory chatHistory={chatHistory} />}
               </div>
             </animated.div>
           )}
@@ -742,6 +781,10 @@ function App() {
               localModels={container.localModels}
               sessionHash={sessionHash}
               serverUsername={serverUsername}
+              messages={container.messages}
+              context={container.context}
+              thread={container.thread}
+              restoreID={container.restoreID}
             />
           )
         ))}

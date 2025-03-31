@@ -1,4 +1,4 @@
-# LLM Chatter, v0.1.2
+# LLM Chatter, v0.1.3
 
 Large Language Model chat by text, vision and voice. Proprietary models by API request and local Ollama models supported.
 
@@ -43,6 +43,7 @@ Built with:
 - [OpenAI](https://platform.openai.com/docs/overview)
 
 # Models List
+- chatgpt-4o-latest*
 - o3-mini
 - o1*
 - o1-preview
@@ -62,6 +63,7 @@ Built with:
 - claude-3-haiku-20240307*
 - deepseek-chat
 - deepseek-reasoner
+- gemini-2.5-pro-exp-03-25*
 - gemini-2.0-flash-exp*
 - gemini-1.5-pro*
 - gemini-1.5-flash*

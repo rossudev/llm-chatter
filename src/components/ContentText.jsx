@@ -25,7 +25,8 @@ const ContentText = ({ txt, role }) => {
         );
     };
 
-    const lines = txt ? txt.split('\n') : [];
+    const lines = typeof txt === 'string' ? txt.split('\n') : [];
+
     const displayedLines = isExpanded ? lines : lines.slice(0, 5);
     const contentToDisplay = displayedLines.join('\n');
 
