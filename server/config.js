@@ -12,9 +12,9 @@ const Config = {
         true,
     clientDomains:
         [
-            "https://x.rossu.dev",
-            "https://ai.rossu.dev",
-            "https://ai.activehost.pro",
+            "http://localhost:8080",
+            "http://localhost:8081",
+            "http://localhost",
         ],
 };
 
