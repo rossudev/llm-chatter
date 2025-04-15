@@ -1,5 +1,6 @@
 /* eslint-disable no-undef */
 import express from "express";
+import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { body, validationResult } from 'express-validator';
 import axios from "axios";
@@ -17,7 +18,30 @@ import OpenAI from 'openai';
 import { RealtimeRelay } from './relay.js';
 import Config from './config.js';
 import dayjs from 'dayjs';
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 
+
+
+//Express server to handle client requests
+const app = express();
+const port = 8080;
+
+app.use(cors({ origin: Config.clientDomains }));
+app.use(helmet());
+app.use(bodyParser.json({ limit: '50mb' }));
+
+const limiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 10 minutes
+  max: 500, // limit each IP to 500 requests per windowMs
+  keyGenerator: req => req.headers['cf-connecting-ip'] || req.ip,
+});
+app.use(limiter);
+
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Bad Request' });
+});
 
 
 //.env file containing the API keys
@@ -28,29 +52,6 @@ dotenv.config({ path: path.join(process.cwd(), '.env') });
 //Realtime Relay
 const relay = new RealtimeRelay(process.env['OPENAI_API_KEY']);
 relay.listen(8081);
-
-
-
-//Express server to handle client requests
-const app = express();
-const port = 8080;
-
-app.use(bodyParser.json({ limit: '50mb' }));
-
-//Configure allowed-to-connect domains here, for real deployment
-app.use(cors());
-
-const limiter = rateLimit({
-  windowMs: 10 * 60 * 1000, // 10 minutes
-  max: 2000, // limit each IP to 2000 requests per windowMs
-  validate: { xForwardedForHeader: false },
-});
-app.use(limiter);
-
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Bad Request' });
-});
 
 
 
@@ -91,12 +92,6 @@ console.log = function (...args) {
 
 
 
-
-
-
-
-
-
 const chatHistoryDir = path.join(process.cwd(), 'chat-histories');
 
 if (!fs.existsSync(chatHistoryDir)) {
@@ -106,7 +101,7 @@ if (!fs.existsSync(chatHistoryDir)) {
 /* const decrypt = (encrypted, pwd) => {
   const iv = encrypted.slice(0, 16);
   encrypted = encrypted.slice(16);
-  const key = crypto.scryptSync(pwd, process.env['LLM_SERVER_HASH'], 32);
+  const key = crypto.scryptSync(pwd, process.env['SECRET_RANDOM'], 32);
   const decipher = crypto.createDecipheriv(algorithm, key, iv);
   const result = Buffer.concat([decipher.update(encrypted), decipher.final()]);
 
@@ -193,7 +188,7 @@ function logChatEvent(username, data, context = null, thread = null) {
   // Encrypt and save
   const chatHistoryStr = JSON.stringify(chatHistory);
  /*  const buffer = Buffer.from(chatHistoryStr, 'utf8');
-  const key = crypto.scryptSync(passphrase, process.env['LLM_SERVER_HASH'], 32);
+  const key = crypto.scryptSync(passphrase, process.env['SECRET_RANDOM'], 32);
   const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv("aes-256-ctr", key, iv);
   const result = Buffer.concat([iv, cipher.update(buffer), cipher.final()]); */
@@ -226,13 +221,20 @@ const verifyPassphrase = async (plainPassphrase, hashedPassphrase) => {
 
 // Function to generate a token
 const generateToken = (userId) => {
-  const token = jwt.sign({ userId }, process.env['LLM_SERVER_HASH'], { expiresIn: '1d' });
+  const token = jwt.sign({ userId }, process.env['SECRET_RANDOM'], { expiresIn: '1d' });
   return token;
 };
 
 const validateCheckin = [
-  body('serverUsername').isString().trim(),
-  body('serverPassphrase').isString().trim(),
+  body('serverUsername')
+    .isString()
+    .trim()
+    .notEmpty()
+    .withMessage('Username cannot be empty.')
+    .matches(/^[a-zA-Z0-9_-]+$/).withMessage('Username can only contain letters, numbers, underscores, and hyphens.'),
+
+  body('serverPassphrase').isString().trim().notEmpty().withMessage('Passphrase cannot be empty.'),
+  
   body('sessionHash').isString().trim(),
 ];
 
@@ -358,6 +360,72 @@ const validateInput = [
 
 
 
+//Client requests to re-sync their data
+app.post('/sync', validateInput, async (req, res) => {
+  const clientIp = req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.ip;
+  const origin = req.headers['origin'];
+
+  try {
+    const userChatHistory = readChatHistory(req.body.userName);
+
+    console.log(chalk.cyan("\nClient sync'd.") +
+      "\nUser: " + req.body.userName +
+      "\nSource: " + origin +
+      "\nConnector IP: " + clientIp + "\n");
+
+    res.send(userChatHistory);
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: 'Client Sync Error' });
+  }
+});
+
+
+
+//Model Context Protocol (MCP)
+const server = new McpServer({
+  name: "llm-chatter-mcp",
+  version: "1.0.0"
+});
+
+const transports = {};
+
+const verifyToken = (req, res, next) => {
+  let token;
+  if (req.query.token) {
+    token = req.query.token;
+  } else {
+    token = req.headers['authorization']?.split(' ')[1];
+  }
+  if (!token || !activeSessions.has(token)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  // Optionally attach session info to req
+  req.session = activeSessions.get(token);
+  next();
+};
+
+app.get("/sse", verifyToken, async (req, res) => {
+  const transport = new SSEServerTransport('/messages', res);
+  transports[transport.sessionId] = transport;
+  res.on("close", () => {
+    delete transports[transport.sessionId];
+  });
+  await server.connect(transport);
+});
+
+app.post("/messages", verifyToken, async (req, res) => {
+  const sessionId = req.query.sessionId;
+  const transport = transports[sessionId];
+  if (transport) {
+    await transport.handlePostMessage(req, res);
+  } else {
+    res.status(400).send('No transport found for sessionId');
+  }
+});
+
+
+
 //Client requests the list of local Ollama models
 app.post('/getmodels', validateInput, async (req, res) => {
   const clientIp = req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.ip;
@@ -475,8 +543,6 @@ app.post('/ollama', validateInput, async (req, res) => {
 
 
 
-
-//app.post('/anthropic', async (req, res) => {
 app.post('/anthropic', validateInput, async (req, res) => {
   //Handle validation errors
   const errors = validationResult(req);

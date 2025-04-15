@@ -12,13 +12,10 @@ z = message */
 import { useState } from "react";
 import { HistoryItem } from "./HistoryItem";
 
-const ChatHistory = ({chatHistory, chatCount, localModels, modelArray,serverURL, modelOptions, setComponentList, setChatCount, componentList, context}) => {
+const ChatHistory = ({chatHistory, chatCount, localModels, serverURL, modelOptions, setComponentList, setChatCount, componentList, syncClient}) => {
     const [expanded, setExpanded] = useState(false);
     const [showAtAll, setShowAtAll] = useState(false);
 
-    const handleSync = () => {
-        console.log("Hello");
-    };
 
     const handleToggleHistory = () => {
         setExpanded(!expanded);
@@ -154,7 +151,7 @@ const ChatHistory = ({chatHistory, chatCount, localModels, modelArray,serverURL,
                             { showAtAll &&
                                 <td>
                                     <div className="mb-6 flex font-bold text-3xl items-end justify-end">
-                                        <i className="fa-solid fa-rotate text-ero-800 cursor-pointer hover:text-dracula-300 pt-2" onClick={() => handleSync()}></i>
+                                        <i className="fa-solid fa-rotate text-ero-800 cursor-pointer hover:text-dracula-300 pt-2" onClick={() => syncClient()}></i>
                                     </div>
                                 </td>
                             }

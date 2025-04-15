@@ -1,6 +1,9 @@
 // This file contains the configuration for the app.
 
 const openAIModels = [
+  "gpt-4.1",
+  "gpt-4.1-mini",
+  "gpt-4.1-nano",
   "chatgpt-4o-latest",
   "o3-mini",
   "o1-preview",
@@ -8,7 +11,7 @@ const openAIModels = [
   "o1-mini",
   "gpt-4.5-preview",
   "gpt-4o",
-  "gpt-4o-search-preview",
+  //"gpt-4o-search-preview",
   "gpt-4o-mini",
   "gpt-4-turbo",
   "gpt-4",
@@ -34,16 +37,20 @@ const googleModels = [
 ];
 
 const grokModels = [
+  "grok-3-beta",
+  "grok-3-mini-beta",
   "grok-2",
+  "grok-2-vision",
+  "grok-vision-beta",
   "grok-beta",
 ];
 
 const deepseekModels = [
-  "deepseek-chat",
-  "deepseek-reasoner",
+  "deepseek-chat", //DeepSeek-V3
+  "deepseek-reasoner", //DeepSeek-R1
 ];
 
-const config = {
+const Config = {
   serverURL: "http://localhost:8080",
   relayURL: "http://localhost:8081",
 
@@ -56,7 +63,7 @@ const config = {
   sysMsg: "Let's work this out in a step by step way to be sure we have the right answer.",
 
   defaultChatType: "OpenAI",
-  defaultModel: { name: "chatgpt-4o-latest" },
+  defaultModel: { name: "gpt-4.1" },
   defaultModelList: openAIModels,
 
   models: {
@@ -77,6 +84,9 @@ const config = {
 
   visionModels:
     [
+      "gpt-4.1",
+      "gpt-4.1-mini",
+      "gpt-4.1-nano",
       "chatgpt-4o-latest",
       "o1",
       "gpt-4.5-preview",
@@ -95,6 +105,8 @@ const config = {
       "gemini-1.5-pro",
       "gemini-1.5-flash",
       "gemini-1.5-flash-8b",
+      "grok-2-vision",
+      "grok-vision-beta",
       "granite3.2-vision:latest",
       "llava-phi3:latest",
       "bakllava:latest",
@@ -116,4 +128,4 @@ const config = {
     ]
 };
 
-export default config;
+export default Config;

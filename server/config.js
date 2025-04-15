@@ -1,4 +1,4 @@
-const config = {
+const Config = {
     reasoningModels:
         [
             "o1",
@@ -10,6 +10,12 @@ const config = {
         "DD/MM/YYYY HH:mm:ss",
     ollamaEnabled:
         true,
+    clientDomains:
+        [
+            "https://x.rossu.dev",
+            "https://ai.rossu.dev",
+            "https://ai.activehost.pro",
+        ],
 };
 
-export default config;
+export default Config;

@@ -269,10 +269,26 @@ function App() {
     return;
   }, 250), []);
 
+  //Update the Chat History from the server, for a given username
+  const syncClient = useCallback(debounce(async () => {
+    try {
+      const newChatData = await axios.post(
+        serverURL + "/sync",
+        {userName: serverUsername},
+        {
+          headers: {
+            "Content-Type": "application/json",
+            'Authorization': `Bearer ${clientJWT}`,
+          }
+        },
+      );
+      setChatHistory(newChatData.data);
+      localStorage.setItem('chatHistory', JSON.stringify(newChatData.data));
+    } catch (error) { console.log(error); };
+  }, 250), [serverURL, clientJWT]);
+
   //Ping the backend server for a list of Ollama locally downloaded list of models
   const checkModels = useCallback(debounce(async (bearer) => {
-    //if (localModels.length > 0) { return };
-
     try {
       const theModels = await axios.post(
         serverURL + "/getmodels",
@@ -394,7 +410,7 @@ function App() {
   const getGridClasses = (itemCount) => {
     let classes = 'grid gap-2 place-items-center mt-1 ';
     if (itemCount === 1) {
-      classes += 'w-[50%] place-self-center items-center justify-center gap-0 sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-1 xl:grid-cols-1 2xl:grid-cols-1';
+      classes += 'max-w-[50%] place-self-center items-center justify-center gap-0 sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-1 xl:grid-cols-1 2xl:grid-cols-1';
     } else if (itemCount === 2) {
       classes += 'sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-2';
     } else if (itemCount === 3) {
@@ -421,7 +437,7 @@ function App() {
 
               { /* Settings box */}
               <div className="w-full">
-                {checkedIn && <ChatHistory chatHistory={chatHistory} componentList={componentList} chatCount={chatCount} localModels={localModels} serverURL={serverURL} modelOptions={modelOptions} setComponentList={setComponentList} setChatCount={setChatCount} />}
+                {checkedIn && <ChatHistory chatHistory={chatHistory} componentList={componentList} chatCount={chatCount} localModels={localModels} serverURL={serverURL} modelOptions={modelOptions} setComponentList={setComponentList} setChatCount={setChatCount} syncClient={syncClient} />}
                 <table className="min-w-full text-black">
                   <tbody>
                     {(serverCheck && checkedIn) ?

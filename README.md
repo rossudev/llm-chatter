@@ -1,4 +1,4 @@
-# LLM Chatter, v0.1.3
+# LLM Chatter, v0.1.4
 
 Large Language Model chat by text, vision and voice. Proprietary models by API request and local Ollama models supported.
 
@@ -43,7 +43,10 @@ Built with:
 - [OpenAI](https://platform.openai.com/docs/overview)
 
 # Models List
-- chatgpt-4o-latest*
+- gpt-4.1*
+- gpt-4.1-mini*
+- gpt-4.1-nano*
+- chatgpt-4o*
 - o3-mini
 - o1*
 - o1-preview
@@ -55,23 +58,27 @@ Built with:
 - gpt-4-turbo*
 - gpt-4
 - gpt-3.5-turbo
-- claude-3-7-sonnet-20250219*
-- claude-3-5-sonnet-20241022*
-- claude-3-5-haiku-20241022*
-- claude-3-opus-20240229*
-- claude-3-sonnet-20240229*
-- claude-3-haiku-20240307*
-- deepseek-chat
-- deepseek-reasoner
+- claude-3-7-sonnet*
+- claude-3-5-sonnet*
+- claude-3-5-haiku*
+- claude-3-opus*
+- claude-3-sonnet*
+- claude-3-haiku*
+- deepseek-chat (DeepSeek-V3)
+- deepseek-reasoner (DeepSeek-R1)
 - gemini-2.5-pro-exp-03-25*
 - gemini-2.0-flash-exp*
 - gemini-1.5-pro*
 - gemini-1.5-flash*
 - gemini-1.5-flash-8b
+- grok-3-beta
+- grok-3-mini-beta
 - grok-2
+- grok-2-vision*
+- grok-vision-beta*
 - grok-beta
 
- *Vision image support (img & text in, text out)
+ *Vision image support (img/text in, text out)
 
  # Ollama Vision Model List
 - granite3.2-vision
