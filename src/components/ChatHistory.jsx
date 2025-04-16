@@ -12,7 +12,7 @@ z = message */
 import { useState } from "react";
 import { HistoryItem } from "./HistoryItem";
 
-const ChatHistory = ({chatHistory, chatCount, localModels, serverURL, modelOptions, setComponentList, setChatCount, componentList, syncClient}) => {
+const ChatHistory = ({chatHistory, chatCount, localModels, serverURL, modelOptions, setComponentList, setChatCount, componentList, syncClient, serverUsername}) => {
     const [expanded, setExpanded] = useState(false);
     const [showAtAll, setShowAtAll] = useState(false);
 
@@ -169,7 +169,7 @@ const ChatHistory = ({chatHistory, chatCount, localModels, serverURL, modelOptio
 
 
                                         return (
-                                            <HistoryItem key={chatId} chats={chats} uID={uniqueChatIds.length - uniqueChatIds.indexOf(chatId)} componentList={componentList} chatCount={chatCount} localModels={localModels} serverURL={serverURL} modelOptions={modelOptions} setComponentList={setComponentList} setChatCount={setChatCount} context={context} thread={thread} />
+                                            <HistoryItem key={chatId} chats={chats} uID={uniqueChatIds.length - uniqueChatIds.indexOf(chatId)} componentList={componentList} chatCount={chatCount} localModels={localModels} serverURL={serverURL} modelOptions={modelOptions} setComponentList={setComponentList} setChatCount={setChatCount} context={context} thread={thread} serverUsername={serverUsername} />
                                         );
                                     })}
                                 </td>

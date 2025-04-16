@@ -1,8 +1,9 @@
 import { useState, useCallback } from "react";
 import Config from '../Config';
 
-export const HistoryItem = ({chats, uID, componentList, chatCount, localModels, serverURL, modelOptions, setComponentList, setChatCount, context, thread}) => {
+export const HistoryItem = ({chats, uID, componentList, chatCount, localModels, serverURL, modelOptions, setComponentList, setChatCount, context, thread, serverUsername}) => {
     const [expanded, setExpanded] = useState(false);
+    const [theShareURL, setTheShareURL] = useState("");
 
     const firstChat = chats.find(chat => chat.r === "user");
     const findSystem = chats.find(chat => chat.r === "system") || "";
@@ -11,8 +12,9 @@ export const HistoryItem = ({chats, uID, componentList, chatCount, localModels, 
     const lastChatMsg = lastChat.z;
     const shortLast = lastChatMsg.length > 250 ? `${lastChatMsg.substring(0, 250)}...` : lastChatMsg;
 
-    const makeNewChat = useCallback(() => {
+    const makeNewChat = useCallback((isShare) => {
         let chatType = "";
+
         if (Config.models.openAI.includes(firstChat.m)) {
             chatType = "OpenAI";
         } else if (Config.models.anthropic.includes(firstChat.m)) {
@@ -46,8 +48,12 @@ export const HistoryItem = ({chats, uID, componentList, chatCount, localModels, 
             restoreID: firstChat.u,
         };
 
-        setComponentList([...componentList, newChat]);
-        setChatCount(chatCount + 1);
+        if (isShare) {
+            setTheShareURL(serverURL + "/shared/" + serverUsername + "/" + firstChat.u);
+        } else {
+            setComponentList([...componentList, newChat]);
+            setChatCount(chatCount + 1);
+        }
     });
 
     const handleToggle = () => {
@@ -56,9 +62,18 @@ export const HistoryItem = ({chats, uID, componentList, chatCount, localModels, 
 
     const restoreButton = () => {
         return(
-            <div onClick={() => { makeNewChat() }}className="border-solid border border-aro-800 self-start place-self-center text-black hover:bg-nosferatu-300 cursor-default bg-nosferatu-100 rounded-3xl text-xl font-bold pt-2 pb-2 pl-4 pr-4 flex items-center mb-2 bg-gradient-to-tl from-nosferatu-300 hover:from-aro-300 cursor-pointer justify-center">
+            <div onClick={() => { makeNewChat(false) }}className="border-solid border border-aro-800 self-start place-self-center text-black hover:bg-nosferatu-300 cursor-default bg-nosferatu-100 rounded-3xl text-xl font-bold pt-2 pb-2 pl-4 pr-4 flex items-center mb-2 bg-gradient-to-tl from-nosferatu-300 hover:from-aro-300 cursor-pointer justify-center">
                 <i className="fa-solid fa-clone mr-4 text-nosferatu-800"></i>
                 <h1 className="hover:underline">Restore</h1>
+            </div>
+        );
+    };
+
+    const shareButton = () => {
+        return(
+            <div onClick={() => { makeNewChat(true) }}className="border-solid border border-aro-800 self-start place-self-center text-black hover:bg-nosferatu-300 cursor-default bg-nosferatu-100 rounded-3xl text-xl font-bold pt-2 pb-2 pl-4 pr-4 flex items-center mb-2 bg-gradient-to-tl from-nosferatu-300 hover:from-aro-300 cursor-pointer justify-center">
+                <i className="fa-solid fa-share mr-4 text-nosferatu-800"></i>
+                <h1 className="hover:underline">Share</h1>
             </div>
         );
     };
@@ -93,6 +108,20 @@ export const HistoryItem = ({chats, uID, componentList, chatCount, localModels, 
             <div className="text-black text-base text-left">
                 <span onClick={handleToggle} className="underline text-xl font-extrabold hover:no-underline hover:cursor-pointer">Chat #{uID}</span>
                 {restoreButton()}
+                
+                {theShareURL ? 
+                    <div className="mb-2">
+                        <input
+                            type="text"
+                            value={theShareURL}
+                            readOnly
+                            className="w-full p-2 border border-gray-400 rounded bg-gray-100 text-black cursor-text text-sm p-3 mx-auto overflow-scroll hover:bg-gray-200 font-mono"
+                            onClick={(e) => e.target.select()}
+                        />
+                    </div>
+                 :
+                    <>{shareButton()}</>
+                }
                 <span className="underline">Prompt:</span><br/>
                 <span className="italic">{firstChat.z.length > 250 ? `${firstChat.z.substring(0, 250)}...` : firstChat.z}</span>
                 <br/><br/>

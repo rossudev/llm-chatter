@@ -1,16 +1,16 @@
 import { useRef, useState, useCallback, createContext, useMemo, useEffect } from "react";
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { animated, Spring } from "react-spring";
 import TextareaAutosize from "react-textarea-autosize";
-import { randomBytes } from 'crypto';
+import { randomBytes } from "crypto";
 import axios from "axios";
 import debounce from "lodash/debounce";
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from "uuid";
 import Chat from "./components/Chat.jsx";
 import ChatHistory from "./components/ChatHistory.jsx";
-import { ConsolePage } from './console/ConsolePage.jsx';
-import Config from './Config.jsx';
-import Cookies from 'js-cookie';
+import { ConsolePage } from "./console/ConsolePage.jsx";
+import Config from "./Config.jsx";
+import Cookies from "js-cookie";
+
 export const dataContext = createContext();
 
 function Chatter() {
@@ -18,6 +18,7 @@ function Chatter() {
   Object.entries(Config.models).forEach(([provider, models]) => {
     modelSets[provider] = models.map(name => ({ name }));
   });
+  
   const {
     openAI: openAImodels,
     anthropic: anthropicAImodels,
@@ -42,6 +43,7 @@ function Chatter() {
   const [topk, setTopk] = useState(Config.topk);
 
   //Don't touch the rest of these.
+
   const [sysMsg, setSysMsg] = useState(() => {
     const cookieSysMsg = JSON.parse(localStorage.getItem('sysMsg'));
     return cookieSysMsg ? cookieSysMsg : Config.sysMsg;
@@ -174,8 +176,8 @@ function Chatter() {
   const clearStuff = useCallback((attempted) => {
     Cookies.set('clientJWT', JSON.stringify(""), { expires: 1 });
     setClientJWT("");
-    Cookies.set('serverUsername', JSON.stringify(""), { expires: 1 });
-    setServerUsername("");
+    //Cookies.set('serverUsername', JSON.stringify(""), { expires: 1 });
+    //setServerUsername("");
     Cookies.set('checkedIn', JSON.stringify(false), { expires: 1 });
     setCheckedIn(false);
     setSignInAttempted(attempted);
@@ -355,7 +357,6 @@ function Chatter() {
     setListModels(selected.list);
   }, [chosenOpenAI, chosenAnthropic, chosenGoogle, chosenGrokAI, chosenDeepseekAI, chosenOllama, localModels]);
 
-
   const handleModelChange = useCallback((e) => {
     const modelObj = { name: e.target.value };
     setModel(modelObj);
@@ -407,6 +408,12 @@ function Chatter() {
     return str;
   });
 
+  const handleEnterKey = useCallback(async(event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      clientCheckIn();
+    }
+  });
+
   //If only 1, 2 or 3 chats, then allow them to fill the horizontal space
   const getGridClasses = (itemCount) => {
     let classes = 'grid gap-2 mx-auto mt-1 ';
@@ -438,7 +445,7 @@ function Chatter() {
 
               { /* Settings box */}
               <div className="w-full">
-                {checkedIn && <ChatHistory chatHistory={chatHistory} componentList={componentList} chatCount={chatCount} localModels={localModels} serverURL={serverURL} modelOptions={modelOptions} setComponentList={setComponentList} setChatCount={setChatCount} syncClient={syncClient} />}
+                {checkedIn && <ChatHistory chatHistory={chatHistory} componentList={componentList} chatCount={chatCount} localModels={localModels} serverURL={serverURL} modelOptions={modelOptions} setComponentList={setComponentList} setChatCount={setChatCount} syncClient={syncClient} serverUsername={serverUsername} />}
                 <table className="min-w-full text-black">
                   <tbody>
                     {(serverCheck && checkedIn) ?
@@ -495,7 +502,7 @@ function Chatter() {
                         <tr>
                           <td className="w-[10%] pb-2 pr-4">Username:</td>
                           <td className="pb-2 font-sans">
-                            <input autoComplete="username" className="w-full font-bold hover:bg-vonCount-300 bg-vonCount-200 p-4 text-sm font-sans text-black rounded-xl" placeholder="Username" onChange={(e) => handleUsernameChange(e)} value={serverUsername} />
+                            <input autoComplete="username" className="w-full font-bold hover:bg-vonCount-300 bg-vonCount-200 p-4 text-sm font-sans text-black rounded-xl" placeholder="Username" onChange={(e) => handleUsernameChange(e)} onKeyDown={handleEnterKey} value={serverUsername} />
                           </td>
                         </tr>
 
@@ -504,7 +511,7 @@ function Chatter() {
                         <tr>
                           <td className="pb-4 pr-4">Passphrase:</td>
                           <td className="pb-4 font-sans">
-                            <input type="password" autoComplete="current-password" className="min-w-full font-bold hover:bg-vonCount-300 bg-vonCount-200 p-4 text-sm font-sans text-black rounded-xl" placeholder="Passphrase" onChange={(e) => handlePassphraseChange(e)} value={serverPassphrase} />
+                            <input type="password" autoComplete="current-password" className="min-w-full font-bold hover:bg-vonCount-300 bg-vonCount-200 p-4 text-sm font-sans text-black rounded-xl" placeholder="Passphrase" onChange={(e) => handlePassphraseChange(e)} onKeyDown={handleEnterKey} value={serverPassphrase} />
                           </td>
                         </tr>
 

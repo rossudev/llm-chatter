@@ -9,8 +9,8 @@ import XClose from "./XClose";
 import ContentText from "./ContentText";
 import ImageUploader from "./ImageUploader";
 import { dataContext } from "../Chatter";
-import Config from '../Config';
-import Cookies from 'js-cookie';
+import Config from "../Config";
+import Cookies from "js-cookie";
 
 const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, topp, topk, listModels, serverURL, modelOptions, localModels, sessionHash, serverUsername, messages, context, thread, restoreID }) => {
     const { componentList, setComponentList, chatCount, setChatCount, chosenAnthropic, chosenGoogle, chosenGrokAI, chosenDeepseekAI, chosenOllama, chosenOpenAI, clientJWT, checkedIn, setClientJWT, setCheckedIn } = useContext(dataContext);

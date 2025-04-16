@@ -7,7 +7,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Chatter />} />
-        <Route path="/shared/:uniqueId" element={<Shared />} />
+        <Route path="/shared/:userName/:uniqueId" element={<Shared />} />
       </Routes>
     </BrowserRouter>
   );

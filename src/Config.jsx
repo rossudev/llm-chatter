@@ -11,7 +11,6 @@ const openAIModels = [
   "o1-mini",
   "gpt-4.5-preview",
   "gpt-4o",
-  //"gpt-4o-search-preview",
   "gpt-4o-mini",
   "gpt-4-turbo",
   "gpt-4",
@@ -51,8 +50,8 @@ const deepseekModels = [
 ];
 
 const Config = {
-  serverURL: "https://ai.rossu.dev",
-  relayURL: "https://ai.rossu.dev/relay",
+  serverURL: "http://localhost:8080",
+  relayURL: "http://localhost:8081",
 
   ollamaEnabled: true,
 
