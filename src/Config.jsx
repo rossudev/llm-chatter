@@ -51,8 +51,8 @@ const deepseekModels = [
 ];
 
 const Config = {
-  serverURL: "http://localhost:8080",
-  relayURL: "http://localhost:8081",
+  serverURL: "https://ai.rossu.dev",
+  relayURL: "https://ai.rossu.dev/relay",
 
   ollamaEnabled: true,
 

@@ -8,7 +8,7 @@ import { debounce } from "lodash";
 import XClose from "./XClose";
 import ContentText from "./ContentText";
 import ImageUploader from "./ImageUploader";
-import { dataContext } from "../App";
+import { dataContext } from "../Chatter";
 import Config from '../Config';
 import Cookies from 'js-cookie';
 

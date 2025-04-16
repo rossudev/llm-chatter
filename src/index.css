@@ -46,3 +46,9 @@
 }
 
 .element-hidden { display: none }
+
+@media (max-width: 1000px) {
+    .smolscreen\:w-full {
+      width: 100%;
+    }
+}

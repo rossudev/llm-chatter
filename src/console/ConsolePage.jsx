@@ -10,7 +10,7 @@ import copy from "copy-to-clipboard";
 import { Button } from './Button';
 import { Toggle } from './Toggle';
 import './ConsolePage.scss';
-import { dataContext } from "../App";
+import { dataContext } from "../Chatter";
 import XClose from "../components/XClose";
 
 export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
