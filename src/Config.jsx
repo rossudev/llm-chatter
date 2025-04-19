@@ -5,11 +5,11 @@ const openAIModels = [
   "gpt-4.1-mini",
   "gpt-4.1-nano",
   "chatgpt-4o-latest",
+  "o4-mini",
   "o3-mini",
-  "o1-preview",
+  //"o1-pro",
   "o1",
   "o1-mini",
-  "gpt-4.5-preview",
   "gpt-4o",
   "gpt-4o-mini",
   "gpt-4-turbo",
@@ -62,7 +62,7 @@ const Config = {
   sysMsg: "Let's work this out in a step by step way to be sure we have the right answer.",
 
   defaultChatType: "OpenAI",
-  defaultModel: { name: "gpt-4.1" },
+  defaultModel: { name: "o4-mini" },
   defaultModelList: openAIModels,
 
   models: {
@@ -75,10 +75,11 @@ const Config = {
 
   reasoningModels:
     [
+      "o1-pro",
       "o1",
-      "o1-preview",
       "o1-mini",
       "o3-mini",
+      "o4-mini",
     ],
 
   visionModels:
@@ -88,7 +89,7 @@ const Config = {
       "gpt-4.1-nano",
       "chatgpt-4o-latest",
       "o1",
-      "gpt-4.5-preview",
+      "o4-mini",
       "gpt-4o",
       "gpt-4o-mini",
       "gpt-4-turbo",

@@ -47,11 +47,10 @@ Built with:
 - gpt-4.1-mini*
 - gpt-4.1-nano*
 - chatgpt-4o*
+- o4-mini*
 - o3-mini
 - o1*
-- o1-preview
 - o1-mini
-- gpt-4.5-preview*
 - gpt-4o-realtime-preview (Audio In/Out)
 - gpt-4o*
 - gpt-4o-mini*

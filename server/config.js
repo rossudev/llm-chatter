@@ -1,10 +1,11 @@
 const Config = {
     reasoningModels:
         [
+            "o1-pro",
             "o1",
-            "o1-preview",
             "o1-mini",
             "o3-mini",
+            "o4-mini",
         ],
     timeFormat:
         "DD/MM/YYYY HH:mm:ss",
