@@ -31,12 +31,21 @@ app.use(cors({ origin: Config.clientDomains }));
 app.use(helmet());
 app.use(bodyParser.json({ limit: '50mb' }));
 
+// Apply the rate limiting middleware to all requests
 const limiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 minutes
   max: 500, // limit each IP to 500 requests per windowMs
   keyGenerator: req => req.headers['cf-connecting-ip'] || req.ip,
 });
+
+const slowLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 10 minutes
+  max: 50,
+  keyGenerator: req => req.headers['cf-connecting-ip'] || req.ip,
+});
+
 app.use(limiter);
+app.use('/chkshr', slowLimiter);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
@@ -52,43 +61,6 @@ dotenv.config({ path: path.join(process.cwd(), '.env') });
 //Realtime Relay
 const relay = new RealtimeRelay(process.env['OPENAI_API_KEY']);
 relay.listen(8081);
-
-
-
-// Function to get the current time as a string in 'HH:MM:SS' format
-/* function getCurrentTime() {
-  const now = new Date();
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
-  return `${hours}:${minutes}:${seconds}`;
-}
-
-// Function to get the log file path, system local time
-function getLogFilePath() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are zero-indexed
-  const day = String(now.getDate()).padStart(2, '0');
-  const dateStr = `${year}-${month}-${day}`;
-
-  return path.join(process.cwd(), `log-${dateStr}.txt`);
-}
-
-// Create a write stream for the log file
-const logStream = fs.createWriteStream(getLogFilePath(), { flags: 'a' });
-
-// Override console.log to write to the log file and console
-const originalConsoleLog = console.log;
-console.log = function (...args) {
-  const message = args.join(' ');
-  const timestamp = getCurrentTime(); // Use the current time
-  // Write to the log file without ANSI codes
-  const cleanMessage = stripAnsi(message);
-  logStream.write(`[${timestamp}] ${cleanMessage}\n`);
-  // Write to the console with ANSI codes
-  originalConsoleLog.apply(console, [`[${timestamp}]`, ...args]);
-}; */
 
 
 
@@ -138,7 +110,45 @@ function readChatHistory(username) {
     console.error(`Error reading chat history for ${username}:`, error);
     return {};
   }
-}
+};
+
+// Helper function to parse date strings
+function parseDate(dateString) {
+  // Split the date string into components
+  const [datePart, timePart] = dateString.split(' ');
+  const [day, month, year] = datePart.split('/');
+  const [hours, minutes, seconds] = timePart.split(':');
+  
+  // Create a Date object (note: month is 0-indexed in JavaScript Date)
+  return new Date(year, month - 1, day, hours, minutes, seconds);
+};
+
+//Read chats for the given chatId
+function getChatsByChatId(database, chatId) {
+  try {
+    return Object.entries(database)
+      .filter(([key, item]) =>
+          key.startsWith("i_") &&
+          item && typeof item === 'object' &&
+          item.u === chatId
+      )
+      .map(([_, item]) => item)
+      .sort((a, b) => {
+          const dateA = parseDate(a.d);
+          const dateB = parseDate(b.d);
+          if (isNaN(dateA) && isNaN(dateB)) return 0;
+          if (isNaN(dateA)) return 1;
+          if (isNaN(dateB)) return -1;
+          return dateA - dateB;
+      });
+  } catch (error) {
+    console.error('Error parsing chat history:', error);
+    return [];
+  }
+};
+
+
+
 
 // Function to log chat events
 function logChatEvent(username, data, context = null, thread = null) {
@@ -199,6 +209,51 @@ function logChatEvent(username, data, context = null, thread = null) {
 
 
 
+//Shareable links to historical chats
+const validateShare = [
+  body('shareUser')
+    .isString()
+    .trim()
+    .notEmpty()
+    .matches(/^[a-zA-Z0-9_-]+$/)
+    .isLength({ min: 3, max: 64 }),
+
+  body('shareChat')
+    .isString()
+    .trim()
+    .notEmpty()
+    .matches(/^[a-zA-Z0-9_-]+$/)
+    .isLength({ min: 3, max: 64 }),
+];
+
+app.post('/chkshr', validateShare, async (req, res) => {
+   const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    console.log(errors);
+    return res.status(400).json({ error: 'Bad Request' });
+  } 
+
+  const clientIp = req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.ip;
+  const agent = req.headers['user-agent'];
+  const origin = req.headers.origin;
+
+  const shareUser = req.body.shareUser;
+  const shareChat = req.body.shareChat;
+
+  const userChatHistory = readChatHistory(shareUser);
+
+  if (!userChatHistory || Object.keys(userChatHistory).length === 0) {
+    return res.status(404).json({ error: 'No user chat history found.' });
+  }
+
+  const chatHistory = getChatsByChatId(userChatHistory, shareChat);
+
+  if (!chatHistory || (Array.isArray(chatHistory) && chatHistory.length === 0)) {
+    return res.status(404).json({ error: 'Chat history not found.' });
+  }
+
+  res.send(chatHistory);
+});
 
 
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Hyphenated from "react-hyphen";
 import remarkGfm from "remark-gfm";
 import ReactMarkdown from "react-markdown";
@@ -6,11 +6,11 @@ import ReactMarkdown from "react-markdown";
 const ContentText = ({ txt, role }) => {
     const [isExpanded, setIsExpanded] = useState(role !== "user");
 
-    const handleToggle = () => {
+    const handleToggle = useCallback(() => {
         setIsExpanded(!isExpanded);
-    };
+    });
 
-    const CodeBlock = ({ inline, className, children, ...props }) => {
+    const CodeBlock = useCallback(({ inline, className, children, ...props }) => {
         const match = /language-(\w+)/.exec(className || '');
         return !inline && match ? (
             <pre className={`border p-4 rounded bg-nosferatu-200 text-black text-xs language-${match[1]} ${className} overflow-auto`}>
@@ -23,7 +23,7 @@ const ContentText = ({ txt, role }) => {
                 {children}
             </code>
         );
-    };
+    });
 
     const lines = typeof txt === 'string' ? txt.split('\n') : [];
 

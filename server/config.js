@@ -1,7 +1,6 @@
 const Config = {
     reasoningModels:
         [
-            "o1-pro",
             "o1",
             "o1-mini",
             "o3-mini",

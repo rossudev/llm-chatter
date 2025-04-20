@@ -7,7 +7,7 @@ import copy from "copy-to-clipboard";
 import { debounce } from "lodash";
 import XClose from "./XClose";
 import ContentText from "./ContentText";
-import ImageUploader from "./ImageUploader";
+import FileUploader from "./FileUploader";
 import { dataContext } from "../Chatter";
 import Config from "../Config";
 import Cookies from "js-cookie";
@@ -45,9 +45,9 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
         } else {
             setMessagesAndMeta(true);
         }
-    }
+    };
 
-    function convertFormat(inputData) {
+    const convertFormat = useCallback((inputData) => {
         const result = [];
         
         // Sort by item number to ensure correct order
@@ -77,9 +77,9 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
         }
         
         return result;
-    };
+    });
 
-    function makeMetas(inputData) {
+    const makeMetas = useCallback((inputData) => {
         const result = [];
         
         // Sort by item number to ensure correct order
@@ -96,12 +96,15 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
         }
         
         return result;
-    };
+    });
+
     const hasMessages = Object.keys(messages).length > 0;
     const theMsgs = hasMessages ? convertFormat(messages) : sysMsgs;
 
     const [chatInput, setChatInput] = useState("");
     const [base64Image, setBase64Image] = useState("");
+    const [theShareURL, setTheShareURL] = useState("");
+    const [textAttachment, setTextAttachment] = useState("");
     const [fileFormat, setFileFormat] = useState("");
     const [messageMetas, setMessageMetas] = useState(hasMessages ? makeMetas(messages) : firstMeta);
     const [chatMessages, setChatMessages] = useState(theMsgs);
@@ -112,11 +115,14 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
     const [isClicked, setIsClicked] = useState(false);
     const [isError, setIsError] = useState(false);
     const [sentOne, setSentOne] = useState(false);
+    const [isCopied, setIsCopied] = useState(false);
 
     const fetchData = useCallback(async (input, modelThisFetch) => {
         let endPath = "";
         let sendPacket = {};
-        let msgs = chatMessages.concat({ "role": "user", "content": [{ "type": "text", "text": input }] });
+
+        const inputWithAttachment = textAttachment ? ( input + "\n\n" + textAttachment ) : input;
+        let msgs = chatMessages.concat({ "role": "user", "content": [{ "type": "text", "text": inputWithAttachment }] });
 
         const visionMsg = (chatType === "Anthropic") ?
             {
@@ -397,12 +403,12 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
         }
     });
 
-    const chatHandler = () => event => {
+    const chatHandler = useCallback(() => event => {
         const value = event.target.value;
         setChatInput(value);
-    }
+    });
 
-    const handlePaste = (event) => {
+    const handlePaste = useCallback((event) => {
         if (!sentOne) {
             const items = event.clipboardData.items;
             for (let i = 0; i < items.length; i++) {
@@ -418,7 +424,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                 }
             }
         }
-    };
+    });
 
     const handleCopy = useCallback((e) => {
         e.preventDefault();
@@ -433,6 +439,11 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
     const copyClick = useCallback((value) => {
         if (typeof value === 'string') {
             copy(value);
+            //For a period of 200 ms, setIsCopied to true
+            setIsCopied(true);
+            setTimeout(() => {
+                setIsCopied(false);
+            }, 200);
         }
     });
 
@@ -449,6 +460,32 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
     const onClose = useCallback((id) => {
         setComponentList(componentList.filter((container) => container.id !== id));
     })
+
+    const copyURLbutton = useCallback(() => {
+        return(
+            <div 
+            onClick={() => { copyClick(theShareURL) }}
+            className={`border-solid border border-aro-800 self-start text-black hover:bg-nosferatu-300 cursor-default bg-nosferatu-100 rounded-3xl text-md font-bold pt-2 pb-2 pl-4 pr-4 flex mb-2 bg-gradient-to-tl from-nosferatu-300 hover:from-aro-300 cursor-pointer ${isCopied ? "text-blade-300" : ""}`}
+            >
+            <i className={`fa-solid fa-clone mr-4 text-nosferatu-800${isCopied ? "text-blade-300" : ""}`}></i>
+            <h1 className="hover:underline">Copy URL</h1>
+            </div>
+        );
+    });
+
+    const shareButton = useCallback(() => {
+        return(
+            <div onClick={() => { handleShareClick() }}className="border-solid border border-aro-800 self-start text-black hover:bg-nosferatu-300 cursor-default bg-nosferatu-100 rounded-3xl text-xl font-bold pt-2 pb-2 pl-4 pr-4 flex mb-2 bg-gradient-to-tl from-nosferatu-300 hover:from-aro-300 cursor-pointer">
+                <i className="fa-solid fa-share mr-4 text-nosferatu-800"></i>
+                <h1 className="hover:underline">Share</h1>
+            </div>
+        );
+    });
+
+    const handleShareClick = useCallback(async () => {
+        const setURL = serverURL + "/shared/" + serverUsername + "/" + uniqueChatID;
+        setTheShareURL(setURL);
+    });
 
     const makeNewChat = useCallback((chosenType) => {
         const modelArray = modelOptions[chosenType];
@@ -499,6 +536,8 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
         setChatCount(chatCount + 1);
     });
 
+    let checkDuplicates = "";
+
     return (
         <Spring
             from={{ opacity: 0 }}
@@ -544,6 +583,18 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                             {/* Prompts and All Models' Responses */}
                             {chatMessagesPlusMore.map((obj, index) => {
                                 const contentText = getContentText(obj.content);
+
+                                if (obj.role === "user") {
+                                    if (contentText === checkDuplicates) {
+                                        return null;
+                                    }
+                                    checkDuplicates = contentText;
+                                }
+                                    
+                                if (!contentText || typeof contentText !== 'string') {
+                                    return null;
+                                };
+
                                 return (
                                     <tr key={index}>
                                         <td onCopy={handleCopy} colSpan="4" className={obj.role === "user" || obj.role === "system" ?
@@ -596,7 +647,23 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
 
                             {/*  Settings */}
                             <tr>
-                                <td colSpan={3}><i className="fa-solid fa-gear text-4xl text-aro-800 text-center mb-2 ml-8 mt-4"></i> <ImageUploader base64Image={base64Image} setBase64Image={setBase64Image} sentOne={sentOne} setFileFormat={setFileFormat} /></td>
+                                <td colSpan={4}>
+                                    {theShareURL ? 
+                                        <div className="mb-2" onCopy={handleCopy}>
+                                            {copyURLbutton()}
+                                            <input
+                                                type="text"
+                                                value={theShareURL}
+                                                readOnly
+                                                className="w-full p-2 border border-gray-400 rounded bg-gray-100 text-black cursor-text text-sm p-3 mx-auto overflow-hidden text-ellipsis whitespace-nowrap hover:bg-gray-200 font-mono"
+                                                onClick={(e) => e.target.select()}
+                                            />
+                                        </div>
+                                    :
+                                        <>{(sentOne && !isError ) && shareButton()}</>
+                                    }
+                                    <FileUploader base64Image={base64Image} setBase64Image={setBase64Image} textAttachment={textAttachment} setTextAttachment={setTextAttachment} sentOne={sentOne} setFileFormat={setFileFormat} />
+                                </td>
                             </tr>
                             <tr className="align-top">
 

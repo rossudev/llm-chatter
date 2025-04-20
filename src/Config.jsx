@@ -7,7 +7,6 @@ const openAIModels = [
   "chatgpt-4o-latest",
   "o4-mini",
   "o3-mini",
-  //"o1-pro",
   "o1",
   "o1-mini",
   "gpt-4o",
@@ -75,7 +74,6 @@ const Config = {
 
   reasoningModels:
     [
-      "o1-pro",
       "o1",
       "o1-mini",
       "o3-mini",

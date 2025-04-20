@@ -119,13 +119,13 @@ function Chatter() {
     modelOptions["OpenAI"] = openAImodels;
   }
 
-  function useDebouncedCallback(callback, delay) {
+  const useDebouncedCallback = useCallback((callback, delay) => {
     const debouncedFn = useMemo(() => debounce(callback, delay), [callback, delay]);
     useEffect(() => {
       return () => debouncedFn.cancel();
     }, [debouncedFn]);
     return debouncedFn;
-  }
+  });
 
   const makeNewChat = useCallback((theChatType) => {
     const uuid = uuidv4();
@@ -248,13 +248,13 @@ function Chatter() {
     }
   }, 250), [clientJWT, serverUsername, serverPassphrase, sessionHash]);
 
-  function getRandomModel(modelsArray) {
+  const getRandomModel = useCallback((modelsArray) => {
     if (!modelsArray || modelsArray.length === 0) {
       return null;
     }
     const randomIndex = Math.floor(Math.random() * modelsArray.length);
     return modelsArray[randomIndex];
-  };
+  });
 
   const logoutUser = useCallback(debounce(async () => {
     setCheckedIn(false);
@@ -415,7 +415,7 @@ function Chatter() {
   });
 
   //If only 1, 2 or 3 chats, then allow them to fill the horizontal space
-  const getGridClasses = (itemCount) => {
+  const getGridClasses = useCallback((itemCount) => {
     let classes = 'grid gap-2 mx-auto mt-1 ';
     if (itemCount === 1) {
       classes += 'w-[50%] smolscreen:w-full mx-auto mx-auto items-center justify-center gap-0 sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-1 xl:grid-cols-1 2xl:grid-cols-1';
@@ -427,7 +427,7 @@ function Chatter() {
       classes += 'sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3';
     }
     return classes;
-  };
+  });
 
   const itemCount = componentList.length;
 

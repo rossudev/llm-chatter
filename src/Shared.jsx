@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useParams } from 'react-router-dom';
 import axios from "axios";
 import debounce from "lodash/debounce";
@@ -19,7 +19,7 @@ function Shared() {
 
     try {
       const checkinResp = await axios.post(
-        serverURL + "/applyshare",
+        serverURL + "/chkshr",
         { shareUser: userName, shareChat: uniqueId },
         {
           headers: { "Content-Type": "application/json" }
@@ -31,13 +31,19 @@ function Shared() {
       if (clientCheck) {
         const data = checkinResp.data;
 
-        setShareChat(data.shareChatHistory);
+        //setShareChat(data.shareChatHistory);
+        setShareChat(data);
       }
     } catch (error) {
       console.log(error);
-      setShareChat({error: error });
+      setShareChat(error);
     }
   }, 250), [serverURL, userName, uniqueId]);
+
+  //Starts the interval on first load
+  useEffect(() => {
+    sharedCheckIn();
+  }, []);
 
   const handleCopy = useCallback((e) => {
     e.preventDefault();
@@ -55,30 +61,59 @@ function Shared() {
     }
   });
 
+  let checkDuplicates = "";
+
   return (
-    <>
-      {shareChat.map((obj, index) => {
-        const contentText = obj.content;
-        return (
-            <tr key={index}>
-                <td onCopy={handleCopy} colSpan="4" className={obj.role === "user" || obj.role === "system" ?
-                    "py-3 p-3 bg-morbius-300 font-sans rounded-xl text-black-800 text-md whitespace-pre-wrap" :
-                    "py-3 whitespace-pre-wrap p-3 bg-nosferatu-100 font-mono rounded-xl text-black text-sm"}>
+    <div className="self-start mt-2 mb-2 inline p-0 bg-nosferatu-200 rounded-3xl bg-gradient-to-tl from-nosferatu-500 shadow-sm mx-auto items-center justify-center">
+      <table className="w-[50%] smolscreen:w-full border-separate border-spacing-y-2 border-spacing-x-2 mx-auto items-center justify-center bg-nosferatu-200 rounded-3xl bg-gradient-to-tl from-nosferatu-500 shadow-sm">
+        <tbody>
+          <tr>
+            <td>
+              <div className="mx-auto items-center justify-center cursor-default font-bold p-4 flex mb-2">
+                <i className="text-vonCount-900 fa-regular fa-comment mr-4 text-4xl"></i>
+                <h1 className="text-black text-3xl">Shared Chat</h1>
+              </div>
+            </td>
+          </tr>
+          {Object.entries(shareChat).map(([key, obj]) => {
+            const contentText = obj.z;
 
-                    <div className="mb-3 grid grid-cols-3">
-                        <span className="font-bold text-xl text-aro-900">{obj.role}</span>
-                        <span className="text-center text-sm text-aro-900">{obj.time}</span>
-                        <span className="text-right">
-                            <i onClick={() => copyClick(contentText)} className="text-aro-900 m-2 fa-solid fa-copy fa-2x cursor-pointer shadow-xl hover:shadow-dracula-900"></i>
-                        </span>
-                    </div>
+            if (obj.r === "user") {
+              if (contentText === checkDuplicates) {
+                return null;
+              }
+              checkDuplicates = contentText;
+            }
+            
+            if (!contentText || typeof contentText !== 'string') {
+              return null;
+            };
 
-                    <ContentText role={obj.role} txt={contentText} />
-                </td>
-            </tr>
-        )
-      })}
-    </>
+            const roleShow = obj.r === "assistant" ? obj.m : obj.r === "system" ? "Starting Prompt" : obj.r === "user" ? "Prompt" : "Unknown Role";
+
+            return (
+                <tr key={key}>
+                    <td onCopy={handleCopy} className={obj.r === "user" || obj.r === "system" ?
+                        "py-3 p-3 bg-morbius-300 font-sans rounded-xl text-black-800 text-md whitespace-pre-wrap" :
+                        "py-3 whitespace-pre-wrap p-3 bg-nosferatu-100 font-mono rounded-xl text-black text-sm"}>
+
+                        <div className="mb-3 grid grid-cols-3">
+                            <span className="font-bold text-xl text-aro-900">{roleShow}</span>
+                            <span className="text-center text-sm text-aro-900">{obj.d}</span>
+                            <span className="text-right">
+                                <i onClick={() => copyClick(contentText)} className="text-aro-900 m-2 fa-solid fa-copy fa-2x cursor-pointer shadow-xl hover:shadow-dracula-900"></i>
+                            </span>
+                        </div>
+
+                        <ContentText role={obj.r} txt={contentText} />
+                    </td>
+                </tr>
+            )
+          })} 
+        </tbody>
+      </table>
+      <div className="mx-auto items-center justify-center text-center"><a alt="GitHub" target="_blank" rel="noopener noreferrer" href="https://github.com/rossudev/llm-chatter"><i className="fa-brands fa-github text-4xl mb-2 text-white mt-2"></i></a></div>
+    </div>
   );
 }
 
