@@ -14,6 +14,7 @@ const Config = {
         [
             "http://localhost:8080",
             "http://localhost:8081",
+            "http://localhost:8181",
             "http://localhost",
         ],
 };
