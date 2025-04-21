@@ -17,7 +17,7 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
   const { clientJWT, checkedIn, componentList, setComponentList } = useContext(dataContext);
 
   const onClose = useCallback((id) => {
-      setComponentList(componentList.filter((container) => container.id !== id));
+    setComponentList(componentList.filter((container) => container.id !== id));
   })
 
   const wavRecorderRef = useRef(new WavRecorder({ sampleRate: 24000 }));
@@ -41,7 +41,7 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
   });
 
   const connectConversation = useCallback(async () => {
-    if (!checkedIn) {return};
+    if (!checkedIn) { return };
 
     const client = clientRef.current;
     const wavRecorder = wavRecorderRef.current;
@@ -96,7 +96,7 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
    */
 
   const startRecording = async () => {
-    if (!checkedIn) {disconnectConversation; return};
+    if (!checkedIn) { disconnectConversation; return };
     setIsRecording(true);
     const client = clientRef.current;
     const wavRecorder = wavRecorderRef.current;
@@ -111,7 +111,7 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
 
   /* In push-to-talk mode, stop recording */
   const stopRecording = async () => {
-    if (!checkedIn) {disconnectConversation; return};
+    if (!checkedIn) { disconnectConversation; return };
     setIsRecording(false);
     const client = clientRef.current;
     const wavRecorder = wavRecorderRef.current;
@@ -131,7 +131,7 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
 
   /* Switch between Manual <> VAD mode for communication */
   const changeTurnEndType = async (value) => {
-    if (!checkedIn) {disconnectConversation; return};
+    if (!checkedIn) { disconnectConversation; return };
     const client = clientRef.current;
     const wavRecorder = wavRecorderRef.current;
     if (value === 'none' && wavRecorder.getStatus() === 'recording') {
@@ -390,26 +390,26 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
         <tbody>
           <tr>
             <td colSpan="2" className="pb-4 tracking-wide text-4xl text-center font-bold text-black">
-                <span className="mr-6">#{numba}</span>
-                <i className="fa-regular fa-comments mr-6 text-black"></i>
-                OpenAI Realtime
+              <span className="mr-6">#{numba}</span>
+              <i className="fa-regular fa-comments mr-6 text-black"></i>
+              OpenAI Realtime
             </td>
             <td>
-                <XClose onClose={onClose} closeID={closeID} />
+              <XClose onClose={onClose} closeID={closeID} />
             </td>
           </tr>
           <tr>
             <td onCopy={handleCopy} colSpan="3" className="py-3 p-3 bg-morbius-300 font-sans rounded-xl text-black-800 text-md whitespace-pre-wrap">
-                <div className="mb-3 grid grid-cols-3">
-                    <span className="font-bold text-xl text-aro-900">Starting Prompt</span>
-                    <span></span>
-                    <span className="text-right cursor-copy">
-                        <i onClick={() => copyClick(instructions)} className="text-aro-900 m-2 fa-solid fa-copy fa-2x cursor-copy shadow-xl hover:shadow-dracula-900"></i>
-                    </span>
-                </div>
-                <div>
-                  <Hyphenated>{instructions}</Hyphenated>
-                </div>
+              <div className="mb-3 grid grid-cols-3">
+                <span className="font-bold text-xl text-aro-900">Starting Prompt</span>
+                <span></span>
+                <span className="text-right cursor-copy">
+                  <i onClick={() => copyClick(instructions)} className="text-aro-900 m-2 fa-solid fa-copy fa-2x cursor-copy shadow-xl hover:shadow-dracula-900"></i>
+                </span>
+              </div>
+              <div>
+                <Hyphenated>{instructions}</Hyphenated>
+              </div>
             </td>
           </tr>
           <tr>
@@ -419,17 +419,17 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
                   <div className="content-logs">
                     <div className="content-block conversation">
                       <div className="content-block-body" data-conversation-content>
-                        {!items.length && 
-                            <div className="py-3 whitespace-pre-wrap p-3 bg-nosferatu-100 font-mono rounded-xl text-vanHelsing-200 text-sm">
-                                <div><span className="font-bold text-xl text-aro-900">OpenAI Realtime</span></div>
-                                <div className="mt-6 text-black"><span>Awaiting Connection...</span></div>
-                            </div>
+                        {!items.length &&
+                          <div className="py-3 whitespace-pre-wrap p-3 bg-nosferatu-100 font-mono rounded-xl text-vanHelsing-200 text-sm">
+                            <div><span className="font-bold text-xl text-aro-900">OpenAI Realtime</span></div>
+                            <div className="mt-6 text-black"><span>Awaiting Connection...</span></div>
+                          </div>
                         }
                         {items.map((conversationItem) => {
                           const role = conversationItem.role;
                           const transcript = conversationItem.formatted.transcript;
                           const text = conversationItem.formatted.text;
-                          
+
                           return (
                             <div
                               className={
@@ -495,11 +495,11 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
                       </div>
                     </div>
 
-                    { checkedIn ? 
+                    {checkedIn ?
                       <>
-                        { (isConnected && canPushToTalk) ? 
-                            <div className="content-actions ptt mt-3">
-                              <Button
+                        {(isConnected && canPushToTalk) ?
+                          <div className="content-actions ptt mt-3">
+                            <Button
                               label={isRecording ? 'release to send' : 'push to talk'}
                               buttonStyle={isRecording ? 'alert' : 'regular'}
                               disabled={!isConnected || !canPushToTalk}
@@ -507,33 +507,33 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
                               onMouseUp={stopRecording}
                               onTouchStart={handleStartRecording}
                               onTouchEnd={handleStopRecording}
-                              />
-                            </div>
-                        : <></>
+                            />
+                          </div>
+                          : <></>
                         }
-                        { (!isConnected) ? 
-                            <div className="content-actions ptt mt-3">
-                              <i className="fa-solid fa-triangle-exclamation text-marcelin-900 text-4xl" />
-                            </div>
-                        : <></>
+                        {(!isConnected) ?
+                          <div className="content-actions ptt mt-3">
+                            <i className="fa-solid fa-triangle-exclamation text-marcelin-900 text-4xl" />
+                          </div>
+                          : <></>
                         }
-                        
+
                         <div className="content-actions btns mt-1">
                           <Toggle
-                              defaultValue={false}
-                              labels={['PTT', 'VAD']}
-                              values={['none', 'server_vad']}
-                              onChange={(_, value) => changeTurnEndType(value)}
+                            defaultValue={false}
+                            labels={['PTT', 'VAD']}
+                            values={['none', 'server_vad']}
+                            onChange={(_, value) => changeTurnEndType(value)}
                           />
                           <div className="spacer" />
                           <Button
-                              label={isConnected ? 'Disconnect' : 'Connect'}
-                              iconPosition={isConnected ? 'end' : 'start'}
-                              icon={isConnected ? X : Zap}
-                              buttonStyle={isConnected ? 'regular' : 'action'}
-                              onClick={
+                            label={isConnected ? 'Disconnect' : 'Connect'}
+                            iconPosition={isConnected ? 'end' : 'start'}
+                            icon={isConnected ? X : Zap}
+                            buttonStyle={isConnected ? 'regular' : 'action'}
+                            onClick={
                               isConnected ? disconnectConversation : connectConversation
-                              }
+                            }
                           />
                         </div>
                       </> :

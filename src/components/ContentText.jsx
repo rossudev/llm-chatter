@@ -47,8 +47,8 @@ const ContentText = ({ txt, role }) => {
             </Hyphenated>
             {lines.length > 5 && (
                 <div className="text-center cursor-pointer mt-2" onClick={handleToggle}>
-                    <i 
-                        className={ isExpanded ? "fa-solid fa-ellipsis text-3xl text-dracula-900 hover:text-dracula-500" : "fa-solid fa-ellipsis text-3xl text-blade-100 hover:text-blade-500"}
+                    <i
+                        className={isExpanded ? "fa-solid fa-ellipsis text-3xl text-dracula-900 hover:text-dracula-500" : "fa-solid fa-ellipsis text-3xl text-blade-100 hover:text-blade-500"}
                         title={isExpanded ? "Show less" : "Show more"}
                     />
                 </div>

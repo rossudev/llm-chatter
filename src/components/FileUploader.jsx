@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 
-const FileUploader = ({base64Image, setBase64Image, sentOne, setFileFormat, textAttachment, setTextAttachment}) => {
+const FileUploader = ({ base64Image, setBase64Image, sentOne, setFileFormat, textAttachment, setTextAttachment }) => {
   const [error, setError] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -53,7 +53,7 @@ const FileUploader = ({base64Image, setBase64Image, sentOne, setFileFormat, text
 
   return (
     <div>
-      { ( !sentOne && (!base64Image || !textAttachment) ) &&
+      {(!sentOne && (!base64Image || !textAttachment)) &&
         <>
           <form>
             <input
@@ -68,7 +68,7 @@ const FileUploader = ({base64Image, setBase64Image, sentOne, setFileFormat, text
       }
       {(base64Image || textAttachment) && (
         <div style={{ position: 'relative', display: 'inline-block' }}>
-          {base64Image && 
+          {base64Image &&
             <>
               <img onClick={ToggleImageSize} src={base64Image} alt="Preview" style={{ width: isExpanded ? '100%' : '300px', cursor: 'pointer', marginTop: '10px' }} />
               {!sentOne &&
@@ -80,7 +80,7 @@ const FileUploader = ({base64Image, setBase64Image, sentOne, setFileFormat, text
               }
             </>
           }
-          {textAttachment && 
+          {textAttachment &&
             <i className="fa-solid fa-file text-dracula-900 text-4xl ml-4 mt-2" />
           }
         </div>

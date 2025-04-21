@@ -18,7 +18,7 @@ function Chatter() {
   Object.entries(Config.models).forEach(([provider, models]) => {
     modelSets[provider] = models.map(name => ({ name }));
   });
-  
+
   const {
     openAI: openAImodels,
     anthropic: anthropicAImodels,
@@ -240,7 +240,7 @@ function Chatter() {
         Cookies.set('checkedIn', JSON.stringify(true), { expires: 1 });
         setCheckedIn(true);
 
-        if (Config.ollamaEnabled) {checkModels(data.token)};
+        if (Config.ollamaEnabled) { checkModels(data.token) };
       }
     } catch (error) {
       console.log(error);
@@ -277,7 +277,7 @@ function Chatter() {
     try {
       const newChatData = await axios.post(
         serverURL + "/sync",
-        {userName: serverUsername},
+        { userName: serverUsername },
         {
           headers: {
             "Content-Type": "application/json",
@@ -408,7 +408,7 @@ function Chatter() {
     return str;
   });
 
-  const handleEnterKey = useCallback(async(event) => {
+  const handleEnterKey = useCallback(async (event) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       clientCheckIn();
     }
@@ -458,8 +458,8 @@ function Chatter() {
                             <input className="hidden" type="checkbox" name="advancedSetting" id="advancedSettings" checked={advancedSetting} onChange={handleCheckboxChange} />
                             <label className="cursor-context-menu leading-6" htmlFor="advancedSettings">
                               <span className="mr-2 flex items-center text-black">
-                                <i className={`text-aro-200 text-4xl fa-solid fa-gear ml-2 p-4 hover:text-marcelin-900 ${advancedSetting ? 'fa-gear text-blade-500 fa-rotate-270' : 'hover:text-dracula-100 ml-2'}`}></i>
-                                <span className={advancedSetting ? "underline hover:no-underline mr-4": "hover:underline mr-4"}>Advanced Settings</span>
+                                <i className={`text-aro-200 text-4xl fa-solid fa-gear ml-2 p-4 hover:text-marcelin-900 ${advancedSetting ? 'fa-gear text-blade-700 fa-rotate-270' : 'hover:text-dracula-100 ml-2'}`}></i>
+                                <span className={advancedSetting ? "underline hover:no-underline mr-4" : "hover:underline mr-4"}>Advanced Settings</span>
                               </span>
                             </label>
                           </div>
@@ -482,7 +482,7 @@ function Chatter() {
                           <>
                             <span className="rounded-2xl p-3 border border-solid border-aro-100 bg-aro-500 text-black italic">Online</span>
                             {checkedIn &&
-                              <span onClick={logoutUser} className="border-solid border border-cullen-200 rounded-2xl p-3 bg-cullen-600 ml-6 text-black cursor-pointer hover:font-extrabold hover:bg-cullen-400 hover:border-cullen-200 hover:border-2 hover:underline">Log Out</span>
+                              <span onClick={logoutUser} className="border-solid border border-cullen-200 rounded-2xl p-3 bg-aro-600 ml-6 text-black cursor-pointer hover:font-extrabold hover:bg-aro-400 hover:border-aro-200 hover:border-2 hover:underline">Log Out ({serverUsername})</span>
                             }
                           </>
                           :
@@ -546,28 +546,28 @@ function Chatter() {
                 <table className="min-w-full text-black">
                   <tbody>
                     { /* System Message */}
-                              {checkedIn &&
-                                <tr>
-                                  <td className="w-[10%] pb-4 pr-4">
-                                    Starting Prompt:
-                                  </td>
-                                  <td>
-                                    <TextareaAutosize 
-                                    minRows="3" 
-                                    maxRows="5" 
-                                    className="min-w-full font-bold hover:bg-vonCount-300 bg-vonCount-200 p-4 text-sm font-sans text-black rounded-xl" 
-                                    placeholder="'System' Message" 
-                                    onChange={(e) => {
-                                      handleSysMsgChange(e);
-                                      localStorage.setItem('sysMsg', JSON.stringify(""));
-                                    }} 
-                                    value={sysMsg} 
-                                    />
-                                  </td>
-                                </tr>
-                              }
+                    {checkedIn &&
+                      <tr>
+                        <td className="w-[10%] pb-4 pr-4">
+                          Starting Prompt:
+                        </td>
+                        <td>
+                          <TextareaAutosize
+                            minRows="3"
+                            maxRows="5"
+                            className="min-w-full font-bold hover:bg-vonCount-300 bg-vonCount-200 p-4 text-sm font-sans text-black rounded-xl"
+                            placeholder="'System' Message"
+                            onChange={(e) => {
+                              handleSysMsgChange(e);
+                              localStorage.setItem('sysMsg', JSON.stringify(""));
+                            }}
+                            value={sysMsg}
+                          />
+                        </td>
+                      </tr>
+                    }
 
-                              { /* Input Type */}
+                    { /* Input Type */}
                     {checkedIn &&
                       <tr>
                         <td className="pb-2 pr-4">Input Type:</td>
@@ -593,7 +593,7 @@ function Chatter() {
                     {(advancedSetting && checkedIn) &&
                       <>
                         <tr>
-                          <td className="pb-2 pr-4 text-blade-400">Model:</td>
+                          <td className="pb-2 pr-4 text-blade-700">Model:</td>
                           <td className="pb-2 tracking-wide font-bold text-black">
                             <select
                               name="model"
@@ -624,7 +624,7 @@ function Chatter() {
 
                         { /* Temperature */}
                         <tr>
-                          <td className="pb-4 pr-4 text-blade-400">temp.:</td>
+                          <td className="pb-4 pr-4 text-blade-700">temp.:</td>
                           <td className="tracking-wide font-bold text-black">
                             <select name="temperature" id="temperature" className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer mb-2 p-4 min-w-24 font-sans rounded-xl text-black" onChange={(e) => handleTempChange(e)} value={temperature}>
                               <option value="0">0</option>
@@ -653,7 +653,7 @@ function Chatter() {
 
                         { /* top-p */}
                         <tr>
-                          <td className="pb-4 text-blade-400">top-p:</td>
+                          <td className="pb-4 text-blade-700">top-p:</td>
                           <td className="tracking-wide font-bold text-black">
                             <select name="topp" id="topp" className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer mb-2 p-4 min-w-24 font-sans rounded-xl text-black" onChange={(e) => handleToppChange(e)} value={topp}>
                               <option value="0">0</option>
@@ -684,7 +684,7 @@ function Chatter() {
                         {((chatType.includes("OpenAI")) || (chatType.includes("Grok")) || (chatType.includes("Deepseek"))) ?
                           <></> :
                           <tr>
-                            <td className="pb-4 text-blade-400">top-k:</td>
+                            <td className="pb-4 text-blade-700">top-k:</td>
                             <td className="tracking-wide font-bold text-black">
                               <select name="topk" id="topk" className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer mb-1 p-4 min-w-24 font-sans rounded-xl text-black" onChange={(e) => handleTopkChange(e)} value={topk}>
                                 <option value="1">1</option>

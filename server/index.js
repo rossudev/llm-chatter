@@ -83,27 +83,27 @@ if (!fs.existsSync(chatHistoryDir)) {
 //Read the chat history for a specific user
 function readChatHistory(username) {
   const chatSpecificPath = path.join(chatHistoryDir, `${username}.jsonl`);
-  
+
   try {
     // Check if the file exists
     if (!fs.existsSync(chatSpecificPath)) {
       fs.writeFileSync(chatSpecificPath, {}, 'utf8');
       return {};
     }
-    
-/*     const passphraseData = JSON.parse(process.env['LLM_CHATTER_PASSPHRASE']);
-    const user = passphraseData.users.find(u => u.name === username);
-    
-    if (!user) {
-      console.error(`User ${username} not found in passphrase data`);
-      return {};
-    }
-    
-    const passphrase = user.value; */
+
+    /*     const passphraseData = JSON.parse(process.env['LLM_CHATTER_PASSPHRASE']);
+        const user = passphraseData.users.find(u => u.name === username);
+        
+        if (!user) {
+          console.error(`User ${username} not found in passphrase data`);
+          return {};
+        }
+        
+        const passphrase = user.value; */
 
     const fileContent = fs.readFileSync(chatSpecificPath, 'utf8');
     //const decrypted = decrypt(fileContent, passphrase);
-    
+
     //return JSON.parse(decrypted);
     return fileContent ? JSON.parse(fileContent) : {};
   } catch (error) {
@@ -118,7 +118,7 @@ function parseDate(dateString) {
   const [datePart, timePart] = dateString.split(' ');
   const [day, month, year] = datePart.split('/');
   const [hours, minutes, seconds] = timePart.split(':');
-  
+
   // Create a Date object (note: month is 0-indexed in JavaScript Date)
   return new Date(year, month - 1, day, hours, minutes, seconds);
 };
@@ -128,18 +128,18 @@ function getChatsByChatId(database, chatId) {
   try {
     return Object.entries(database)
       .filter(([key, item]) =>
-          key.startsWith("i_") &&
-          item && typeof item === 'object' &&
-          item.u === chatId
+        key.startsWith("i_") &&
+        item && typeof item === 'object' &&
+        item.u === chatId
       )
       .map(([_, item]) => item)
       .sort((a, b) => {
-          const dateA = parseDate(a.d);
-          const dateB = parseDate(b.d);
-          if (isNaN(dateA) && isNaN(dateB)) return 0;
-          if (isNaN(dateA)) return 1;
-          if (isNaN(dateB)) return -1;
-          return dateA - dateB;
+        const dateA = parseDate(a.d);
+        const dateB = parseDate(b.d);
+        if (isNaN(dateA) && isNaN(dateB)) return 0;
+        if (isNaN(dateA)) return 1;
+        if (isNaN(dateB)) return -1;
+        return dateA - dateB;
       });
   } catch (error) {
     console.error('Error parsing chat history:', error);
@@ -159,15 +159,15 @@ function logChatEvent(username, data, context = null, thread = null) {
   const chatSpecificPath = path.join(chatHistoryDir, `${username}.jsonl`);
   let chatHistory = {};
 
-/*   const passphraseData = JSON.parse(process.env['LLM_CHATTER_PASSPHRASE']);
-  const user = passphraseData.users.find(u => u.name === username);
-  
-  if (!user) {
-    console.error(`User ${username} not found in passphrase data`);
-    return;
-  }
-  
-  const passphrase = user.value; */
+  /*   const passphraseData = JSON.parse(process.env['LLM_CHATTER_PASSPHRASE']);
+    const user = passphraseData.users.find(u => u.name === username);
+    
+    if (!user) {
+      console.error(`User ${username} not found in passphrase data`);
+      return;
+    }
+    
+    const passphrase = user.value; */
 
   // Check if the file exists
   if (fs.existsSync(chatSpecificPath)) {
@@ -179,7 +179,7 @@ function logChatEvent(username, data, context = null, thread = null) {
       console.error(`Error reading existing chat history for ${username}:`, error);
     }
   }
-  
+
   // Add the new log entry
   const key = `i_${Object.keys(chatHistory).length}`;
   chatHistory[key] = logEntry;
@@ -194,14 +194,14 @@ function logChatEvent(username, data, context = null, thread = null) {
     const threadKey = `t_${Object.keys(chatHistory).length}`;
     chatHistory[threadKey] = thread;
   }
-  
+
   // Encrypt and save
   const chatHistoryStr = JSON.stringify(chatHistory);
- /*  const buffer = Buffer.from(chatHistoryStr, 'utf8');
-  const key = crypto.scryptSync(passphrase, process.env['SECRET_RANDOM'], 32);
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv("aes-256-ctr", key, iv);
-  const result = Buffer.concat([iv, cipher.update(buffer), cipher.final()]); */
+  /*  const buffer = Buffer.from(chatHistoryStr, 'utf8');
+   const key = crypto.scryptSync(passphrase, process.env['SECRET_RANDOM'], 32);
+   const iv = crypto.randomBytes(16);
+   const cipher = crypto.createCipheriv("aes-256-ctr", key, iv);
+   const result = Buffer.concat([iv, cipher.update(buffer), cipher.final()]); */
 
   //fs.writeFileSync(chatSpecificPath, result);
   fs.writeFileSync(chatSpecificPath, chatHistoryStr);
@@ -227,11 +227,11 @@ const validateShare = [
 ];
 
 app.post('/chkshr', validateShare, async (req, res) => {
-   const errors = validationResult(req);
+  const errors = validationResult(req);
   if (!errors.isEmpty()) {
     console.log(errors);
     return res.status(400).json({ error: 'Bad Request' });
-  } 
+  }
 
   const clientIp = req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.ip;
   const agent = req.headers['user-agent'];
@@ -289,7 +289,7 @@ const validateCheckin = [
     .matches(/^[a-zA-Z0-9_-]+$/).withMessage('Username can only contain letters, numbers, underscores, and hyphens.'),
 
   body('serverPassphrase').isString().trim().notEmpty().withMessage('Passphrase cannot be empty.'),
-  
+
   body('sessionHash').isString().trim(),
 ];
 
@@ -565,7 +565,7 @@ app.post('/ollama', validateInput, async (req, res) => {
     const timestamp = dayjs().format(Config.timeFormat);
 
     logChatEvent(
-      username, 
+      username,
       {
         ...logData,
         r: "assistant",
@@ -917,7 +917,7 @@ app.post('/google', validateInput, async (req, res) => {
 
     const googleImg = theData.images;
 
-    const sendGoogle = (googleImg && (googleImg.length > 0 )) ?
+    const sendGoogle = (googleImg && (googleImg.length > 0)) ?
       googleImg :
       {
         contents: convertedMsgs,

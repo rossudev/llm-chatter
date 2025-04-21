@@ -6,6 +6,7 @@ import axios from "axios";
 import copy from "copy-to-clipboard";
 import { debounce } from "lodash";
 import XClose from "./XClose";
+import CopyButton from "./CopyButton";
 import ContentText from "./ContentText";
 import FileUploader from "./FileUploader";
 import { dataContext } from "../Chatter";
@@ -17,7 +18,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
 
     let sysMsgs = [];
     let firstMeta = [];
-    
+
     const uniqueChatID = sessionHash + numba;
 
     const nonOpenAIChatTypes = [
@@ -49,52 +50,52 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
 
     const convertFormat = useCallback((inputData) => {
         const result = [];
-        
+
         // Sort by item number to ensure correct order
         const sortedKeys = Object.keys(inputData).sort((a, b) => {
-          const numA = parseInt(a.split('_')[1]);
-          const numB = parseInt(b.split('_')[1]);
-          return numA - numB;
+            const numA = parseInt(a.split('_')[1]);
+            const numB = parseInt(b.split('_')[1]);
+            return numA - numB;
         });
-        
+
         for (const key of sortedKeys) {
-          const item = inputData[key];
-          
-          // Determine the content format based on role
-          let content;
-          if (item.r === "assistant") {
-            // Assistant content is just a string
-            content = item.z;
-          } else {
-            // System and user content are arrays with type and text
-            content = [{ "type": "text", "text": item.z }];
-          }
-          
-          result.push({
-            "role": item.r,
-            "content": content
-          });
+            const item = inputData[key];
+
+            // Determine the content format based on role
+            let content;
+            if (item.r === "assistant") {
+                // Assistant content is just a string
+                content = item.z;
+            } else {
+                // System and user content are arrays with type and text
+                content = [{ "type": "text", "text": item.z }];
+            }
+
+            result.push({
+                "role": item.r,
+                "content": content
+            });
         }
-        
+
         return result;
     });
 
     const makeMetas = useCallback((inputData) => {
         const result = [];
-        
+
         // Sort by item number to ensure correct order
         const sortedKeys = Object.keys(inputData).sort((a, b) => {
-          const numA = parseInt(a.split('_')[1]);
-          const numB = parseInt(b.split('_')[1]);
-          return numA - numB;
+            const numA = parseInt(a.split('_')[1]);
+            const numB = parseInt(b.split('_')[1]);
+            return numA - numB;
         });
-        
+
         for (const key of sortedKeys) {
-          const item = inputData[key];
-          const whichPrompt = item.r === "system" ? "Starting Prompt" : "Prompt";
-          result.push([item.r === "assistant" ? item.m : whichPrompt, item.d]);
+            const item = inputData[key];
+            const whichPrompt = item.r === "system" ? "Starting Prompt" : "Prompt";
+            result.push([item.r === "assistant" ? item.m : whichPrompt, item.d]);
         }
-        
+
         return result;
     });
 
@@ -121,7 +122,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
         let endPath = "";
         let sendPacket = {};
 
-        const inputWithAttachment = textAttachment ? ( input + "\n\n" + textAttachment ) : input;
+        const inputWithAttachment = textAttachment ? (input + "\n\n" + textAttachment) : input;
         let msgs = chatMessages.concat({ "role": "user", "content": [{ "type": "text", "text": inputWithAttachment }] });
 
         const visionMsg = (chatType === "Anthropic") ?
@@ -439,12 +440,14 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
     const copyClick = useCallback((value) => {
         if (typeof value === 'string') {
             copy(value);
-            //For a period of 200 ms, setIsCopied to true
-            setIsCopied(true);
-            setTimeout(() => {
-                setIsCopied(false);
-            }, 200);
         }
+    });
+
+    const delayColor = useCallback(() => {
+        setIsCopied(true);
+        setTimeout(() => {
+            setIsCopied(false);
+        }, 150);
     });
 
     const getContentText = useCallback((content) => {
@@ -462,23 +465,25 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
     })
 
     const copyURLbutton = useCallback(() => {
-        return(
-            <div 
-            onClick={() => { copyClick(theShareURL) }}
-            className={`border-solid border border-aro-800 self-start text-black hover:bg-nosferatu-300 cursor-default bg-nosferatu-100 rounded-3xl text-md font-bold pt-2 pb-2 pl-4 pr-4 flex mb-2 bg-gradient-to-tl from-nosferatu-300 hover:from-aro-300 cursor-pointer ${isCopied ? "text-blade-300" : ""}`}
+        return (
+            <div
+                onClick={() => { copyClick(theShareURL); delayColor(); }}
+                className={`border-solid border border-aro-800 self-start text-black hover:bg-nosferatu-300 cursor-default bg-nosferatu-100 rounded-3xl text-md font-bold pt-2 pb-2 pl-4 pr-4 flex mb-2 bg-gradient-to-tl from-nosferatu-300 hover:from-aro-300 cursor-pointer ${isCopied ? "text-blade-300" : ""}`}
             >
-            <i className={`fa-solid fa-clone mr-4 text-nosferatu-800${isCopied ? "text-blade-300" : ""}`}></i>
-            <h1 className="hover:underline">Copy URL</h1>
+                <i className={`fa-solid fa-clone mr-4 text-nosferatu-800${isCopied ? "text-blade-300" : ""}`}></i>
+                <h1 className="hover:underline">Copy URL</h1>
             </div>
         );
     });
 
     const shareButton = useCallback(() => {
-        return(
-            <div onClick={() => { handleShareClick() }}className="border-solid border border-aro-800 self-start text-black hover:bg-nosferatu-300 cursor-default bg-nosferatu-100 rounded-3xl text-xl font-bold pt-2 pb-2 pl-4 pr-4 flex mb-2 bg-gradient-to-tl from-nosferatu-300 hover:from-aro-300 cursor-pointer">
-                <i className="fa-solid fa-share mr-4 text-nosferatu-800"></i>
-                <h1 className="hover:underline">Share</h1>
-            </div>
+        return (
+            serverURL.startsWith("https://") && (
+                <div onClick={() => { handleShareClick() }} className="border-solid border border-aro-800 self-start text-black hover:bg-nosferatu-300 cursor-default bg-nosferatu-100 rounded-3xl text-xl font-bold pt-2 pb-2 pl-4 pr-4 flex mb-2 bg-gradient-to-tl from-nosferatu-300 hover:from-aro-300 cursor-pointer">
+                    <i className="fa-solid fa-share mr-4 text-nosferatu-800"></i>
+                    <h1 className="hover:underline">Share</h1>
+                </div>
+            )
         );
     });
 
@@ -590,7 +595,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                     }
                                     checkDuplicates = contentText;
                                 }
-                                    
+
                                 if (!contentText || typeof contentText !== 'string') {
                                     return null;
                                 };
@@ -605,7 +610,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                                     <span className="font-bold text-xl text-aro-900">{messageMetas[index][0]}</span>
                                                     <span className="text-center text-sm text-aro-900">{messageMetas[index][1]}</span>
                                                     <span className="text-right">
-                                                        <i onClick={() => copyClick(contentText)} className="text-aro-900 m-2 fa-solid fa-copy fa-2x cursor-pointer shadow-xl hover:shadow-dracula-900"></i>
+                                                        <CopyButton contentText={contentText} copyClick={copyClick} />
                                                     </span>
                                                 </div>
                                             ) : (
@@ -648,7 +653,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                             {/*  Settings */}
                             <tr>
                                 <td colSpan={4}>
-                                    {theShareURL ? 
+                                    {theShareURL ?
                                         <div className="mb-2" onCopy={handleCopy}>
                                             {copyURLbutton()}
                                             <input
@@ -659,8 +664,8 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                                 onClick={(e) => e.target.select()}
                                             />
                                         </div>
-                                    :
-                                        <>{(sentOne && !isError ) && shareButton()}</>
+                                        :
+                                        <>{(sentOne && !isError) && shareButton()}</>
                                     }
                                     <FileUploader base64Image={base64Image} setBase64Image={setBase64Image} textAttachment={textAttachment} setTextAttachment={setTextAttachment} sentOne={sentOne} setFileFormat={setFileFormat} />
                                 </td>
