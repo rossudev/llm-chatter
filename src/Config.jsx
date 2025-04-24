@@ -4,6 +4,7 @@ const openAIModels = [
   "gpt-4.1",
   "gpt-4.1-mini",
   "gpt-4.1-nano",
+  "gpt-image-1",
   "chatgpt-4o-latest",
   "o4-mini",
   "o3-mini",
@@ -61,7 +62,7 @@ const Config = {
   sysMsg: "Let's work this out in a step by step way to be sure we have the right answer.",
 
   defaultChatType: "OpenAI",
-  defaultModel: { name: "o4-mini" },
+  defaultModel: { name: "gpt-4.1-mini" },
   defaultModelList: openAIModels,
 
   models: {
@@ -123,7 +124,12 @@ const Config = {
       "gemma3:4b",
       "gemma3:12b",
       "gemma3:27b",
-    ]
+    ],
+  
+    imgOutputModels:
+    [
+      "gpt-image-1",
+    ],
 };
 
 export default Config;

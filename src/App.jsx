@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
 import Chatter from './Chatter.jsx';
 
-const Shared = lazy(() => import('./Shared.jsx'))
+const Shared = lazy(() => import('./Shared.jsx'));
 
 function App() {
   return (
@@ -16,6 +16,6 @@ function App() {
       </Suspense>
     </BrowserRouter>
   );
-}
+};
 
 export default App;

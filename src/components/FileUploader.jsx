@@ -74,7 +74,7 @@ const FileUploader = ({ base64Image, setBase64Image, sentOne, setFileFormat, tex
               {!sentOne &&
                 <i
                   className="fa-solid fa-circle-xmark text-3xl text-morbius-500 cursor-pointer"
-                  style={{ position: 'absolute', top: '-1em', right: '-1em' }}
+                  style={{ position: 'absolute', top: '0', right: '-2em' }}
                   onClick={() => setBase64Image('')}
                 />
               }

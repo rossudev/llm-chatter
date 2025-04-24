@@ -17,4 +17,4 @@ module.exports = {
       darkModeVariant: true
     },
     dark: 'class'
-  }
+}

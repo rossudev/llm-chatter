@@ -39,7 +39,7 @@ const limiter = rateLimit({
 });
 
 const slowLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000, // 10 minutes
+  windowMs: 60 * 60 * 1000, // 60 minutes
   max: 50,
   keyGenerator: req => req.headers['cf-connecting-ip'] || req.ip,
 });
@@ -65,9 +65,14 @@ relay.listen(8081);
 
 
 const chatHistoryDir = path.join(process.cwd(), 'chat-histories');
+const imgOutputDir = path.join(process.cwd(), 'img-output');
 
 if (!fs.existsSync(chatHistoryDir)) {
   fs.mkdirSync(chatHistoryDir);
+};
+
+if (!fs.existsSync(imgOutputDir)) {
+  fs.mkdirSync(imgOutputDir);
 };
 
 /* const decrypt = (encrypted, pwd) => {
@@ -383,7 +388,7 @@ const validateInput = [
   body('temperature').optional().isFloat({ min: 0, max: 1 }),
   body('top_p').optional().isFloat({ min: 0, max: 1 }),
   body('top_k').optional().isFloat({ min: 1, max: 20 }),
-  body('stream').optional().isBoolean(),
+  body('imgOutput').optional().isBoolean(),
   body('sentOne').optional().isBoolean(),
   body('keep_alive').optional().isInt({ min: 0 }),
   body('messages').optional().isArray(),
@@ -735,6 +740,7 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
     const timeNow = dayjs().format(Config.timeFormat);
     const chatId = req.body.uniqueChatID;
     const sent1 = req.body.sentOne;
+    const imgOutput = req.body.imgOutput ?? false;
     const username = req.body.serverUsername;
 
     const logData = {
@@ -768,16 +774,39 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
     });
 
     // Make the API call
-    const response = await client.chat.completions.create({
-      model,
-      //max_tokens: 1000,
-      //max_completion_tokens: 1000,
-      temperature,
-      top_p,
-      messages,
-    });
+    const response = imgOutput ? 
+      await client.images.generate({
+        "prompt": promptText,
+        "model": "gpt-image-1",
+        "moderation": "low",
+        "n": 1,
+        "output_format": "jpeg",
+        "quality": "medium",
+        "size": "1024x1024",
+      })
+    : 
+      await client.chat.completions.create({
+        model,
+        //max_tokens: 1000,
+        //max_completion_tokens: 1000,
+        temperature,
+        top_p,
+        messages,
+      })
+    ;
 
-    res.status(200).json(response);
+    if (imgOutput) {
+      const image_base64 = response.data[0].b64_json;
+      const image_bytes = Buffer.from(image_base64, 'base64');
+      const imgSpecificPath = path.join(imgOutputDir, `${chatId}.jpg`);
+      fs.writeFileSync(imgSpecificPath, image_bytes);
+
+      res.status(200).json({ base64: image_base64 });
+    } else {
+      res.status(200).json(response);
+    };
+
+    
 
     const timestamp = dayjs().format(Config.timeFormat);
 

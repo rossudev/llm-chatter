@@ -189,6 +189,12 @@ function Chatter() {
   //Starts the interval on first load
   useEffect(() => {
     startInterval();
+    return () => {
+      if (intervalIdRef.current) {
+        clearInterval(intervalIdRef.current);
+        intervalIdRef.current = null;
+      }
+    };
   }, []);
 
   const checkBackServer = useCallback(
@@ -546,7 +552,7 @@ function Chatter() {
                 <table className="min-w-full text-black">
                   <tbody>
                     { /* System Message */}
-                    {checkedIn &&
+                    {(checkedIn && !((Config.reasoningModels).includes(model.name)) && !((Config.imgOutputModels).includes(model.name))) &&
                       <tr>
                         <td className="w-[10%] pb-4 pr-4">
                           Starting Prompt:
@@ -570,7 +576,7 @@ function Chatter() {
                     { /* Input Type */}
                     {checkedIn &&
                       <tr>
-                        <td className="pb-2 pr-4">Input Type:</td>
+                        <td className="w-[10%] pb-2 pr-4">Input Type:</td>
                         <td className="pb-2 tracking-wide font-bold text-black">
                           <select
                             name="chatType"
@@ -593,7 +599,7 @@ function Chatter() {
                     {(advancedSetting && checkedIn) &&
                       <>
                         <tr>
-                          <td className="pb-2 pr-4 text-blade-700">Model:</td>
+                          <td className="w-[10%] pb-2 pr-4 text-blade-700">Model:</td>
                           <td className="pb-2 tracking-wide font-bold text-black">
                             <select
                               name="model"
@@ -622,94 +628,98 @@ function Chatter() {
                           </td>
                         </tr>
 
-                        { /* Temperature */}
-                        <tr>
-                          <td className="pb-4 pr-4 text-blade-700">temp.:</td>
-                          <td className="tracking-wide font-bold text-black">
-                            <select name="temperature" id="temperature" className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer mb-2 p-4 min-w-24 font-sans rounded-xl text-black" onChange={(e) => handleTempChange(e)} value={temperature}>
-                              <option value="0">0</option>
-                              <option value="0.01">0.01</option>
-                              <option value="0.02">0.02</option>
-                              <option value="0.03">0.03</option>
-                              <option value="0.04">0.04</option>
-                              <option value="0.05">0.05</option>
-                              <option value="0.06">0.06</option>
-                              <option value="0.07">0.07</option>
-                              <option value="0.08">0.08</option>
-                              <option value="0.09">0.09</option>
-                              <option value="0.1">0.1</option>
-                              <option value="0.2">0.2</option>
-                              <option value="0.3">0.3</option>
-                              <option value="0.4">0.4</option>
-                              <option value="0.5">0.5</option>
-                              <option value="0.6">0.6</option>
-                              <option value="0.7">0.7</option>
-                              <option value="0.8">0.8</option>
-                              <option value="0.9">0.9</option>
-                              <option value="1">1</option>
-                            </select>
-                          </td>
-                        </tr>
+                        {!((Config.imgOutputModels).includes(model.name)) &&
+                          <>
+                            { /* Temperature */}
+                            <tr>
+                              <td className="w-[10%] pb-4 pr-4 text-blade-700">temp.:</td>
+                              <td className="tracking-wide font-bold text-black">
+                                <select name="temperature" id="temperature" className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer mb-2 p-4 min-w-24 font-sans rounded-xl text-black" onChange={(e) => handleTempChange(e)} value={temperature}>
+                                  <option value="0">0</option>
+                                  <option value="0.01">0.01</option>
+                                  <option value="0.02">0.02</option>
+                                  <option value="0.03">0.03</option>
+                                  <option value="0.04">0.04</option>
+                                  <option value="0.05">0.05</option>
+                                  <option value="0.06">0.06</option>
+                                  <option value="0.07">0.07</option>
+                                  <option value="0.08">0.08</option>
+                                  <option value="0.09">0.09</option>
+                                  <option value="0.1">0.1</option>
+                                  <option value="0.2">0.2</option>
+                                  <option value="0.3">0.3</option>
+                                  <option value="0.4">0.4</option>
+                                  <option value="0.5">0.5</option>
+                                  <option value="0.6">0.6</option>
+                                  <option value="0.7">0.7</option>
+                                  <option value="0.8">0.8</option>
+                                  <option value="0.9">0.9</option>
+                                  <option value="1">1</option>
+                                </select>
+                              </td>
+                            </tr>
 
-                        { /* top-p */}
-                        <tr>
-                          <td className="pb-4 text-blade-700">top-p:</td>
-                          <td className="tracking-wide font-bold text-black">
-                            <select name="topp" id="topp" className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer mb-2 p-4 min-w-24 font-sans rounded-xl text-black" onChange={(e) => handleToppChange(e)} value={topp}>
-                              <option value="0">0</option>
-                              <option value="0.01">0.01</option>
-                              <option value="0.02">0.02</option>
-                              <option value="0.03">0.03</option>
-                              <option value="0.04">0.04</option>
-                              <option value="0.05">0.05</option>
-                              <option value="0.06">0.06</option>
-                              <option value="0.07">0.07</option>
-                              <option value="0.08">0.08</option>
-                              <option value="0.09">0.09</option>
-                              <option value="0.1">0.1</option>
-                              <option value="0.2">0.2</option>
-                              <option value="0.3">0.3</option>
-                              <option value="0.4">0.4</option>
-                              <option value="0.5">0.5</option>
-                              <option value="0.6">0.6</option>
-                              <option value="0.7">0.7</option>
-                              <option value="0.8">0.8</option>
-                              <option value="0.9">0.9</option>
-                              <option value="1">1</option>
-                            </select>
-                          </td>
-                        </tr>
+                            { /* top-p */}
+                            <tr>
+                              <td className="w-[10%] pb-4 text-blade-700">top-p:</td>
+                              <td className="tracking-wide font-bold text-black">
+                                <select name="topp" id="topp" className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer mb-2 p-4 min-w-24 font-sans rounded-xl text-black" onChange={(e) => handleToppChange(e)} value={topp}>
+                                  <option value="0">0</option>
+                                  <option value="0.01">0.01</option>
+                                  <option value="0.02">0.02</option>
+                                  <option value="0.03">0.03</option>
+                                  <option value="0.04">0.04</option>
+                                  <option value="0.05">0.05</option>
+                                  <option value="0.06">0.06</option>
+                                  <option value="0.07">0.07</option>
+                                  <option value="0.08">0.08</option>
+                                  <option value="0.09">0.09</option>
+                                  <option value="0.1">0.1</option>
+                                  <option value="0.2">0.2</option>
+                                  <option value="0.3">0.3</option>
+                                  <option value="0.4">0.4</option>
+                                  <option value="0.5">0.5</option>
+                                  <option value="0.6">0.6</option>
+                                  <option value="0.7">0.7</option>
+                                  <option value="0.8">0.8</option>
+                                  <option value="0.9">0.9</option>
+                                  <option value="1">1</option>
+                                </select>
+                              </td>
+                            </tr>
 
-                        { /* top-k */}
-                        {((chatType.includes("OpenAI")) || (chatType.includes("Grok")) || (chatType.includes("Deepseek"))) ?
-                          <></> :
-                          <tr>
-                            <td className="pb-4 text-blade-700">top-k:</td>
-                            <td className="tracking-wide font-bold text-black">
-                              <select name="topk" id="topk" className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer mb-1 p-4 min-w-24 font-sans rounded-xl text-black" onChange={(e) => handleTopkChange(e)} value={topk}>
-                                <option value="1">1</option>
-                                <option value="2">2</option>
-                                <option value="3">3</option>
-                                <option value="4">4</option>
-                                <option value="5">5</option>
-                                <option value="6">6</option>
-                                <option value="7">7</option>
-                                <option value="8">8</option>
-                                <option value="9">9</option>
-                                <option value="10">10</option>
-                                <option value="11">11</option>
-                                <option value="12">12</option>
-                                <option value="13">13</option>
-                                <option value="14">14</option>
-                                <option value="15">15</option>
-                                <option value="16">16</option>
-                                <option value="17">17</option>
-                                <option value="18">18</option>
-                                <option value="19">19</option>
-                                <option value="20">20</option>
-                              </select>
-                            </td>
-                          </tr>
+                            { /* top-k */}
+                            {((chatType.includes("OpenAI")) || (chatType.includes("Grok")) || (chatType.includes("Deepseek"))) ?
+                              <></> :
+                              <tr>
+                                <td className="w-[10%] pb-4 text-blade-700">top-k:</td>
+                                <td className="tracking-wide font-bold text-black">
+                                  <select name="topk" id="topk" className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer mb-1 p-4 min-w-24 font-sans rounded-xl text-black" onChange={(e) => handleTopkChange(e)} value={topk}>
+                                    <option value="1">1</option>
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+                                    <option value="4">4</option>
+                                    <option value="5">5</option>
+                                    <option value="6">6</option>
+                                    <option value="7">7</option>
+                                    <option value="8">8</option>
+                                    <option value="9">9</option>
+                                    <option value="10">10</option>
+                                    <option value="11">11</option>
+                                    <option value="12">12</option>
+                                    <option value="13">13</option>
+                                    <option value="14">14</option>
+                                    <option value="15">15</option>
+                                    <option value="16">16</option>
+                                    <option value="17">17</option>
+                                    <option value="18">18</option>
+                                    <option value="19">19</option>
+                                    <option value="20">20</option>
+                                  </select>
+                                </td>
+                              </tr>
+                            }
+                          </>
                         }
                       </>
                     }

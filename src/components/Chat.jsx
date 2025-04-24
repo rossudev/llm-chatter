@@ -38,10 +38,12 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
         }
     });
 
+    const noSystemMeta = ((Config.reasoningModels.includes(model)) || (Config.imgOutputModels.includes(model)));
+
     if (nonOpenAIChatTypes.includes(chatType)) {
         setMessagesAndMeta(false);
     } else { // OpenAI
-        if (Config.reasoningModels.includes(model)) {
+        if (noSystemMeta) {
             setMessagesAndMeta(false);
         } else {
             setMessagesAndMeta(true);
@@ -107,6 +109,8 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
     const [theShareURL, setTheShareURL] = useState("");
     const [textAttachment, setTextAttachment] = useState("");
     const [fileFormat, setFileFormat] = useState("");
+    const [imageOutput, setImageOutput] = useState("");
+    const [imgQuality, setImgQuality] = useState("medium");
     const [messageMetas, setMessageMetas] = useState(hasMessages ? makeMetas(messages) : firstMeta);
     const [chatMessages, setChatMessages] = useState(theMsgs);
     const [chatMessagesPlusMore, setChatMessagesPlusMore] = useState(theMsgs);
@@ -117,10 +121,12 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
     const [isError, setIsError] = useState(false);
     const [sentOne, setSentOne] = useState(false);
     const [isCopied, setIsCopied] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(true);
 
     const fetchData = useCallback(async (input, modelThisFetch) => {
         let endPath = "";
         let sendPacket = {};
+        const isImgOutput = (Config.imgOutputModels).includes(modelThisFetch);
 
         const inputWithAttachment = textAttachment ? (input + "\n\n" + textAttachment) : input;
         let msgs = chatMessages.concat({ "role": "user", "content": [{ "type": "text", "text": inputWithAttachment }] });
@@ -235,7 +241,6 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                     system: systemMessage,
                     context: chatContext,
                     options: { "temperature": parseFloat(temperature), "top_p": parseFloat(topp), "top_k": parseFloat(topk) },
-                    stream: false,
                     keep_alive: 0,
                     images: base64Image ? [base64Image.split(',')[1]] : [],
                 };
@@ -247,6 +252,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
         sendPacket.sentOne = sentOne;
         sendPacket.serverUsername = serverUsername;
         sendPacket.thread = thread;
+        sendPacket.imgOutput = isImgOutput;
 
         try {
             const startTime = Date.now();
@@ -277,7 +283,12 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                 case "OpenAI":
                 case "Grok":
                 case "Deepseek":
-                    theEnd = normalizeText(response.data.choices[0].message.content);
+                    theEnd = isImgOutput ? [{ type: "text", text: "Image Output." }] : normalizeText(response.data.choices[0].message.content);
+
+                    if (isImgOutput) {
+                        setImageOutput(response.data.base64);
+                    };
+
                     break;
                 case "Anthropic":
                     theEnd = normalizeText(response.data.content[0].text);
@@ -487,6 +498,10 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
         );
     });
 
+    const ToggleImageSize = useCallback(() => {
+        setIsExpanded(prev => !prev);
+    });
+
     const handleShareClick = useCallback(async () => {
         const setURL = serverURL + "/shared/" + serverUsername + "/" + uniqueChatID;
         setTheShareURL(setURL);
@@ -541,7 +556,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
         setChatCount(chatCount + 1);
     });
 
-    let checkDuplicates = "";
+    //let checkDuplicates = "";
 
     return (
         <Spring
@@ -589,7 +604,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                             {chatMessagesPlusMore.map((obj, index) => {
                                 const contentText = getContentText(obj.content);
 
-                                if (obj.role === "user") {
+/*                                 if (obj.role === "user") {
                                     if (contentText === checkDuplicates) {
                                         return null;
                                     }
@@ -598,7 +613,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
 
                                 if (!contentText || typeof contentText !== 'string') {
                                     return null;
-                                };
+                                }; */
 
                                 return (
                                     <tr key={index}>
@@ -622,8 +637,16 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                 )
                             })}
 
+                            {imageOutput &&
+                                <tr>
+                                    <td colSpan="4" className="py-3 p-3 bg-morbius-300 font-sans rounded-xl text-black-800 text-md whitespace-pre-wrap">
+                                        <img onClick={ToggleImageSize} src={"data:image/jpeg;base64," + imageOutput} alt="Image Output" style={{ width: isExpanded ? '100%' : '300px', cursor: 'pointer', marginTop: '10px' }} />
+                                    </td>
+                                </tr>
+                            }
+
                             {/* Regular text chat input box, and the Send button */}
-                            {(!isError || !sentOne) &&
+                            {((!isError || !sentOne) && !imageOutput) &&
                                 <tr>
                                     <td colSpan="3">
                                         <TextareaAutosize
@@ -634,7 +657,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                             minRows="3"
                                             maxRows="15"
                                             className="placeholder:text-6xl placeholder:italic mt-3 p-4 min-w-[100%] bg-nosferatu-100 text-sm font-mono text-black rounded-xl"
-                                            placeholder="Chat"
+                                            placeholder={(Config.imgOutputModels).includes(model) ? "Image" : "Chat"}
                                             value={chatInput}
                                         />
                                     </td>
@@ -651,122 +674,144 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                             }
 
                             {/*  Settings */}
-                            <tr>
-                                <td colSpan={4}>
-                                    {theShareURL ?
-                                        <div className="mb-2" onCopy={handleCopy}>
-                                            {copyURLbutton()}
-                                            <input
-                                                type="text"
-                                                value={theShareURL}
-                                                readOnly
-                                                className="w-full p-2 border border-gray-400 rounded bg-gray-100 text-black cursor-text text-sm p-3 mx-auto overflow-hidden text-ellipsis whitespace-nowrap hover:bg-gray-200 font-mono"
-                                                onClick={(e) => e.target.select()}
-                                            />
-                                        </div>
-                                        :
-                                        <>{(sentOne && !isError) && shareButton()}</>
-                                    }
-                                    <FileUploader base64Image={base64Image} setBase64Image={setBase64Image} textAttachment={textAttachment} setTextAttachment={setTextAttachment} sentOne={sentOne} setFileFormat={setFileFormat} />
-                                </td>
-                            </tr>
-                            <tr className="align-top">
-
-                                {/*  Model info */}
-                                <td className="w-1/2 bg-blade-200 rounded-xl bg-gradient-to-tl from-blade-400 p-2">
-                                    <table className="min-w-[100%]"><tbody>
-                                        <tr>
-                                            <td className="min-w-[100%]">
-                                                <p className="mb-2"><i className="fa-solid fa-splotch text-2xl text-dracula-500 ml-1"></i> {addedModels.length > 0 ? <b>Models:</b> : <b>Model:</b>}</p>
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td>
-                                                <ul>
-                                                    <li><i className="fa-solid ml-4 fa-caret-right text-sm text-dracula-500"></i> {model}</li>
-                                                    {addedModels.map((model, index) => (
-                                                        <li key={index}><i className="fa-solid ml-4 fa-caret-right text-sm text-dracula-500" ></i> <span onClick={() => handleDeleteModel(model)} className="hover:underline" >{model}</span></li>
-                                                    ))}
-                                                </ul>
-                                            </td>
-                                        </tr>
-                                    </tbody></table>
-                                </td>
-
-                                {/* temperature info */}
-                                <td className="w-1/6 bg-vanHelsing-200 rounded-xl bg-gradient-to-tl from-vanHelsing-500">
-                                    <table><tbody><tr className="align-top">
-                                        <td className="w-1/6"><i className="ml-2 fa-solid fa-temperature-three-quarters text-2xl text-buffy-500"></i></td>
-                                        <td className="w-5/6 p-1"><b>temp:</b><br /><i className="fa-solid fa-caret-right text-sm text-buffy-900"></i> {temperature}</td>
-                                    </tr></tbody></table>
-                                </td>
-
-                                {/* top-p info */}
-                                <td colSpan={((chatType.includes("OpenAI")) || (chatType.includes("Grok")) || (chatType.includes("Deepseek"))) ? 2 : 1} className="w-1/6 bg-cullen-200 rounded-xl bg-gradient-to-tl from-cullen-500">
-                                    <table><tbody><tr className="align-top">
-                                        <td className="w-1/6"><i className="ml-2 fa-brands fa-react text-2xl text-vanHelsing-900"></i></td>
-                                        <td className="w-5/6 p-1"><b>top-p:</b><br /><i className="fa-solid fa-caret-right text-sm text-vanHelsing-900"></i> {topp}</td>
-                                    </tr></tbody></table>
-                                </td>
-
-                                {/* top-k info */}
-                                {((chatType.includes("OpenAI")) || (chatType.includes("Grok")) || (chatType.includes("Deepseek"))) ?
-                                    <></> :
-                                    <td className="w-1/6 bg-cullen-200 rounded-xl bg-gradient-to-tl from-cullen-500">
-                                        <table><tbody><tr className="align-top">
-                                            <td className="w-1/6"><i className="ml-2 fa-solid fa-square-poll-horizontal text-2xl text-vanHelsing-900"></i></td>
-                                            <td className="w-5/6 p-1"><b>top-k:</b><br /><i className="fa-solid fa-caret-right text-sm text-vanHelsing-900"></i> {topk}</td>
-                                        </tr></tbody></table>
-                                    </td>
-                                }
-                            </tr>
-
-                            {/* Add Models interface */}
-                            <tr className="align-top over">
-                                <td colSpan="2" className="w-1/2">
-                                    {(!isError || !sentOne) &&
-                                        <>
-                                            {addSetting ?
-                                                <div className="bg-blade-100 rounded-xl pb-2 pl-2">
-                                                    <table className="min-w-[100%]"><tbody>
-                                                        <tr>
-                                                            <td className="min-w-[100%] pl-4">
-                                                                <i className="cursor-pointer mb-3 mt-2 fa-solid fa-plus text-blade-800 text-3xl hover:text-marcelin-900 fa-rotate-by" style={{ '--fa-rotate-angle': '45deg' }} onClick={handleModelToggle}></i>
-                                                                <span className="ml-4 font-bold hover:underline cursor-pointer hover:text-marcelin-900" onClick={handleModelToggle}>Add Model:</span>
-                                                            </td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td>
-                                                                <ul>
-                                                                    {listModels.map((model, index) => (
-                                                                        <li key={index}>
-                                                                            <span className="ml-4 text-sm hover:text-aro-500 hover:underline hover:font-bold hover:cursor-pointer" onClick={() => handleAddModel(model.name)}><i className="fa-solid fa-caret-right text-sm text-blade-700 mr-1"></i>{model.name + (Config.visionModels.includes(model.name) ? " *" : "")}</span>
-                                                                        </li>
-                                                                    ))}
-                                                                </ul>
-                                                            </td>
-                                                        </tr>
-                                                    </tbody></table>
+                            {!((Config.imgOutputModels).includes(model)) ?
+                                <>
+                                    <tr>
+                                        <td colSpan={4}>
+                                            {/* {theShareURL ?
+                                                <div className="mb-2" onCopy={handleCopy}>
+                                                    {copyURLbutton()}
+                                                    <input
+                                                        type="text"
+                                                        value={theShareURL}
+                                                        readOnly
+                                                        className="w-full p-2 border border-gray-400 rounded bg-gray-100 text-black cursor-text text-sm p-3 mx-auto overflow-hidden text-ellipsis whitespace-nowrap hover:bg-gray-200 font-mono"
+                                                        onClick={(e) => e.target.select()}
+                                                    />
                                                 </div>
-
                                                 :
-                                                <div className="bg-blade-100 rounded-xl mb-1"><i className="cursor-pointer m-3 ml-6 fa-solid fa-plus text-2xl hover:text-blade-800" onClick={handleModelToggle}></i> <span className="cursor-pointer hover:underline hover:text-blade-800" onClick={handleModelToggle}>Add Model</span></div>
+                                                <>{(sentOne && !isError) && shareButton()}</>
+                                            } */}
+                                            <FileUploader base64Image={base64Image} setBase64Image={setBase64Image} textAttachment={textAttachment} setTextAttachment={setTextAttachment} sentOne={sentOne} setFileFormat={setFileFormat} />
+                                        </td>
+                                    </tr>
+                                    <tr className="align-top">
+
+                                        {/*  Model info */}
+                                        <td className="w-1/2 bg-blade-200 rounded-xl bg-gradient-to-tl from-blade-400 p-2">
+                                            <table className="min-w-[100%]"><tbody>
+                                                <tr>
+                                                    <td className="min-w-[100%]">
+                                                        <p className="mb-2"><i className="fa-solid fa-splotch text-2xl text-dracula-500 ml-1"></i> {addedModels.length > 0 ? <b>Models:</b> : <b>Model:</b>}</p>
+                                                    </td>
+                                                </tr>
+                                                <tr>
+                                                    <td>
+                                                        <ul>
+                                                            <li><i className="fa-solid ml-4 fa-caret-right text-sm text-dracula-500"></i> {model}</li>
+                                                            {addedModels.map((model, index) => (
+                                                                <li key={index}><i className="fa-solid ml-4 fa-caret-right text-sm text-dracula-500" ></i> <span onClick={() => handleDeleteModel(model)} className="hover:underline" >{model}</span></li>
+                                                            ))}
+                                                        </ul>
+                                                    </td>
+                                                </tr>
+                                            </tbody></table>
+                                        </td>
+
+                                        {/* temperature info */}
+                                        <td className="w-1/6 bg-vanHelsing-200 rounded-xl bg-gradient-to-tl from-vanHelsing-500">
+                                            <table><tbody><tr className="align-top">
+                                                <td className="w-1/6"><i className="ml-2 fa-solid fa-temperature-three-quarters text-2xl text-buffy-500"></i></td>
+                                                <td className="w-5/6 p-1"><b>temp:</b><br /><i className="fa-solid fa-caret-right text-sm text-buffy-900"></i> {temperature}</td>
+                                            </tr></tbody></table>
+                                        </td>
+
+                                        {/* top-p info */}
+                                        <td colSpan={((chatType.includes("OpenAI")) || (chatType.includes("Grok")) || (chatType.includes("Deepseek"))) ? 2 : 1} className="w-1/6 bg-cullen-200 rounded-xl bg-gradient-to-tl from-cullen-500">
+                                            <table><tbody><tr className="align-top">
+                                                <td className="w-1/6"><i className="ml-2 fa-brands fa-react text-2xl text-vanHelsing-900"></i></td>
+                                                <td className="w-5/6 p-1"><b>top-p:</b><br /><i className="fa-solid fa-caret-right text-sm text-vanHelsing-900"></i> {topp}</td>
+                                            </tr></tbody></table>
+                                        </td>
+
+                                        {/* top-k info */}
+                                        {((chatType.includes("OpenAI")) || (chatType.includes("Grok")) || (chatType.includes("Deepseek"))) ?
+                                            <></> :
+                                            <td className="w-1/6 bg-cullen-200 rounded-xl bg-gradient-to-tl from-cullen-500">
+                                                <table><tbody><tr className="align-top">
+                                                    <td className="w-1/6"><i className="ml-2 fa-solid fa-square-poll-horizontal text-2xl text-vanHelsing-900"></i></td>
+                                                    <td className="w-5/6 p-1"><b>top-k:</b><br /><i className="fa-solid fa-caret-right text-sm text-vanHelsing-900"></i> {topk}</td>
+                                                </tr></tbody></table>
+                                            </td>
+                                        }
+                                    </tr>
+
+                                    {/* Add Models interface */}
+                                    <tr className="align-top over">
+                                        <td colSpan="2" className="w-1/2">
+                                            {(!isError || !sentOne) &&
+                                                <>
+                                                    {addSetting ?
+                                                        <div className="bg-blade-100 rounded-xl pb-2 pl-2">
+                                                            <table className="min-w-[100%]"><tbody>
+                                                                <tr>
+                                                                    <td className="min-w-[100%] pl-4">
+                                                                        <i className="cursor-pointer mb-3 mt-2 fa-solid fa-plus text-blade-800 text-3xl hover:text-marcelin-900 fa-rotate-by" style={{ '--fa-rotate-angle': '45deg' }} onClick={handleModelToggle}></i>
+                                                                        <span className="ml-4 font-bold hover:underline cursor-pointer hover:text-marcelin-900" onClick={handleModelToggle}>Add Model:</span>
+                                                                    </td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td>
+                                                                        <ul>
+                                                                            {listModels.map((model, index) => (
+                                                                                <li key={index}>
+                                                                                    <span className="ml-4 text-sm hover:text-aro-500 hover:underline hover:font-bold hover:cursor-pointer" onClick={() => handleAddModel(model.name)}><i className="fa-solid fa-caret-right text-sm text-blade-700 mr-1"></i>{model.name + (Config.visionModels.includes(model.name) ? " *" : "")}</span>
+                                                                                </li>
+                                                                            ))}
+                                                                        </ul>
+                                                                    </td>
+                                                                </tr>
+                                                            </tbody>
+                                                            </table>
+                                                        </div>
+
+                                                        :
+                                                        <div className="bg-blade-100 rounded-xl mb-1"><i className="cursor-pointer m-3 ml-6 fa-solid fa-plus text-2xl hover:text-blade-800" onClick={handleModelToggle}></i> <span className="cursor-pointer hover:underline hover:text-blade-800" onClick={handleModelToggle}>Add Model</span></div>
+                                                    }
+                                                </>
                                             }
-                                        </>
-                                    }
-                                </td>
-                                {/* Copy System & first user prompt to a new Chat */}
-                                <td colSpan={2} className="w-1/2">
-                                    <div className="bg-dracula-300 rounded-xl p-4 text-sm">
-                                        <p className="font-bold mb-1 text-base">New Chat:</p>
-                                        {Object.keys(modelOptions).map((optionKey) => (
-                                            <p key={optionKey}>
-                                                <i className="fa-solid fa-caret-right text-sm text-vanHelsing-900 mr-1 mb-1"></i> <span className="hover:underline hover:font-bold cursor-pointer" onClick={() => makeNewChat(optionKey)}>{optionKey}</span>
-                                            </p>
-                                        ))}
+                                        </td>
+                                        {/* Copy System & first user prompt to a new Chat */}
+                                        <td colSpan={2} className="w-1/2">
+                                            <div className="bg-dracula-300 rounded-xl p-4 text-sm">
+                                                <p className="font-bold mb-1 text-base">New Chat:</p>
+                                                {Object.keys(modelOptions).map((optionKey) => (
+                                                    <p key={optionKey}>
+                                                        <i className="fa-solid fa-caret-right text-sm text-vanHelsing-900 mr-1 mb-1"></i> <span className="hover:underline hover:font-bold cursor-pointer" onClick={() => makeNewChat(optionKey)}>{optionKey}</span>
+                                                    </p>
+                                                ))}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </> :
+                                <>
+                                    <div className="w-1/2 bg-blade-200 rounded-xl bg-gradient-to-tl from-blade-400 p-2">
+                                        <table className="min-w-[100%]"><tbody>
+                                            <tr>
+                                                <td className="min-w-[100%]">
+                                                    <p className="mb-2"><i className="fa-solid fa-splotch text-2xl text-dracula-500 ml-1"></i> <b>Model:</b></p>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <i className="fa-solid ml-4 fa-caret-right text-sm text-dracula-500"></i> {model}
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                        </table>
                                     </div>
-                                </td>
-                            </tr>
+                                </>
+                            }
                         </tbody>
                     </table>
                 </animated.div>

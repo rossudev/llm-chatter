@@ -1,4 +1,4 @@
-# LLM Chatter, v0.1.7
+# LLM Chatter, v0.1.8
 
 Large Language Model chat by text, vision and voice. Proprietary models by API request and local Ollama models supported.
 
