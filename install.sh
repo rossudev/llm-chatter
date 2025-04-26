@@ -4,7 +4,7 @@ set -e
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
-echo "${GREEN}Installing LLM-Chatter v0.1.7...${NC}"
+echo "${GREEN}Installing LLM-Chatter v0.1.9...${NC}"
 echo ""
 # Create main directory
 mkdir -p llm-chatter/client
@@ -35,7 +35,7 @@ echo "- LLM_CHATTER_PASSPHRASE (generate at https://bcrypt.online/) This is used
 echo "Default username: user1"
 echo "Default password: password"
 echo ""
-echo "- LLM_SERVER_HASH (please generate a fresh 32-character string: https://duckduckgo.com/?q=generate+password+32+characters)"
+echo "- LLM_SERVER_HASH (You should generate a fresh 32-character string: https://duckduckgo.com/?q=generate+password+32+characters)"
 echo ""
 echo "- ANTHROPIC_API_KEY (from https://www.anthropic.com/api)"
 echo ""

@@ -1,4 +1,4 @@
-# LLM Chatter, v0.1.8
+# LLM Chatter, v0.1.9
 
 Large Language Model chat by text, vision and voice. Proprietary models by API request and local Ollama models supported.
 
@@ -19,11 +19,10 @@ Large Language Model chat by text, vision and voice. Proprietary models by API r
    - [GROK_API_KEY](https://console.x.ai/)
    - [OPENAI_API_KEY](https://platform.openai.com/account/billing)
 
-# Startup
+# Starting and Stopping
 * `cd llm-chatter`
 * To start both server and client: `./start-all.sh`
-* To start the server: `./start-server.sh`
-* To start the client: `./start-client.sh`
+* To stop both: `./stop-all.sh`
 
 # Thanks!
 
@@ -46,6 +45,7 @@ Built with:
 - gpt-4.1*
 - gpt-4.1-mini*
 - gpt-4.1-nano*
+- gpt-image-1†
 - chatgpt-4o*
 - o4-mini*
 - o3-mini
@@ -77,7 +77,8 @@ Built with:
 - grok-vision-beta*
 - grok-beta
 
- *Vision image support (img/text in, text out)
+ *Vision input-image support (img/text in, text out)
+ †Output-image support (img/text in, img out)
 
  # Ollama Vision Model List
 - granite3.2-vision

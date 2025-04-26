@@ -34,7 +34,7 @@ const ContentText = ({ txt, role }) => {
         <div>
             <Hyphenated>
                 {role === "user" ? (
-                    contentToDisplay
+                    <div className="break-all">{contentToDisplay}</div>
                 ) : (
                     <ReactMarkdown
                         remarkPlugins={[remarkGfm]}

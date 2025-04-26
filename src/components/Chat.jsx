@@ -163,17 +163,17 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                         }
                     ]
                 } :
-                null;
+                null; //Closes Anthropic/OpenAI image handling.
 
-        const googImg = base64Image ? [
-            {
-                inlineData: {
-                    data: base64Image.split(',')[1],
-                    mimeType: fileFormat,
-                },
-            },
-            input,
-        ] : [];
+
+        let imagesToSend = [];
+        if (base64Image && fileFormat) {
+            // Create an object with mimeType and data directly, as the server loop expects
+            imagesToSend.push({
+                mimeType: fileFormat,               // e.g., "image/jpeg", "image/png"
+                data: base64Image.split(',')[1]     // Ensure you only send the Base64 part
+            });
+        };
 
         if (!sentOne && base64Image && Config.visionModels.includes(modelThisFetch) && (chatType !== "Google")) {
             msgs = msgs.concat(visionMsg);
@@ -229,9 +229,6 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                     top_k: parseFloat(topk),
                     system: systemMessage,
                 };
-                if (googImg !== null) {
-                    sendPacket.images = googImg;
-                }
                 break;
 
             default: //Ollama
@@ -247,12 +244,18 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                 break;
         }
 
+
+        if (imagesToSend !== null) {
+            sendPacket.images = imagesToSend;
+        }
+
         sendPacket.uniqueChatID = uniqueChatID;
         sendPacket.model = modelThisFetch;
         sendPacket.sentOne = sentOne;
         sendPacket.serverUsername = serverUsername;
         sendPacket.thread = thread;
         sendPacket.imgOutput = isImgOutput;
+        sendPacket.imgInput = base64Image ? true : false;
 
         try {
             const startTime = Date.now();
@@ -454,12 +457,12 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
         }
     });
 
-    const delayColor = useCallback(() => {
-        setIsCopied(true);
-        setTimeout(() => {
-            setIsCopied(false);
-        }, 150);
-    });
+    /*     const delayColor = useCallback(() => {
+            setIsCopied(true);
+            setTimeout(() => {
+                setIsCopied(false);
+            }, 150);
+        }); */
 
     const getContentText = useCallback((content) => {
         if (Array.isArray(content)) {
@@ -475,28 +478,28 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
         setComponentList(componentList.filter((container) => container.id !== id));
     })
 
-    const copyURLbutton = useCallback(() => {
-        return (
-            <div
-                onClick={() => { copyClick(theShareURL); delayColor(); }}
-                className={`border-solid border border-aro-800 self-start text-black hover:bg-nosferatu-300 cursor-default bg-nosferatu-100 rounded-3xl text-md font-bold pt-2 pb-2 pl-4 pr-4 flex mb-2 bg-gradient-to-tl from-nosferatu-300 hover:from-aro-300 cursor-pointer ${isCopied ? "text-blade-300" : ""}`}
-            >
-                <i className={`fa-solid fa-clone mr-4 text-nosferatu-800${isCopied ? "text-blade-300" : ""}`}></i>
-                <h1 className="hover:underline">Copy URL</h1>
-            </div>
-        );
-    });
-
-    const shareButton = useCallback(() => {
-        return (
-            serverURL.startsWith("https://") && (
-                <div onClick={() => { handleShareClick() }} className="border-solid border border-aro-800 self-start text-black hover:bg-nosferatu-300 cursor-default bg-nosferatu-100 rounded-3xl text-xl font-bold pt-2 pb-2 pl-4 pr-4 flex mb-2 bg-gradient-to-tl from-nosferatu-300 hover:from-aro-300 cursor-pointer">
-                    <i className="fa-solid fa-share mr-4 text-nosferatu-800"></i>
-                    <h1 className="hover:underline">Share</h1>
+    /*     const copyURLbutton = useCallback(() => {
+            return (
+                <div
+                    onClick={() => { copyClick(theShareURL); delayColor(); }}
+                    className={`border-solid border border-aro-800 self-start text-black hover:bg-nosferatu-300 cursor-default bg-nosferatu-100 rounded-3xl text-md font-bold pt-2 pb-2 pl-4 pr-4 flex mb-2 bg-gradient-to-tl from-nosferatu-300 hover:from-aro-300 cursor-pointer ${isCopied ? "text-blade-300" : ""}`}
+                >
+                    <i className={`fa-solid fa-clone mr-4 text-nosferatu-800${isCopied ? "text-blade-300" : ""}`}></i>
+                    <h1 className="hover:underline">Copy URL</h1>
                 </div>
-            )
-        );
-    });
+            );
+        });
+    
+        const shareButton = useCallback(() => {
+            return (
+                serverURL.startsWith("https://") && (
+                    <div onClick={() => { handleShareClick() }} className="border-solid border border-aro-800 self-start text-black hover:bg-nosferatu-300 cursor-default bg-nosferatu-100 rounded-3xl text-xl font-bold pt-2 pb-2 pl-4 pr-4 flex mb-2 bg-gradient-to-tl from-nosferatu-300 hover:from-aro-300 cursor-pointer">
+                        <i className="fa-solid fa-share mr-4 text-nosferatu-800"></i>
+                        <h1 className="hover:underline">Share</h1>
+                    </div>
+                )
+            );
+        }); */
 
     const ToggleImageSize = useCallback(() => {
         setIsExpanded(prev => !prev);
@@ -604,16 +607,16 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                             {chatMessagesPlusMore.map((obj, index) => {
                                 const contentText = getContentText(obj.content);
 
-/*                                 if (obj.role === "user") {
-                                    if (contentText === checkDuplicates) {
-                                        return null;
-                                    }
-                                    checkDuplicates = contentText;
-                                }
-
-                                if (!contentText || typeof contentText !== 'string') {
-                                    return null;
-                                }; */
+                                /*                                 if (obj.role === "user") {
+                                                                    if (contentText === checkDuplicates) {
+                                                                        return null;
+                                                                    }
+                                                                    checkDuplicates = contentText;
+                                                                }
+                                
+                                                                if (!contentText || typeof contentText !== 'string') {
+                                                                    return null;
+                                                                }; */
 
                                 return (
                                     <tr key={index}>
@@ -631,19 +634,14 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                             ) : (
                                                 <div className="mb-3 text-center text-sm text-aro-900">Error</div>
                                             )}
-                                            <ContentText role={obj.role} txt={contentText} />
+                                            { (imageOutput && obj.role === "assistant") ?
+                                                <img onClick={ToggleImageSize} src={"data:image/jpeg;base64," + imageOutput} alt="Image Output" style={{ width: isExpanded ? '100%' : '300px', cursor: 'pointer', marginTop: '10px' }} /> 
+                                            :                                                              <ContentText role={obj.role} txt={contentText} />
+                                            }
                                         </td>
                                     </tr>
                                 )
                             })}
-
-                            {imageOutput &&
-                                <tr>
-                                    <td colSpan="4" className="py-3 p-3 bg-morbius-300 font-sans rounded-xl text-black-800 text-md whitespace-pre-wrap">
-                                        <img onClick={ToggleImageSize} src={"data:image/jpeg;base64," + imageOutput} alt="Image Output" style={{ width: isExpanded ? '100%' : '300px', cursor: 'pointer', marginTop: '10px' }} />
-                                    </td>
-                                </tr>
-                            }
 
                             {/* Regular text chat input box, and the Send button */}
                             {((!isError || !sentOne) && !imageOutput) &&
@@ -674,11 +672,10 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                             }
 
                             {/*  Settings */}
-                            {!((Config.imgOutputModels).includes(model)) ?
-                                <>
-                                    <tr>
-                                        <td colSpan={4}>
-                                            {/* {theShareURL ?
+
+                            <tr>
+                                <td colSpan={4}>
+                                    {/* {theShareURL ?
                                                 <div className="mb-2" onCopy={handleCopy}>
                                                     {copyURLbutton()}
                                                     <input
@@ -692,9 +689,11 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                                 :
                                                 <>{(sentOne && !isError) && shareButton()}</>
                                             } */}
-                                            <FileUploader base64Image={base64Image} setBase64Image={setBase64Image} textAttachment={textAttachment} setTextAttachment={setTextAttachment} sentOne={sentOne} setFileFormat={setFileFormat} />
-                                        </td>
-                                    </tr>
+                                    <FileUploader base64Image={base64Image} setBase64Image={setBase64Image} textAttachment={textAttachment} setTextAttachment={setTextAttachment} sentOne={sentOne} setFileFormat={setFileFormat} />
+                                </td>
+                            </tr>
+                            {(!(Config.imgOutputModels).includes(model)) &&
+                                <>
                                     <tr className="align-top">
 
                                         {/*  Model info */}
@@ -793,7 +792,10 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                             </div>
                                         </td>
                                     </tr>
-                                </> :
+                                </>
+                            }
+
+                            {((Config.imgOutputModels).includes(model)) &&
                                 <>
                                     <div className="w-1/2 bg-blade-200 rounded-xl bg-gradient-to-tl from-blade-400 p-2">
                                         <table className="min-w-[100%]"><tbody>
@@ -812,6 +814,7 @@ const Chat = ({ closeID, numba, systemMessage, chatType, model, temperature, top
                                     </div>
                                 </>
                             }
+
                         </tbody>
                     </table>
                 </animated.div>

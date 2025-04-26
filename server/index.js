@@ -14,18 +14,22 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from "@google/generative-ai";
-import OpenAI from 'openai';
+import OpenAI, { toFile } from "openai";
 import { RealtimeRelay } from './relay.js';
 import Config from './config.js';
 import dayjs from 'dayjs';
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { extension } from 'mime-types';
+//import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+//import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 
 
 
 //Express server to handle client requests
 const app = express();
 const port = 8080;
+
+// Trust the first proxy (Cloudflare)
+app.set('trust proxy', 1);
 
 app.use(cors({ origin: Config.clientDomains }));
 app.use(helmet());
@@ -304,6 +308,11 @@ const activeSessions = new Map();
 app.post('/checkin', validateCheckin, async (req, res) => {
   const errors = validationResult(req);
 
+  if (!errors.isEmpty()) {
+    console.log(errors);
+    return res.status(400).json({ error: 'Bad Request' });
+  }
+
   const clientIp = req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.ip;
   const agent = req.headers['user-agent'];
   const origin = req.headers.origin;
@@ -311,11 +320,6 @@ app.post('/checkin', validateCheckin, async (req, res) => {
   //const headers = JSON.stringify(req.headers, null, 2);
   const sentPhrase = req.body.serverPassphrase;
   const serverUsername = req.body.serverUsername;
-
-  if (!errors.isEmpty()) {
-    console.log(errors);
-    return res.status(400).json({ error: 'Bad Request' });
-  }
 
   let passphraseData;
 
@@ -388,6 +392,7 @@ const validateInput = [
   body('temperature').optional().isFloat({ min: 0, max: 1 }),
   body('top_p').optional().isFloat({ min: 0, max: 1 }),
   body('top_k').optional().isFloat({ min: 1, max: 20 }),
+  body('imgInput').optional().isBoolean(),
   body('imgOutput').optional().isBoolean(),
   body('sentOne').optional().isBoolean(),
   body('keep_alive').optional().isInt({ min: 0 }),
@@ -443,7 +448,7 @@ app.post('/sync', validateInput, async (req, res) => {
 
 
 //Model Context Protocol (MCP)
-const server = new McpServer({
+/* const server = new McpServer({
   name: "llm-chatter-mcp",
   version: "1.0.0"
 });
@@ -482,7 +487,7 @@ app.post("/messages", verifyToken, async (req, res) => {
   } else {
     res.status(400).send('No transport found for sessionId');
   }
-});
+}); */
 
 
 
@@ -518,7 +523,7 @@ app.post('/ollama', validateInput, async (req, res) => {
 
   if (!errors.isEmpty()) {
     console.log(errors);
-    res.status(400).json({ error: 'Bad Request' });
+    return res.status(400).json({ error: 'Bad Request' });
   }
 
 
@@ -608,7 +613,7 @@ app.post('/anthropic', validateInput, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     console.log(errors);
-    res.status(400).json({ error: 'Bad Request' });
+    return res.status(400).json({ error: 'Bad Request' });
   }
 
   try {
@@ -700,6 +705,14 @@ app.post('/anthropic', validateInput, async (req, res) => {
 
 
 
+
+function getExtFromMime(mimeType) {
+  return extension(mimeType) || "png";
+}
+
+
+
+
 //OpenAI
 //Grok
 //DeepSeek
@@ -738,10 +751,25 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
     const promptText = lastMessage && lastMessage.content[0].text ? lastMessage.content[0].text : 'N/A';
 
     const timeNow = dayjs().format(Config.timeFormat);
-    const chatId = req.body.uniqueChatID;
-    const sent1 = req.body.sentOne;
-    const imgOutput = req.body.imgOutput ?? false;
-    const username = req.body.serverUsername;
+    const chatId = theData.uniqueChatID;
+    const sent1 = theData.sentOne;
+    const imgInput = theData.imgInput ?? false;
+    const imgOutput = theData.imgOutput ?? false;
+    const username = theData.serverUsername;
+
+    let images;
+    if (imgInput) {
+      const sentImgs = theData.images;
+
+      images = await Promise.all(
+        sentImgs.map(async (img) => {
+          const imgBuffer = Buffer.from(img.data, "base64");
+          return await toFile(imgBuffer, "upload." + getExtFromMime(img.mimeType), {
+            type: img.mimeType
+          });
+        }),
+      );
+    };
 
     const logData = {
       u: chatId,
@@ -774,7 +802,7 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
     });
 
     // Make the API call
-    const response = imgOutput ? 
+    const response = (imgOutput && !imgInput) ?
       await client.images.generate({
         "prompt": promptText,
         "model": "gpt-image-1",
@@ -784,7 +812,16 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
         "quality": "medium",
         "size": "1024x1024",
       })
-    : 
+      : imgInput ?
+        await client.images.edit({
+          "prompt": promptText,
+          "model": "gpt-image-1",
+          "n": 1,
+          "quality": "medium",
+          "size": "1024x1024",
+          "image": images
+        })
+      :
       await client.chat.completions.create({
         model,
         //max_tokens: 1000,
@@ -804,23 +841,23 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
       res.status(200).json({ base64: image_base64 });
     } else {
       res.status(200).json(response);
+
+      const timestamp = dayjs().format(Config.timeFormat);
+
+      logChatEvent(
+        username,
+        {
+          ...logData,
+          r: "assistant",
+          d: timestamp,
+          z: response.choices?.[0]?.message?.content || 'No response content available',
+        },
+        [], //Context, Ollama only
+        theData.thread
+      );
     };
 
-    
 
-    const timestamp = dayjs().format(Config.timeFormat);
-
-    logChatEvent(
-      username,
-      {
-        ...logData,
-        r: "assistant",
-        d: timestamp,
-        z: response.choices?.[0]?.message?.content || 'No response content available',
-      },
-      [], //Context, Ollama only
-      theData.thread
-    );
 
     const responseContent = response.choices?.[0]?.message?.content || 'No response content available';
     console.log(`
@@ -870,7 +907,7 @@ app.post('/google', validateInput, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     console.log(errors);
-    res.status(400).json({ error: 'Bad Request' });
+    return res.status(400).json({ error: 'Bad Request' });
   }
 
   try {
@@ -944,16 +981,50 @@ app.post('/google', validateInput, async (req, res) => {
       maxOutputTokens: 10000,
     };
 
-    const googleImg = theData.images;
+    const googleImgInput = theData.images;
 
-    const sendGoogle = (googleImg && (googleImg.length > 0)) ?
-      googleImg :
-      {
-        contents: convertedMsgs,
-        generationConfig: generationConfig
-      };
+    let imageParts = [];
+    if (googleImgInput && googleImgInput.length > 0) {
+      try {
+        imageParts = googleImgInput.map(img => {
+          if (!img.mimeType || !img.data) {
+            throw new Error('Invalid image format received. Need mimeType and data.');
+          }
 
-    const result = await model.generateContent(sendGoogle);
+          return {
+            inlineData: {
+              mimeType: img.mimeType,
+              data: img.data // Ensure this is a Base64 string
+            }
+          };
+        });
+
+        // 2. Add the formatted image parts to the *last* message in convertedMsgs
+        if (convertedMsgs.length > 0) {
+          const lastMessage = convertedMsgs[convertedMsgs.length - 1];
+          // Make sure 'parts' exists and is an array
+          if (!Array.isArray(lastMessage.parts)) {
+            lastMessage.parts = [];
+          }
+          // Combine existing parts (like text) with the new image parts
+          lastMessage.parts = [...lastMessage.parts, ...imageParts];
+        } else {
+          // Handle case where there are images but no messages
+          console.error("Received images but message history is empty.");
+          return res.status(400).json({ error: 'Cannot process images without a prompt message.' });
+        }
+      } catch (imgError) {
+        console.error("Error processing image data:", imgError);
+        return res.status(400).json({ error: `Bad Request: Invalid image data - ${imgError.message}` });
+      }
+    }
+
+    const generationPayload = {
+      contents: convertedMsgs,
+      generationConfig: generationConfig,
+    };
+    const result = await model.generateContent(generationPayload);
+
     const response = result.response.text();
     res.status(200).json(response);
 
