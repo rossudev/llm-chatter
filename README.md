@@ -78,6 +78,7 @@ Built with:
 - grok-beta
 
  *Vision input-image support (img/text in, text out)
+ 
  †Output-image support (img/text in, img out)
 
  # Ollama Vision Model List
