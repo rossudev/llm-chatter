@@ -1,4 +1,4 @@
-[data-component='Toggle'] {
+[data-component="Toggle"] {
   position: relative;
   display: flex;
   align-items: center;
@@ -7,7 +7,7 @@
   overflow: hidden;
 
   background-color: #7d2eed;
-  color: #FFF;
+  color: #fff;
   height: 40px;
   border-radius: 1000px;
 
@@ -17,7 +17,7 @@
 
   div.label {
     position: relative;
-    color: #FFF;
+    color: #fff;
     transition: color 0.1s ease-in-out;
     padding: 0px 16px;
     z-index: 2;
@@ -40,13 +40,13 @@
     transition: left 0.1s ease-in-out, width 0.1s ease-in-out;
   }
 
-  &[data-enabled='true'] {
+  &[data-enabled="true"] {
     div.label.right {
       color: #fff;
     }
   }
 
-  &[data-enabled='false'] {
+  &[data-enabled="false"] {
     div.label.left {
       color: #fff;
     }

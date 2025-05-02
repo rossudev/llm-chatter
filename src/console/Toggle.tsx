@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from "react";
 
-import './Toggle.scss';
+import "./Toggle.scss";
 
 export function Toggle({
   defaultValue = false,
@@ -13,7 +13,7 @@ export function Toggle({
   labels?: string[];
   onChange?: (isEnabled: boolean, value: string) => void;
 }) {
-  if (typeof defaultValue === 'string') {
+  if (typeof defaultValue === "string") {
     defaultValue = !!Math.max(0, (values || []).indexOf(defaultValue));
   }
 
@@ -35,11 +35,11 @@ export function Toggle({
     const bgEl = bgRef.current;
     if (leftEl && rightEl && bgEl) {
       if (value) {
-        bgEl.style.left = rightEl.offsetLeft + 'px';
-        bgEl.style.width = rightEl.offsetWidth + 'px';
+        bgEl.style.left = rightEl.offsetLeft + "px";
+        bgEl.style.width = rightEl.offsetWidth + "px";
       } else {
-        bgEl.style.left = '';
-        bgEl.style.width = leftEl.offsetWidth + 'px';
+        bgEl.style.left = "";
+        bgEl.style.width = leftEl.offsetWidth + "px";
       }
     }
   }, [value]);

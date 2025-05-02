@@ -1,4 +1,4 @@
-# LLM Chatter, v0.1.9
+# LLM Chatter, v0.2.1
 
 Large Language Model chat by text, vision and voice. Proprietary models by API request and local Ollama models supported.
 
@@ -76,6 +76,10 @@ Built with:
 - grok-2-vision*
 - grok-vision-beta*
 - grok-beta
+- llama-4-scout-17b-16e-instruct-fp8*
+- llama-4-maverick-17b-128e-instruct-fp8*
+- llama-3.3-70b-instruct
+- llama-3.3-8b-instruct
 
  *Vision input-image support (img/text in, text out)
  

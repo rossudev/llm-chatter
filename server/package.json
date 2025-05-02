@@ -1,7 +1,7 @@
 {
   "name": "llm-chatter-server",
   "private": true,
-  "version": "0.1.9",
+  "version": "0.2.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,7 +14,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.40.0",
     "@google/generative-ai": "^0.24.0",
-    "@modelcontextprotocol/sdk": "^1.8.0",
+    "@modelcontextprotocol/sdk": "^1.9.0",
     "@openai/realtime-api-beta": "github:openai/openai-realtime-api-beta",
     "axios": "^1.8.1",
     "bcryptjs": "^3.0.2",

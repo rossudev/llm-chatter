@@ -1,24 +1,32 @@
 /* eslint-disable no-unused-vars */
 /* eslint-disable react/prop-types */
-import { useEffect, useRef, useCallback, useState, useContext, React } from 'react';
+import {
+  useEffect,
+  useRef,
+  useCallback,
+  useState,
+  useContext,
+  React,
+} from "react";
 import Hyphenated from "react-hyphen";
-import { RealtimeClient } from '@openai/realtime-api-beta';
-import { WavRecorder, WavStreamPlayer } from '../wavtools/index.js';
-import { WavRenderer } from '../utils/wav_renderer';
-import { X, Zap } from 'react-feather';
+import { RealtimeClient } from "@openai/realtime-api-beta";
+import { WavRecorder, WavStreamPlayer } from "../wavtools/index.js";
+import { WavRenderer } from "../utils/wav_renderer";
+import { X, Zap } from "react-feather";
 import copy from "copy-to-clipboard";
-import { Button } from './Button';
-import { Toggle } from './Toggle';
-import './ConsolePage.scss';
+import { Button } from "./Button";
+import { Toggle } from "./Toggle";
+import "./ConsolePage.scss";
 import { dataContext } from "../Chatter";
 import XClose from "../components/XClose";
 
 export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
-  const { clientJWT, checkedIn, componentList, setComponentList } = useContext(dataContext);
+  const { clientJWT, checkedIn, componentList, setComponentList } =
+    useContext(dataContext);
 
   const onClose = useCallback((id) => {
     setComponentList(componentList.filter((container) => container.id !== id));
-  })
+  });
 
   const wavRecorderRef = useRef(new WavRecorder({ sampleRate: 24000 }));
   const wavStreamPlayerRef = useRef(new WavStreamPlayer({ sampleRate: 24000 }));
@@ -41,7 +49,9 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
   });
 
   const connectConversation = useCallback(async () => {
-    if (!checkedIn) { return };
+    if (!checkedIn) {
+      return;
+    }
 
     const client = clientRef.current;
     const wavRecorder = wavRecorderRef.current;
@@ -63,7 +73,7 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
         text: allConvo.length === 0 ? "Hello!" : JSON.stringify(allConvo),
       },
     ]);
-    if (client.getTurnDetectionType() === 'server_vad') {
+    if (client.getTurnDetectionType() === "server_vad") {
       await wavRecorder.record((data) => client.appendInputAudio(data.mono));
     }
   }, []);
@@ -96,7 +106,10 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
    */
 
   const startRecording = async () => {
-    if (!checkedIn) { disconnectConversation; return };
+    if (!checkedIn) {
+      disconnectConversation;
+      return;
+    }
     setIsRecording(true);
     const client = clientRef.current;
     const wavRecorder = wavRecorderRef.current;
@@ -111,7 +124,10 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
 
   /* In push-to-talk mode, stop recording */
   const stopRecording = async () => {
-    if (!checkedIn) { disconnectConversation; return };
+    if (!checkedIn) {
+      disconnectConversation;
+      return;
+    }
     setIsRecording(false);
     const client = clientRef.current;
     const wavRecorder = wavRecorderRef.current;
@@ -131,27 +147,30 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
 
   /* Switch between Manual <> VAD mode for communication */
   const changeTurnEndType = async (value) => {
-    if (!checkedIn) { disconnectConversation; return };
+    if (!checkedIn) {
+      disconnectConversation;
+      return;
+    }
     const client = clientRef.current;
     const wavRecorder = wavRecorderRef.current;
-    if (value === 'none' && wavRecorder.getStatus() === 'recording') {
+    if (value === "none" && wavRecorder.getStatus() === "recording") {
       await wavRecorder.pause();
     }
     client.updateSession({
-      turn_detection: value === 'none' ? null : { type: 'server_vad' },
+      turn_detection: value === "none" ? null : { type: "server_vad" },
     });
-    if (value === 'server_vad' && client.isConnected()) {
+    if (value === "server_vad" && client.isConnected()) {
       await wavRecorder.record((data) => client.appendInputAudio(data.mono));
     }
-    setCanPushToTalk(value === 'none');
+    setCanPushToTalk(value === "none");
   };
 
   /* Auto-scroll */
   useEffect(() => {
     // Automatically scroll to the bottom controls
-    const eventsSection = document.querySelector('.content-actions.btns');
+    const eventsSection = document.querySelector(".content-actions.btns");
     if (eventsSection) {
-      eventsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      eventsSection.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   }, [items]);
 
@@ -177,17 +196,17 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
             clientCanvas.width = clientCanvas.offsetWidth;
             clientCanvas.height = clientCanvas.offsetHeight;
           }
-          clientCtx = clientCtx || clientCanvas.getContext('2d');
+          clientCtx = clientCtx || clientCanvas.getContext("2d");
           if (clientCtx) {
             clientCtx.clearRect(0, 0, clientCanvas.width, clientCanvas.height);
             const result = wavRecorder.recording
-              ? wavRecorder.getFrequencies('voice')
+              ? wavRecorder.getFrequencies("voice")
               : { values: new Float32Array([0]) };
             WavRenderer.drawBars(
               clientCanvas,
               clientCtx,
               result.values,
-              '#0099ff',
+              "#0099ff",
               10,
               0,
               8
@@ -199,17 +218,17 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
             serverCanvas.width = serverCanvas.offsetWidth;
             serverCanvas.height = serverCanvas.offsetHeight;
           }
-          serverCtx = serverCtx || serverCanvas.getContext('2d');
+          serverCtx = serverCtx || serverCanvas.getContext("2d");
           if (serverCtx) {
             serverCtx.clearRect(0, 0, serverCanvas.width, serverCanvas.height);
             const result = wavStreamPlayer.analyser
-              ? wavStreamPlayer.getFrequencies('voice')
+              ? wavStreamPlayer.getFrequencies("voice")
               : { values: new Float32Array([0]) };
             WavRenderer.drawBars(
               serverCanvas,
               serverCtx,
               result.values,
-              '#009900',
+              "#009900",
               10,
               0,
               8
@@ -239,31 +258,35 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
     client.updateSession({ instructions: instructions });
 
     // Set transcription, otherwise we don't get user transcriptions back
-    client.updateSession({ input_audio_transcription: { model: 'whisper-1' } });
+    client.updateSession({ input_audio_transcription: { model: "whisper-1" } });
 
     // Set voice randomly (missing: 'fable', 'onyx', 'nova')
     //exempt 'alloy', 'echo',  'shimmer'
-    client.updateSession({ voice: ['ash', 'ballad', 'coral', 'sage', 'verse'][Math.floor(Math.random() * 8)] });
+    client.updateSession({
+      voice: ["ash", "ballad", "coral", "sage", "verse"][
+        Math.floor(Math.random() * 8)
+      ],
+    });
 
     // Add tools
     client.addTool(
       {
-        name: 'set_memory',
-        description: 'Saves important data about the user into memory.',
+        name: "set_memory",
+        description: "Saves important data about the user into memory.",
         parameters: {
-          type: 'object',
+          type: "object",
           properties: {
             key: {
-              type: 'string',
+              type: "string",
               description:
-                'The key of the memory value. Always use lowercase and underscores, no other characters.',
+                "The key of the memory value. Always use lowercase and underscores, no other characters.",
             },
             value: {
-              type: 'string',
-              description: 'Value can be anything represented as a string',
+              type: "string",
+              description: "Value can be anything represented as a string",
             },
           },
-          required: ['key', 'value'],
+          required: ["key", "value"],
         },
       },
       async ({ key, value }) => {
@@ -278,26 +301,26 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
 
     client.addTool(
       {
-        name: 'get_weather',
+        name: "get_weather",
         description:
-          'Retrieves the weather for a given lat, lng coordinate pair. Specify a label for the location.',
+          "Retrieves the weather for a given lat, lng coordinate pair. Specify a label for the location.",
         parameters: {
-          type: 'object',
+          type: "object",
           properties: {
             lat: {
-              type: 'number',
-              description: 'Latitude',
+              type: "number",
+              description: "Latitude",
             },
             lng: {
-              type: 'number',
-              description: 'Longitude',
+              type: "number",
+              description: "Longitude",
             },
             location: {
-              type: 'string',
-              description: 'Name of the location',
+              type: "string",
+              description: "Name of the location",
             },
           },
-          required: ['lat', 'lng', 'location'],
+          required: ["lat", "lng", "location"],
         },
       },
       async ({ lat, lng, location }) => {
@@ -319,7 +342,7 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
     );
 
     // handle realtime events from client + server for event logging
-    client.on('realtime.event', (realtimeEvent) => {
+    client.on("realtime.event", (realtimeEvent) => {
       setRealtimeEvents((realtimeEvents) => {
         const lastEvent = realtimeEvents[realtimeEvents.length - 1];
         if (lastEvent?.event.type === realtimeEvent.event.type) {
@@ -332,9 +355,9 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
       });
     });
 
-    client.on('error', (event) => console.error(event));
+    client.on("error", (event) => console.error(event));
 
-    client.on('conversation.interrupted', async () => {
+    client.on("conversation.interrupted", async () => {
       const trackSampleOffset = await wavStreamPlayer.interrupt();
       if (trackSampleOffset?.trackId) {
         const { trackId, offset } = trackSampleOffset;
@@ -342,12 +365,12 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
       }
     });
 
-    client.on('conversation.updated', async ({ item, delta }) => {
+    client.on("conversation.updated", async ({ item, delta }) => {
       const items = client.conversation.getItems();
       if (delta?.audio) {
         wavStreamPlayer.add16BitPCM(delta.audio, item.id);
       }
-      if (item.status === 'completed' && item.formatted.audio?.length) {
+      if (item.status === "completed" && item.formatted.audio?.length) {
         const wavFile = await WavRecorder.decode(
           item.formatted.audio,
           24000,
@@ -356,7 +379,10 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
         item.formatted.file = wavFile;
       }
       setItems(items);
-      setAllConvo((prev) => [...prev, { role: item.role, text: item.formatted.text }]);
+      setAllConvo((prev) => [
+        ...prev,
+        { role: item.role, text: item.formatted.text },
+      ]);
     });
 
     setItems(client.conversation.getItems());
@@ -368,7 +394,7 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
   }, [instructions]);
 
   const copyClick = useCallback((value) => {
-    if (typeof value === 'string') {
+    if (typeof value === "string") {
       copy(value);
     }
   });
@@ -378,7 +404,7 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
     const selectedText = document.getSelection().toString();
 
     //Remove soft hyphens
-    const textContent = selectedText.replace(/\xAD/g, '');
+    const textContent = selectedText.replace(/\xAD/g, "");
 
     navigator.clipboard.writeText(textContent);
   });
@@ -389,7 +415,10 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
       <table className="min-w-[99%] border-separate border-spacing-y-2 border-spacing-x-2">
         <tbody>
           <tr>
-            <td colSpan="2" className="pb-4 tracking-wide text-4xl text-center font-bold text-black">
+            <td
+              colSpan="2"
+              className="pb-4 tracking-wide text-4xl text-center font-bold text-black"
+            >
               <span className="mr-6">#{numba}</span>
               <i className="fa-regular fa-comments mr-6 text-black"></i>
               OpenAI Realtime
@@ -399,12 +428,21 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
             </td>
           </tr>
           <tr>
-            <td onCopy={handleCopy} colSpan="3" className="py-3 p-3 bg-morbius-300 font-sans rounded-xl text-black-800 text-md whitespace-pre-wrap">
+            <td
+              onCopy={handleCopy}
+              colSpan="3"
+              className="py-3 p-3 bg-morbius-300 font-sans rounded-xl text-black-800 text-md whitespace-pre-wrap"
+            >
               <div className="mb-3 grid grid-cols-3">
-                <span className="font-bold text-xl text-aro-900">Starting Prompt</span>
+                <span className="font-bold text-xl text-aro-900">
+                  Starting Prompt
+                </span>
                 <span></span>
                 <span className="text-right cursor-copy">
-                  <i onClick={() => copyClick(instructions)} className="text-aro-900 m-2 fa-solid fa-copy fa-2x cursor-copy shadow-xl hover:shadow-dracula-900"></i>
+                  <i
+                    onClick={() => copyClick(instructions)}
+                    className="text-aro-900 m-2 fa-solid fa-copy fa-2x cursor-copy shadow-xl hover:shadow-dracula-900"
+                  ></i>
                 </span>
               </div>
               <div>
@@ -418,16 +456,26 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
                 <div className="content-main">
                   <div className="content-logs">
                     <div className="content-block conversation">
-                      <div className="content-block-body" data-conversation-content>
-                        {!items.length &&
+                      <div
+                        className="content-block-body"
+                        data-conversation-content
+                      >
+                        {!items.length && (
                           <div className="py-3 whitespace-pre-wrap p-3 bg-nosferatu-100 font-mono rounded-xl text-vanHelsing-200 text-sm">
-                            <div><span className="font-bold text-xl text-aro-900">OpenAI Realtime</span></div>
-                            <div className="mt-6 text-black"><span>Awaiting Connection...</span></div>
+                            <div>
+                              <span className="font-bold text-xl text-aro-900">
+                                OpenAI Realtime
+                              </span>
+                            </div>
+                            <div className="mt-6 text-black">
+                              <span>Awaiting Connection...</span>
+                            </div>
                           </div>
-                        }
+                        )}
                         {items.map((conversationItem) => {
                           const role = conversationItem.role;
-                          const transcript = conversationItem.formatted.transcript;
+                          const transcript =
+                            conversationItem.formatted.transcript;
                           const text = conversationItem.formatted.text;
 
                           return (
@@ -439,45 +487,54 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
                               }
                               key={conversationItem.id}
                             >
-                              {conversationItem.type === 'function_call_output' && (
+                              {conversationItem.type ===
+                                "function_call_output" && (
                                 <div>{conversationItem.formatted.output}</div>
                               )}
                               {conversationItem.formatted.tool && (
                                 <div>
-                                  {conversationItem.formatted.tool.name}({conversationItem.formatted.tool.arguments})
+                                  {conversationItem.formatted.tool.name}(
+                                  {conversationItem.formatted.tool.arguments})
                                 </div>
                               )}
                               {!conversationItem.formatted.tool &&
-                                (role === 'user' ? (
+                                (role === "user" ? (
                                   <>
                                     <div className="flex">
                                       <div className="flex-1">
-                                        <span className="font-bold text-xl text-aro-900 mb-3">User</span>
+                                        <span className="font-bold text-xl text-aro-900 mb-3">
+                                          User
+                                        </span>
                                       </div>
                                     </div>
                                     <div className="mt-3">
-                                      {transcript || text || '(item sent)'}
+                                      {transcript || text || "(item sent)"}
                                     </div>
                                   </>
                                 ) : (
                                   <>
                                     <div className="flex">
                                       <div className="flex-1">
-                                        <span className="font-bold text-xl text-aro-900 mb-3">OpenAI Realtime</span>
+                                        <span className="font-bold text-xl text-aro-900 mb-3">
+                                          OpenAI Realtime
+                                        </span>
                                       </div>
                                     </div>
                                     <div className="mt-3">
-                                      {transcript || text || '(awaiting response or snipped)'}
+                                      {transcript ||
+                                        text ||
+                                        "(awaiting response or snipped)"}
                                     </div>
                                   </>
                                 ))}
-                              {(conversationItem.formatted.file && (role != 'user')) && (
-                                <audio
-                                  className="mt-6"
-                                  src={conversationItem.formatted.file.url}
-                                  controls
-                                />
-                              )}
+                              {conversationItem.formatted.file &&
+                                role != "user" && (
+                                  <audio
+                                    className="mt-6"
+                                    src={conversationItem.formatted.file.url}
+                                    controls
+                                  />
+                                )}
                             </div>
                           );
                         })}
@@ -495,13 +552,15 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
                       </div>
                     </div>
 
-                    {checkedIn ?
+                    {checkedIn ? (
                       <>
-                        {(isConnected && canPushToTalk) ?
+                        {isConnected && canPushToTalk ? (
                           <div className="content-actions ptt mt-3">
                             <Button
-                              label={isRecording ? 'release to send' : 'push to talk'}
-                              buttonStyle={isRecording ? 'alert' : 'regular'}
+                              label={
+                                isRecording ? "release to send" : "push to talk"
+                              }
+                              buttonStyle={isRecording ? "alert" : "regular"}
                               disabled={!isConnected || !canPushToTalk}
                               onMouseDown={startRecording}
                               onMouseUp={stopRecording}
@@ -509,38 +568,43 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
                               onTouchEnd={handleStopRecording}
                             />
                           </div>
-                          : <></>
-                        }
-                        {(!isConnected) ?
+                        ) : (
+                          <></>
+                        )}
+                        {!isConnected ? (
                           <div className="content-actions ptt mt-3">
                             <i className="fa-solid fa-triangle-exclamation text-marcelin-900 text-4xl" />
                           </div>
-                          : <></>
-                        }
+                        ) : (
+                          <></>
+                        )}
 
                         <div className="content-actions btns mt-1">
                           <Toggle
                             defaultValue={false}
-                            labels={['PTT', 'VAD']}
-                            values={['none', 'server_vad']}
+                            labels={["PTT", "VAD"]}
+                            values={["none", "server_vad"]}
                             onChange={(_, value) => changeTurnEndType(value)}
                           />
                           <div className="spacer" />
                           <Button
-                            label={isConnected ? 'Disconnect' : 'Connect'}
-                            iconPosition={isConnected ? 'end' : 'start'}
+                            label={isConnected ? "Disconnect" : "Connect"}
+                            iconPosition={isConnected ? "end" : "start"}
                             icon={isConnected ? X : Zap}
-                            buttonStyle={isConnected ? 'regular' : 'action'}
+                            buttonStyle={isConnected ? "regular" : "action"}
                             onClick={
-                              isConnected ? disconnectConversation : connectConversation
+                              isConnected
+                                ? disconnectConversation
+                                : connectConversation
                             }
                           />
                         </div>
-                      </> :
+                      </>
+                    ) : (
                       <div className="content-actions ptt mt-3">
                         <i className="fa-solid fa-triangle-exclamation text-marcelin-900 text-4xl" />
                       </div>
-                    }
+                    )}
                   </div>
                 </div>
               </div>
@@ -550,4 +614,4 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
       </table>
     </div>
   );
-}
+};

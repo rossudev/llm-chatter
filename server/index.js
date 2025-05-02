@@ -1,93 +1,80 @@
 /* eslint-disable no-undef */
 import express from "express";
-import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
-import { body, validationResult } from 'express-validator';
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import { body, validationResult } from "express-validator";
 import axios from "axios";
 import cors from "cors";
 import bodyParser from "body-parser";
-import path from 'path';
-import fs from 'fs';
-import chalk from 'chalk';
-import dotenv from 'dotenv';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import path from "path";
+import fs from "fs";
+import chalk from "chalk";
+import dotenv from "dotenv";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import Anthropic from "@anthropic-ai/sdk";
-import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from "@google/generative-ai";
+import {
+  GoogleGenerativeAI,
+  HarmBlockThreshold,
+  HarmCategory,
+} from "@google/generative-ai";
 import OpenAI, { toFile } from "openai";
-import { RealtimeRelay } from './relay.js';
-import Config from './config.js';
-import dayjs from 'dayjs';
-import { extension } from 'mime-types';
-//import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-//import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
-
-
+import { RealtimeRelay } from "./relay.js";
+import Config from "./config.js";
+import dayjs from "dayjs";
+import { extension } from "mime-types";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 
 //Express server to handle client requests
 const app = express();
 const port = 8080;
 
 // Trust the first proxy (Cloudflare)
-app.set('trust proxy', 1);
+app.set("trust proxy", 1);
 
 app.use(cors({ origin: Config.clientDomains }));
 app.use(helmet());
-app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.json({ limit: "25mb" }));
 
 // Apply the rate limiting middleware to all requests
 const limiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 minutes
   max: 500, // limit each IP to 500 requests per windowMs
-  keyGenerator: req => req.headers['cf-connecting-ip'] || req.ip,
+  keyGenerator: (req) => req.headers["cf-connecting-ip"] || req.ip,
 });
 
 const slowLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 60 minutes
   max: 50,
-  keyGenerator: req => req.headers['cf-connecting-ip'] || req.ip,
+  keyGenerator: (req) => req.headers["cf-connecting-ip"] || req.ip,
 });
 
 app.use(limiter);
-app.use('/chkshr', slowLimiter);
+app.use("/chkshr", slowLimiter);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ error: 'Bad Request' });
+  res.status(500).json({ error: "Bad Request" });
 });
 
-
 //.env file containing the API keys
-dotenv.config({ path: path.join(process.cwd(), '.env') });
-
-
+dotenv.config({ path: path.join(process.cwd(), ".env") });
 
 //Realtime Relay
-const relay = new RealtimeRelay(process.env['OPENAI_API_KEY']);
+const relay = new RealtimeRelay(process.env["OPENAI_API_KEY"]);
 relay.listen(8081);
 
-
-
-const chatHistoryDir = path.join(process.cwd(), 'chat-histories');
-const imgOutputDir = path.join(process.cwd(), 'img-output');
+const chatHistoryDir = path.join(process.cwd(), "chat-histories");
+const imgOutputDir = path.join(process.cwd(), "img-output");
 
 if (!fs.existsSync(chatHistoryDir)) {
   fs.mkdirSync(chatHistoryDir);
-};
+}
 
 if (!fs.existsSync(imgOutputDir)) {
   fs.mkdirSync(imgOutputDir);
-};
-
-/* const decrypt = (encrypted, pwd) => {
-  const iv = encrypted.slice(0, 16);
-  encrypted = encrypted.slice(16);
-  const key = crypto.scryptSync(pwd, process.env['SECRET_RANDOM'], 32);
-  const decipher = crypto.createDecipheriv(algorithm, key, iv);
-  const result = Buffer.concat([decipher.update(encrypted), decipher.final()]);
-
-  return result;
-}; */
+}
 
 //Read the chat history for a specific user
 function readChatHistory(username) {
@@ -96,21 +83,11 @@ function readChatHistory(username) {
   try {
     // Check if the file exists
     if (!fs.existsSync(chatSpecificPath)) {
-      fs.writeFileSync(chatSpecificPath, {}, 'utf8');
+      fs.writeFileSync(chatSpecificPath, {}, "utf8");
       return {};
     }
 
-    /*     const passphraseData = JSON.parse(process.env['LLM_CHATTER_PASSPHRASE']);
-        const user = passphraseData.users.find(u => u.name === username);
-        
-        if (!user) {
-          console.error(`User ${username} not found in passphrase data`);
-          return {};
-        }
-        
-        const passphrase = user.value; */
-
-    const fileContent = fs.readFileSync(chatSpecificPath, 'utf8');
+    const fileContent = fs.readFileSync(chatSpecificPath, "utf8");
     //const decrypted = decrypt(fileContent, passphrase);
 
     //return JSON.parse(decrypted);
@@ -119,27 +96,29 @@ function readChatHistory(username) {
     console.error(`Error reading chat history for ${username}:`, error);
     return {};
   }
-};
+}
 
 // Helper function to parse date strings
 function parseDate(dateString) {
   // Split the date string into components
-  const [datePart, timePart] = dateString.split(' ');
-  const [day, month, year] = datePart.split('/');
-  const [hours, minutes, seconds] = timePart.split(':');
+  const [datePart, timePart] = dateString.split(" ");
+  const [day, month, year] = datePart.split("/");
+  const [hours, minutes, seconds] = timePart.split(":");
 
   // Create a Date object (note: month is 0-indexed in JavaScript Date)
   return new Date(year, month - 1, day, hours, minutes, seconds);
-};
+}
 
 //Read chats for the given chatId
 function getChatsByChatId(database, chatId) {
   try {
     return Object.entries(database)
-      .filter(([key, item]) =>
-        key.startsWith("i_") &&
-        item && typeof item === 'object' &&
-        item.u === chatId
+      .filter(
+        ([key, item]) =>
+          key.startsWith("i_") &&
+          item &&
+          typeof item === "object" &&
+          item.u === chatId
       )
       .map(([_, item]) => item)
       .sort((a, b) => {
@@ -151,41 +130,30 @@ function getChatsByChatId(database, chatId) {
         return dateA - dateB;
       });
   } catch (error) {
-    console.error('Error parsing chat history:', error);
+    console.error("Error parsing chat history:", error);
     return [];
   }
-};
-
-
-
+}
 
 // Function to log chat events
 function logChatEvent(username, data, context = null, thread = null) {
   const logEntry = {
-    ...data
+    ...data,
   };
 
   const chatSpecificPath = path.join(chatHistoryDir, `${username}.jsonl`);
   let chatHistory = {};
 
-  /*   const passphraseData = JSON.parse(process.env['LLM_CHATTER_PASSPHRASE']);
-    const user = passphraseData.users.find(u => u.name === username);
-    
-    if (!user) {
-      console.error(`User ${username} not found in passphrase data`);
-      return;
-    }
-    
-    const passphrase = user.value; */
-
   // Check if the file exists
   if (fs.existsSync(chatSpecificPath)) {
     try {
-      const fileContent = fs.readFileSync(chatSpecificPath, 'utf8');
-      chatHistory = JSON.parse(fileContent || '{}');
-      //chatHistory = JSON.parse(decrypt(fileContent, passphrase) || '{}');
+      const fileContent = fs.readFileSync(chatSpecificPath, "utf8");
+      chatHistory = JSON.parse(fileContent || "{}");
     } catch (error) {
-      console.error(`Error reading existing chat history for ${username}:`, error);
+      console.error(
+        `Error reading existing chat history for ${username}:`,
+        error
+      );
     }
   }
 
@@ -206,28 +174,20 @@ function logChatEvent(username, data, context = null, thread = null) {
 
   // Encrypt and save
   const chatHistoryStr = JSON.stringify(chatHistory);
-  /*  const buffer = Buffer.from(chatHistoryStr, 'utf8');
-   const key = crypto.scryptSync(passphrase, process.env['SECRET_RANDOM'], 32);
-   const iv = crypto.randomBytes(16);
-   const cipher = crypto.createCipheriv("aes-256-ctr", key, iv);
-   const result = Buffer.concat([iv, cipher.update(buffer), cipher.final()]); */
 
-  //fs.writeFileSync(chatSpecificPath, result);
   fs.writeFileSync(chatSpecificPath, chatHistoryStr);
-};
-
-
+}
 
 //Shareable links to historical chats
 const validateShare = [
-  body('shareUser')
+  body("shareUser")
     .isString()
     .trim()
     .notEmpty()
     .matches(/^[a-zA-Z0-9_-]+$/)
     .isLength({ min: 3, max: 64 }),
 
-  body('shareChat')
+  body("shareChat")
     .isString()
     .trim()
     .notEmpty()
@@ -235,15 +195,16 @@ const validateShare = [
     .isLength({ min: 3, max: 64 }),
 ];
 
-app.post('/chkshr', validateShare, async (req, res) => {
+app.post("/chkshr", validateShare, async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     console.log(errors);
-    return res.status(400).json({ error: 'Bad Request' });
+    return res.status(400).json({ error: "Bad Request" });
   }
 
-  const clientIp = req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.ip;
-  const agent = req.headers['user-agent'];
+  const clientIp =
+    req.headers["cf-connecting-ip"] || req.headers["x-forwarded-for"] || req.ip;
+  const agent = req.headers["user-agent"];
   const origin = req.headers.origin;
 
   const shareUser = req.body.shareUser;
@@ -252,28 +213,25 @@ app.post('/chkshr', validateShare, async (req, res) => {
   const userChatHistory = readChatHistory(shareUser);
 
   if (!userChatHistory || Object.keys(userChatHistory).length === 0) {
-    return res.status(404).json({ error: 'No user chat history found.' });
+    return res.status(404).json({ error: "No user chat history found." });
   }
 
   const chatHistory = getChatsByChatId(userChatHistory, shareChat);
 
-  if (!chatHistory || (Array.isArray(chatHistory) && chatHistory.length === 0)) {
-    return res.status(404).json({ error: 'Chat history not found.' });
+  if (
+    !chatHistory ||
+    (Array.isArray(chatHistory) && chatHistory.length === 0)
+  ) {
+    return res.status(404).json({ error: "Chat history not found." });
   }
 
   res.send(chatHistory);
 });
 
-
-
-
-
 //Heartbeat: Clients ping this /check URL every few seconds seconds
-app.post('/check', async (req, res) => {
+app.post("/check", async (req, res) => {
   res.send("ok");
 });
-
-
 
 // Function to authenticate passphrase
 const verifyPassphrase = async (plainPassphrase, hashedPassphrase) => {
@@ -281,59 +239,67 @@ const verifyPassphrase = async (plainPassphrase, hashedPassphrase) => {
   return match;
 };
 
-
-
 // Function to generate a token
 const generateToken = (userId) => {
-  const token = jwt.sign({ userId }, process.env['SECRET_RANDOM'], { expiresIn: '1d' });
+  const token = jwt.sign({ userId }, process.env["SECRET_RANDOM"], {
+    expiresIn: "1d",
+  });
   return token;
 };
 
 const validateCheckin = [
-  body('serverUsername')
+  body("serverUsername")
     .isString()
     .trim()
     .notEmpty()
-    .withMessage('Username cannot be empty.')
-    .matches(/^[a-zA-Z0-9_-]+$/).withMessage('Username can only contain letters, numbers, underscores, and hyphens.'),
+    .withMessage("Username cannot be empty.")
+    .matches(/^[a-zA-Z0-9_-]+$/)
+    .withMessage(
+      "Username can only contain letters, numbers, underscores, and hyphens."
+    ),
 
-  body('serverPassphrase').isString().trim().notEmpty().withMessage('Passphrase cannot be empty.'),
+  body("serverPassphrase")
+    .isString()
+    .trim()
+    .notEmpty()
+    .withMessage("Passphrase cannot be empty."),
 
-  body('sessionHash').isString().trim(),
+  body("sessionHash").isString().trim(),
 ];
 
 const activeSessions = new Map();
 
 //Client check-in
-app.post('/checkin', validateCheckin, async (req, res) => {
+app.post("/checkin", validateCheckin, async (req, res) => {
   const errors = validationResult(req);
 
   if (!errors.isEmpty()) {
     console.log(errors);
-    return res.status(400).json({ error: 'Bad Request' });
+    return res.status(400).json({ error: "Bad Request" });
   }
 
-  const clientIp = req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.ip;
-  const agent = req.headers['user-agent'];
+  const clientIp =
+    req.headers["cf-connecting-ip"] || req.headers["x-forwarded-for"] || req.ip;
+  const agent = req.headers["user-agent"];
   const origin = req.headers.origin;
   const sessionHash = req.body.sessionHash;
-  //const headers = JSON.stringify(req.headers, null, 2);
+
   const sentPhrase = req.body.serverPassphrase;
   const serverUsername = req.body.serverUsername;
 
   let passphraseData;
 
   try {
-    passphraseData = JSON.parse(process.env['LLM_CHATTER_PASSPHRASE']);
+    passphraseData = JSON.parse(process.env["LLM_CHATTER_PASSPHRASE"]);
   } catch (e) {
-    return res.status(400).json({ error: 'Bad Request' });
+    return res.status(400).json({ error: "Bad Request" });
   }
   // Check if the username exists and passphrase matches
   let checkPass = false;
   let userName = "Unknown";
 
   // Find the user with the matching name
-  const user = passphraseData.users.find(u => u.name === serverUsername);
+  const user = passphraseData.users.find((u) => u.name === serverUsername);
 
   if (user) {
     const isValid = await verifyPassphrase(sentPhrase, user.value);
@@ -343,12 +309,20 @@ app.post('/checkin', validateCheckin, async (req, res) => {
     }
   }
   if (!checkPass) {
-    console.log(chalk.cyan("\nAuthentication failed." +
-      "\nUsername: " + serverUsername +
-      "\nSource (Origin): " + origin +
-      "\nConnector's Address (IP): " + clientIp + "\n"));
+    console.log(
+      chalk.cyan(
+        "\nAuthentication failed." +
+          "\nUsername: " +
+          serverUsername +
+          "\nSource (Origin): " +
+          origin +
+          "\nConnector's Address (IP): " +
+          clientIp +
+          "\n"
+      )
+    );
 
-    return res.status(400).json({ error: 'Authentication Failure' });
+    return res.status(400).json({ error: "Authentication Failure" });
   }
 
   const token = generateToken(sessionHash);
@@ -363,11 +337,19 @@ app.post('/checkin', validateCheckin, async (req, res) => {
     createdAt: new Date(),
   });
 
-  console.log(chalk.cyan("\nClient checked in." +
-    "\nUser: " + userName +
-    "\nSource: " + origin +
-    "\nConnector IP: " + clientIp +
-    "\nUser-Agent: " + agent + "\n")
+  console.log(
+    chalk.cyan(
+      "\nClient checked in." +
+        "\nUser: " +
+        userName +
+        "\nSource: " +
+        origin +
+        "\nConnector IP: " +
+        clientIp +
+        "\nUser-Agent: " +
+        agent +
+        "\n"
+    )
   );
 
   const userChatHistory = readChatHistory(userName);
@@ -375,82 +357,83 @@ app.post('/checkin', validateCheckin, async (req, res) => {
   res.json({ token, userChatHistory });
 });
 
-
-
-
 const validateInput = [
   // Validation checks
-  body('uniqueChatID').optional().isString().trim(),
-  body('model').optional().isString().trim(),
-  body('prompt').optional().isString().trim(),
-  body('system').optional().isString().trim(),
-  body('thread').optional().isArray(),
-  body('context').optional().isArray(),
-  body('options.temperature').optional().isFloat({ min: 0, max: 1 }),
-  body('options.top_p').optional().isFloat({ min: 0, max: 1 }),
-  body('options.top_k').optional().isFloat({ min: 1, max: 20 }),
-  body('temperature').optional().isFloat({ min: 0, max: 1 }),
-  body('top_p').optional().isFloat({ min: 0, max: 1 }),
-  body('top_k').optional().isFloat({ min: 1, max: 20 }),
-  body('imgInput').optional().isBoolean(),
-  body('imgOutput').optional().isBoolean(),
-  body('sentOne').optional().isBoolean(),
-  body('keep_alive').optional().isInt({ min: 0 }),
-  body('messages').optional().isArray(),
-  body('images').optional().isArray(),
+  body("uniqueChatID").optional().isString().trim(),
+  body("model").optional().isString().trim(),
+  body("prompt").optional().isString().trim(),
+  body("system").optional().isString().trim(),
+  body("thread").optional().isArray(),
+  body("context").optional().isArray(),
+  body("options.temperature").optional().isFloat({ min: 0, max: 1 }),
+  body("options.top_p").optional().isFloat({ min: 0, max: 1 }),
+  body("options.top_k").optional().isFloat({ min: 1, max: 20 }),
+  body("temperature").optional().isFloat({ min: 0, max: 1 }),
+  body("top_p").optional().isFloat({ min: 0, max: 1 }),
+  body("top_k").optional().isFloat({ min: 1, max: 20 }),
+  body("imgInput").optional().isBoolean(),
+  body("imgOutput").optional().isBoolean(),
+  body("sentOne").optional().isBoolean(),
+  body("stream").optional().isBoolean(),
+  body("keep_alive").optional().isInt({ min: 0 }),
+  body("messages").optional().isArray(),
+  body("images").optional().isArray(),
 
   // Middleware function to handle validation and token verification
   (req, res, next) => {
     // Validate input
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      res.status(400).json({ error: 'Bad Request' });
+      res.status(400).json({ error: "Bad Request" });
     }
     // Verify token
     let token;
     if (req.query.token) {
       token = req.query.token;
     } else {
-      token = req.headers['authorization']?.split(' ')[1]; // Bearer token scheme
+      token = req.headers["authorization"]?.split(" ")[1]; // Bearer token scheme
     }
 
     if (!token || !activeSessions.has(token)) {
-      return res.status(401).json({ error: 'Unauthorized' });
+      return res.status(401).json({ error: "Unauthorized" });
     }
 
     // If both validation and token verification succeed, proceed
     next();
-  }
+  },
 ];
 
-
-
 //Client requests to re-sync their data
-app.post('/sync', validateInput, async (req, res) => {
-  const clientIp = req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.ip;
-  const origin = req.headers['origin'];
+app.post("/sync", validateInput, async (req, res) => {
+  const clientIp =
+    req.headers["cf-connecting-ip"] || req.headers["x-forwarded-for"] || req.ip;
+  const origin = req.headers["origin"];
 
   try {
     const userChatHistory = readChatHistory(req.body.userName);
 
-    console.log(chalk.cyan("\nClient sync'd.") +
-      "\nUser: " + req.body.userName +
-      "\nSource: " + origin +
-      "\nConnector IP: " + clientIp + "\n");
+    console.log(
+      chalk.cyan("\nClient sync'd.") +
+        "\nUser: " +
+        req.body.userName +
+        "\nSource: " +
+        origin +
+        "\nConnector IP: " +
+        clientIp +
+        "\n"
+    );
 
     res.send(userChatHistory);
   } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Client Sync Error' });
+    console.error("Error:", error);
+    res.status(500).json({ error: "Client Sync Error" });
   }
 });
 
-
-
 //Model Context Protocol (MCP)
-/* const server = new McpServer({
+const server = new McpServer({
   name: "llm-chatter-mcp",
-  version: "1.0.0"
+  version: "1.0.0",
 });
 
 const transports = {};
@@ -460,10 +443,10 @@ const verifyToken = (req, res, next) => {
   if (req.query.token) {
     token = req.query.token;
   } else {
-    token = req.headers['authorization']?.split(' ')[1];
+    token = req.headers["authorization"]?.split(" ")[1];
   }
   if (!token || !activeSessions.has(token)) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: "Unauthorized" });
   }
   // Optionally attach session info to req
   req.session = activeSessions.get(token);
@@ -471,7 +454,7 @@ const verifyToken = (req, res, next) => {
 };
 
 app.get("/sse", verifyToken, async (req, res) => {
-  const transport = new SSEServerTransport('/messages', res);
+  const transport = new SSEServerTransport("/messages", res);
   transports[transport.sessionId] = transport;
   res.on("close", () => {
     delete transports[transport.sessionId];
@@ -485,47 +468,70 @@ app.post("/messages", verifyToken, async (req, res) => {
   if (transport) {
     await transport.handlePostMessage(req, res);
   } else {
-    res.status(400).send('No transport found for sessionId');
-  }
-}); */
-
-
-
-//Client requests the list of local Ollama models
-app.post('/getmodels', validateInput, async (req, res) => {
-  const clientIp = req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.ip;
-  const origin = req.headers['origin'];
-
-  try {
-    if (Config.ollamaEnabled) {
-      const response = await axios.get('http://localhost:11434/api/tags');
-
-      console.log(chalk.cyan("\nSent model list.") +
-        "\nSource: " + origin +
-        "\nConnector IP: " + clientIp + "\n");
-
-      res.send(response.data.models);
-    } else {
-      console.error('Ollama disabled on server. Models not sent.');
-      res.status(500).json({ error: 'Ollama GetModels Error' });
-    }
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Ollama GetModels Error' });
+    res.status(400).send("No transport found for sessionId");
   }
 });
 
+app.post("/stream", verifyToken, async (req, res) => {
+  const { prompt } = req.body;
+  // Set headers for SSE
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+  
+  let numba = 0; 
+  try {
+      for (numba = 1; numba <= 20; numba++) {
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for 1 second
+        res.write(`data: ${numba}\n\n`);
+      }
+    res.write("event: end\ndata: [DONE]\n\n");
+    res.end();
+  } catch (e) {
+    res.write(`event: error\ndata: ${JSON.stringify(e.message)}\n\n`);
+    res.end();
+  }
+});
 
+//Client requests the list of local Ollama models
+app.post("/getmodels", validateInput, async (req, res) => {
+  const clientIp =
+    req.headers["cf-connecting-ip"] || req.headers["x-forwarded-for"] || req.ip;
+  const origin = req.headers["origin"];
+
+  try {
+    if (Config.ollamaEnabled) {
+      const response = await axios.get("http://localhost:11434/api/tags");
+
+      console.log(
+        chalk.cyan("\nSent model list.") +
+          "\nSource: " +
+          origin +
+          "\nConnector IP: " +
+          clientIp +
+          "\n"
+      );
+
+      res.send(response.data.models);
+    } else {
+      console.error("Ollama disabled on server. Models not sent.");
+      res.status(500).json({ error: "Ollama GetModels Error" });
+    }
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).json({ error: "Ollama GetModels Error" });
+  }
+});
 
 //Local Ollama API
-app.post('/ollama', validateInput, async (req, res) => {
+app.post("/ollama", validateInput, async (req, res) => {
   const errors = validationResult(req);
 
   if (!errors.isEmpty()) {
     console.log(errors);
-    return res.status(400).json({ error: 'Bad Request' });
+    return res.status(400).json({ error: "Bad Request" });
   }
-
 
   try {
     const theData = { ...req.body };
@@ -546,28 +552,38 @@ app.post('/ollama', validateInput, async (req, res) => {
       t: theData.options.temperature || 0.8,
       p: theData.options.top_p || 1,
       k: theData.options.top_k || 1,
-    }
-
-    if (!sent1 && theData.system && (thread.length === 0)) {
-      logChatEvent(username, {
-        ...logData,
-        r: "system",
-        d: timeNow,
-        z: theData.system,
-      }, [], thread);
     };
 
-    logChatEvent(username, {
-      ...logData,
-      r: "user",
-      d: timeNow,
-      z: theData.prompt,
-    }, [], thread);
+    if (!sent1 && theData.system && thread.length === 0) {
+      logChatEvent(
+        username,
+        {
+          ...logData,
+          r: "system",
+          d: timeNow,
+          z: theData.system,
+        },
+        [],
+        thread
+      );
+    }
+
+    logChatEvent(
+      username,
+      {
+        ...logData,
+        r: "user",
+        d: timeNow,
+        z: theData.prompt,
+      },
+      [],
+      thread
+    );
 
     const response = await axios.post(
       "http://localhost:11434/api/generate",
       theData,
-      { headers: { "Content-Type": "application/json" } },
+      { headers: { "Content-Type": "application/json" } }
     );
 
     res.send(response.data);
@@ -587,33 +603,37 @@ app.post('/ollama', validateInput, async (req, res) => {
     );
 
     console.log(`
-    ${chalk.bgGreen.bold('\n////////////////////////////////////////')}
-    ${chalk.underline('Remote IP:')} ${chalk.white((req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.ip))}
-    ${chalk.underline('User:')} ${chalk.white(username)}
-    ${chalk.blue.bold.underline('Model')}: ${chalk.blue(theData.model)}
-    ${chalk.yellow.bold.underline('Temperature')}: ${chalk.yellow(theData.options.temperature)}
-    ${chalk.red.bold.underline('Top-P')}: ${chalk.red(theData.options.top_p)}
-    ${chalk.red.bold.underline('Top-K')}: ${chalk.red(theData.options.top_k)}
-    ${chalk.cyan.bold.underline('Prompt')}:
+    ${chalk.bgGreen.bold("\n////////////////////////////////////////")}
+    ${chalk.underline("Remote IP:")} ${chalk.white(
+      req.headers["cf-connecting-ip"] ||
+        req.headers["x-forwarded-for"] ||
+        req.ip
+    )}
+    ${chalk.underline("User:")} ${chalk.white(username)}
+    ${chalk.blue.bold.underline("Model")}: ${chalk.blue(theData.model)}
+    ${chalk.yellow.bold.underline("Temperature")}: ${chalk.yellow(
+      theData.options.temperature
+    )}
+    ${chalk.red.bold.underline("Top-P")}: ${chalk.red(theData.options.top_p)}
+    ${chalk.red.bold.underline("Top-K")}: ${chalk.red(theData.options.top_k)}
+    ${chalk.cyan.bold.underline("Prompt")}:
     ${chalk.cyan(theData.prompt)}
-    ${chalk.white.bold.underline('Response')}:
+    ${chalk.white.bold.underline("Response")}:
     ${chalk.bgBlack.white(response.data.response)}
-    ${chalk.bgGreen.bold('////////////////////////////////////////\n')}
+    ${chalk.bgGreen.bold("////////////////////////////////////////\n")}
     `);
   } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Ollama Failure' });
+    console.error("Error:", error);
+    res.status(500).json({ error: "Ollama Failure" });
   }
 });
 
-
-
-app.post('/anthropic', validateInput, async (req, res) => {
+app.post("/anthropic", validateInput, async (req, res) => {
   //Handle validation errors
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     console.log(errors);
-    return res.status(400).json({ error: 'Bad Request' });
+    return res.status(400).json({ error: "Bad Request" });
   }
 
   try {
@@ -621,11 +641,11 @@ app.post('/anthropic', validateInput, async (req, res) => {
     const theMsgs = theData.messages;
 
     if (!theData.model || !theMsgs) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      return res.status(400).json({ error: "Missing required fields" });
     }
 
     const anthropic = new Anthropic({
-      apiKey: process.env['ANTHROPIC_API_KEY'],
+      apiKey: process.env["ANTHROPIC_API_KEY"],
     });
 
     const timeNow = dayjs().format(Config.timeFormat);
@@ -639,23 +659,33 @@ app.post('/anthropic', validateInput, async (req, res) => {
       t: theData.temperature || 0.8,
       p: theData.top_p || 1,
       k: theData.top_k || 1,
-    }
-
-    if (!sent1 && theData.system && (theData.thread.length === 0)) {
-      logChatEvent(username, {
-        ...logData,
-        r: "system",
-        d: timeNow,
-        z: theData.system,
-      }, [], theData.thread);
     };
 
-    logChatEvent(username, {
-      ...logData,
-      r: "user",
-      d: timeNow,
-      z: ((theMsgs[theMsgs.length - 1])).content[0].text,
-    }, [], theData.thread);
+    if (!sent1 && theData.system && theData.thread.length === 0) {
+      logChatEvent(
+        username,
+        {
+          ...logData,
+          r: "system",
+          d: timeNow,
+          z: theData.system,
+        },
+        [],
+        theData.thread
+      );
+    }
+
+    logChatEvent(
+      username,
+      {
+        ...logData,
+        r: "user",
+        d: timeNow,
+        z: theMsgs[theMsgs.length - 1].content[0].text,
+      },
+      [],
+      theData.thread
+    );
 
     const msg = await anthropic.messages.create({
       model: theData.model,
@@ -684,47 +714,48 @@ app.post('/anthropic', validateInput, async (req, res) => {
     );
 
     console.log(`
-    ${chalk.bgGreen.bold('\n////////////////////////////////////////')}
-    ${chalk.underline('Remote IP:')} ${chalk.white((req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.ip))}
-    ${chalk.underline('User:')} ${chalk.white(theData.serverUsername)}
-    ${chalk.blue.bold.underline('Model')}: ${chalk.blue(theData.model)}
-    ${chalk.yellow.bold.underline('Temperature')}: ${chalk.yellow(theData.temperature)}
-    ${chalk.red.bold.underline('Top-P')}: ${chalk.red(theData.top_p)}
-    ${chalk.red.bold.underline('Top-K')}: ${chalk.red(theData.top_k)}
-    ${chalk.cyan.bold.underline('Prompt')}:
-    ${chalk.cyan(((theMsgs[theMsgs.length - 1])).content[0].text)}
-    ${chalk.white.bold.underline('Response')}:
+    ${chalk.bgGreen.bold("\n////////////////////////////////////////")}
+    ${chalk.underline("Remote IP:")} ${chalk.white(
+      req.headers["cf-connecting-ip"] ||
+        req.headers["x-forwarded-for"] ||
+        req.ip
+    )}
+    ${chalk.underline("User:")} ${chalk.white(theData.serverUsername)}
+    ${chalk.blue.bold.underline("Model")}: ${chalk.blue(theData.model)}
+    ${chalk.yellow.bold.underline("Temperature")}: ${chalk.yellow(
+      theData.temperature
+    )}
+    ${chalk.red.bold.underline("Top-P")}: ${chalk.red(theData.top_p)}
+    ${chalk.red.bold.underline("Top-K")}: ${chalk.red(theData.top_k)}
+    ${chalk.cyan.bold.underline("Prompt")}:
+    ${chalk.cyan(theMsgs[theMsgs.length - 1].content[0].text)}
+    ${chalk.white.bold.underline("Response")}:
     ${chalk.bgBlack.white(msg.content[0].text)}
-    ${chalk.bgGreen.bold('////////////////////////////////////////\n')}
+    ${chalk.bgGreen.bold("////////////////////////////////////////\n")}
     `);
   } catch (error) {
-    console.error('Error:\n', error);
-    res.status(500).json({ error: 'Anthropic Failure' });
+    console.error("Error:\n", error);
+    res.status(500).json({ error: "Anthropic Failure" });
   }
 });
-
-
-
 
 function getExtFromMime(mimeType) {
   return extension(mimeType) || "png";
 }
 
-
-
-
 //OpenAI
 //Grok
 //DeepSeek
+//Meta
 
-//Grok and DeepSeek need to have baseUrl set
+//Non-OpenAI need to have baseUrl set
 async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
   // Handle validation errors
   const errors = validationResult(req);
 
   if (!errors.isEmpty()) {
     console.log(errors);
-    return res.status(400).json({ error: 'Bad Request' });
+    return res.status(400).json({ error: "Bad Request" });
   }
 
   try {
@@ -734,7 +765,7 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
 
     // Validate required fields
     if (!model || !messages) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      return res.status(400).json({ error: "Missing required fields" });
     }
 
     // Check the model and alter messages if necessary
@@ -744,11 +775,14 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
       temperature = 1;
       top_p = 1;
       system = "";
-      messages = messages.filter(message => message.role !== "system");
+      messages = messages.filter((message) => message.role !== "system");
     }
 
     const lastMessage = messages[messages.length - 1];
-    const promptText = lastMessage && lastMessage.content[0].text ? lastMessage.content[0].text : 'N/A';
+    const promptText =
+      lastMessage && lastMessage.content[0].text
+        ? lastMessage.content[0].text
+        : "N/A";
 
     const timeNow = dayjs().format(Config.timeFormat);
     const chatId = theData.uniqueChatID;
@@ -756,6 +790,14 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
     const imgInput = theData.imgInput ?? false;
     const imgOutput = theData.imgOutput ?? false;
     const username = theData.serverUsername;
+    const streaming = theData.stream ?? false;
+
+    if (streaming) {
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+      res.flushHeaders();
+    };
 
     let images;
     if (imgInput) {
@@ -764,12 +806,16 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
       images = await Promise.all(
         sentImgs.map(async (img) => {
           const imgBuffer = Buffer.from(img.data, "base64");
-          return await toFile(imgBuffer, "upload." + getExtFromMime(img.mimeType), {
-            type: img.mimeType
-          });
-        }),
+          return await toFile(
+            imgBuffer,
+            "upload." + getExtFromMime(img.mimeType),
+            {
+              type: img.mimeType,
+            }
+          );
+        })
       );
-    };
+    }
 
     const logData = {
       u: chatId,
@@ -777,137 +823,177 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
       t: temperature || 0.8,
       p: top_p || 1,
       k: theData.top_k || 1,
-    }
-
-    if (!sent1 && system && (theData.thread.length === 0)) {
-      logChatEvent(username, {
-        ...logData,
-        r: "system",
-        d: timeNow,
-        z: system,
-      }, [], theData.thread);
     };
 
-    logChatEvent(username, {
-      ...logData,
-      r: "user",
-      d: timeNow,
-      z: promptText,
-    }, [], theData.thread);
+    if (!sent1 && system && theData.thread.length === 0) {
+      logChatEvent(
+        username,
+        {
+          ...logData,
+          r: "system",
+          d: timeNow,
+          z: system,
+        },
+        [],
+        theData.thread
+      );
+    }
+
+    logChatEvent(
+      username,
+      {
+        ...logData,
+        r: "user",
+        d: timeNow,
+        z: promptText,
+      },
+      [],
+      theData.thread
+    );
 
     // Set up client with the appropriate API key and optional base URL
     const client = new OpenAI({
       apiKey: process.env[apiKeyEnvVar],
-      ...(baseUrl && { baseURL: baseUrl })
+      ...(baseUrl && { baseURL: baseUrl }),
     });
 
     // Make the API call
-    const response = (imgOutput && !imgInput) ?
-      await client.images.generate({
-        "prompt": promptText,
-        "model": "gpt-image-1",
-        "moderation": "low",
-        "n": 1,
-        "output_format": "jpeg",
-        "quality": "medium",
-        "size": "1024x1024",
-      })
-      : imgInput ?
-        await client.images.edit({
-          "prompt": promptText,
-          "model": "gpt-image-1",
-          "n": 1,
-          "quality": "medium",
-          "size": "1024x1024",
-          "image": images
-        })
-      :
-      await client.chat.completions.create({
-        model,
-        //max_tokens: 1000,
-        //max_completion_tokens: 1000,
-        temperature,
-        top_p,
-        messages,
-      })
-    ;
-
+    const response =
+      imgOutput && !imgInput
+        ? await client.images.generate({
+            prompt: promptText,
+            model: "gpt-image-1",
+            moderation: "low",
+            n: 1,
+            output_format: "jpeg",
+            quality: "medium",
+            size: "1024x1024",
+          })
+        : imgOutput && imgInput
+        ? await client.images.edit({
+            prompt: promptText,
+            model: "gpt-image-1",
+            n: 1,
+            quality: "medium",
+            size: "1024x1024",
+            image: images,
+          })
+        : await client.chat.completions.create({
+            model: model,
+            temperature: temperature,
+            top_p: top_p,
+            messages: messages,
+            stream: streaming,
+          });
     if (imgOutput) {
       const image_base64 = response.data[0].b64_json;
-      const image_bytes = Buffer.from(image_base64, 'base64');
+      const image_bytes = Buffer.from(image_base64, "base64");
       const imgSpecificPath = path.join(imgOutputDir, `${chatId}.jpg`);
       fs.writeFileSync(imgSpecificPath, image_bytes);
 
       res.status(200).json({ base64: image_base64 });
     } else {
-      res.status(200).json(response);
+      if (streaming) {
+        let fullAssistantText = "";
+        for await (const chunk of response) {
+          res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+          // Accumulate text
+          const content = chunk.choices?.[0]?.delta?.content;
+          if (typeof content === "string") {
+            fullAssistantText += content;
+          }
+        }
+        res.write('event: end\ndata: [DONE]\n\n');
+        res.end();
+        const timestamp = dayjs().format(Config.timeFormat);
+        logChatEvent(
+          username,
+          {
+            ...logData,
+            r: "assistant",
+            d: timestamp,
+            z: fullAssistantText || "No response content available",
+          },
+          [], //Context, Ollama only
+          theData.thread
+        );
+      } else {
+        res.status(200).json(response);
+        const timestamp = dayjs().format(Config.timeFormat);
+        logChatEvent(
+          username,
+          {
+            ...logData,
+            r: "assistant",
+            d: timestamp,
+            z: response.choices?.[0]?.message?.content ||
+               "No response content available",
+          },
+          [], //Context, Ollama only
+          theData.thread
+        );
+      }
+    }
 
-      const timestamp = dayjs().format(Config.timeFormat);
-
-      logChatEvent(
-        username,
-        {
-          ...logData,
-          r: "assistant",
-          d: timestamp,
-          z: response.choices?.[0]?.message?.content || 'No response content available',
-        },
-        [], //Context, Ollama only
-        theData.thread
-      );
-    };
-
-
-
-    const responseContent = response.choices?.[0]?.message?.content || 'No response content available';
+    const responseContent =
+      response.choices?.[0]?.message?.content ||
+      "No response content available";
     console.log(`
-    ${chalk.bgGreen.bold('\n////////////////////////////////////////')}
-    ${chalk.underline('Remote IP:')} ${chalk.white((req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.ip))}
-    ${chalk.underline('User:')} ${chalk.white(theData.serverUsername)}
-    ${chalk.blue.bold.underline('Model')}: ${chalk.blue(model)}
-    ${chalk.yellow.bold.underline('Temperature')}: ${chalk.yellow(temperature)}
-    ${chalk.red.bold.underline('Top-P')}: ${chalk.red(top_p)}
-    ${chalk.cyan.bold.underline('Prompt')}:
+    ${chalk.bgGreen.bold("\n////////////////////////////////////////")}
+    ${chalk.underline("Remote IP:")} ${chalk.white(
+      req.headers["cf-connecting-ip"] ||
+        req.headers["x-forwarded-for"] ||
+        req.ip
+    )}
+    ${chalk.underline("User:")} ${chalk.white(theData.serverUsername)}
+    ${chalk.blue.bold.underline("Model")}: ${chalk.blue(model)}
+    ${chalk.yellow.bold.underline("Temperature")}: ${chalk.yellow(temperature)}
+    ${chalk.red.bold.underline("Top-P")}: ${chalk.red(top_p)}
+    ${chalk.cyan.bold.underline("Prompt")}:
     ${chalk.cyan(promptText)}
-    ${chalk.white.bold.underline('Response')}:
+    ${chalk.white.bold.underline("Response")}:
     ${chalk.bgBlack.white(responseContent)}
-    ${chalk.bgGreen.bold('////////////////////////////////////////\n')}
+    ${chalk.bgGreen.bold("////////////////////////////////////////\n")}
     `);
   } catch (error) {
-    console.error('Error:', error);
+    console.error("Error:", error);
     res.status(500).json({ error: `API Failure` }); // Generic error message
   }
 }
-app.post('/openai', validateInput, (req, res) => makeAIRequest(req, res, 'OPENAI_API_KEY'));
-app.post('/grok', validateInput, (req, res) => makeAIRequest(req, res, 'GROK_API_KEY', "https://api.x.ai/v1"));
-app.post('/deepseek', validateInput, (req, res) => makeAIRequest(req, res, 'DEEPSEEK_API_KEY', "https://api.deepseek.com"));
-
-
-
+app.post("/openai", validateInput, (req, res) =>
+  makeAIRequest(req, res, "OPENAI_API_KEY")
+);
+app.post("/grok", validateInput, (req, res) =>
+  makeAIRequest(req, res, "GROK_API_KEY", "https://api.x.ai/v1")
+);
+app.post("/deepseek", validateInput, (req, res) =>
+  makeAIRequest(req, res, "DEEPSEEK_API_KEY", "https://api.deepseek.com")
+);
+app.post("/meta", validateInput, (req, res) =>
+  makeAIRequest(req, res, "META_API_KEY", "https://api.llama.com/compat/v1")
+);
 
 //Convert function needed here because the Google API handles messages differently than other models
 const convertMessages = (messages) => {
-  return messages.map(message => {
+  return messages.map((message) => {
     // Change 'assistant' role to 'model' if applicable
-    const newRole = message.role === 'assistant' ? 'model' : message.role;
+    const newRole = message.role === "assistant" ? "model" : message.role;
 
     return {
       role: newRole,
-      parts: message.content.map(contentItem => ({
-        text: contentItem.text
+      parts: message.content.map((contentItem) => ({
+        text: contentItem.text,
       })),
     };
   });
 };
 
-
-
-app.post('/google', validateInput, async (req, res) => {
+app.post("/google", validateInput, async (req, res) => {
   //Handle validation errors
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     console.log(errors);
-    return res.status(400).json({ error: 'Bad Request' });
+    return res.status(400).json({ error: "Bad Request" });
   }
 
   try {
@@ -916,7 +1002,7 @@ app.post('/google', validateInput, async (req, res) => {
     const convertedMsgs = convertMessages(theMsgs);
 
     if (!theData.model || !theMsgs) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      return res.status(400).json({ error: "Missing required fields" });
     }
 
     const safetySettings = [
@@ -938,11 +1024,11 @@ app.post('/google', validateInput, async (req, res) => {
       },
     ];
 
-    const genAI = new GoogleGenerativeAI(process.env['GOOGLE_API_KEY']);
+    const genAI = new GoogleGenerativeAI(process.env["GOOGLE_API_KEY"]);
     const model = genAI.getGenerativeModel({
       model: theData.model,
       systemInstruction: theData.system,
-      safetySettings: safetySettings
+      safetySettings: safetySettings,
     });
 
     const timeNow = dayjs().format(Config.timeFormat);
@@ -956,23 +1042,33 @@ app.post('/google', validateInput, async (req, res) => {
       t: theData.temperature || 0.8,
       p: theData.top_p || 1,
       k: theData.top_k || 1,
-    }
-
-    if (!sent1 && theData.system && (theData.thread.length === 0)) {
-      logChatEvent(username, {
-        ...logData,
-        r: "system",
-        d: timeNow,
-        z: theData.system,
-      }, [], theData.thread);
     };
 
-    logChatEvent(username, {
-      ...logData,
-      r: "user",
-      d: timeNow,
-      z: ((theMsgs[theMsgs.length - 1])).content[0].text,
-    }, [], theData.thread);
+    if (!sent1 && theData.system && theData.thread.length === 0) {
+      logChatEvent(
+        username,
+        {
+          ...logData,
+          r: "system",
+          d: timeNow,
+          z: theData.system,
+        },
+        [],
+        theData.thread
+      );
+    }
+
+    logChatEvent(
+      username,
+      {
+        ...logData,
+        r: "user",
+        d: timeNow,
+        z: theMsgs[theMsgs.length - 1].content[0].text,
+      },
+      [],
+      theData.thread
+    );
 
     const generationConfig = {
       temperature: theData.temperature,
@@ -986,16 +1082,18 @@ app.post('/google', validateInput, async (req, res) => {
     let imageParts = [];
     if (googleImgInput && googleImgInput.length > 0) {
       try {
-        imageParts = googleImgInput.map(img => {
+        imageParts = googleImgInput.map((img) => {
           if (!img.mimeType || !img.data) {
-            throw new Error('Invalid image format received. Need mimeType and data.');
+            throw new Error(
+              "Invalid image format received. Need mimeType and data."
+            );
           }
 
           return {
             inlineData: {
               mimeType: img.mimeType,
-              data: img.data // Ensure this is a Base64 string
-            }
+              data: img.data, // Ensure this is a Base64 string
+            },
           };
         });
 
@@ -1011,11 +1109,17 @@ app.post('/google', validateInput, async (req, res) => {
         } else {
           // Handle case where there are images but no messages
           console.error("Received images but message history is empty.");
-          return res.status(400).json({ error: 'Cannot process images without a prompt message.' });
+          return res
+            .status(400)
+            .json({ error: "Cannot process images without a prompt message." });
         }
       } catch (imgError) {
         console.error("Error processing image data:", imgError);
-        return res.status(400).json({ error: `Bad Request: Invalid image data - ${imgError.message}` });
+        return res
+          .status(400)
+          .json({
+            error: `Bad Request: Invalid image data - ${imgError.message}`,
+          });
       }
     }
 
@@ -1036,40 +1140,49 @@ app.post('/google', validateInput, async (req, res) => {
         ...logData,
         r: "assistant",
         d: timestamp,
-        z: response
+        z: response,
       },
       [], //Context, Ollama only
       theData.thread
     );
 
     console.log(`
-    ${chalk.bgGreen.bold('\n////////////////////////////////////////')}
-    ${chalk.underline('Remote IP:')} ${chalk.white((req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.ip))}
-    ${chalk.underline('User:')} ${chalk.white(theData.serverUsername)}
-    ${chalk.blue.bold.underline('Model')}: ${chalk.blue(theData.model)}
-    ${chalk.yellow.bold.underline('Temperature')}: ${chalk.yellow(theData.temperature)}
-    ${chalk.red.bold.underline('Top-P')}: ${chalk.red(theData.top_p)}
-    ${chalk.red.bold.underline('Top-K')}: ${chalk.red(theData.top_k)}
-    ${chalk.cyan.bold.underline('Prompt')}:
-    ${chalk.cyan(((theMsgs[theMsgs.length - 1])).content[0].text)}
-    ${chalk.white.bold.underline('Response')}:
+    ${chalk.bgGreen.bold("\n////////////////////////////////////////")}
+    ${chalk.underline("Remote IP:")} ${chalk.white(
+      req.headers["cf-connecting-ip"] ||
+        req.headers["x-forwarded-for"] ||
+        req.ip
+    )}
+    ${chalk.underline("User:")} ${chalk.white(theData.serverUsername)}
+    ${chalk.blue.bold.underline("Model")}: ${chalk.blue(theData.model)}
+    ${chalk.yellow.bold.underline("Temperature")}: ${chalk.yellow(
+      theData.temperature
+    )}
+    ${chalk.red.bold.underline("Top-P")}: ${chalk.red(theData.top_p)}
+    ${chalk.red.bold.underline("Top-K")}: ${chalk.red(theData.top_k)}
+    ${chalk.cyan.bold.underline("Prompt")}:
+    ${chalk.cyan(theMsgs[theMsgs.length - 1].content[0].text)}
+    ${chalk.white.bold.underline("Response")}:
     ${chalk.bgBlack.white(response)}
-    ${chalk.bgGreen.bold('////////////////////////////////////////\n')}
+    ${chalk.bgGreen.bold("////////////////////////////////////////\n")}
     `);
   } catch (error) {
-    console.error('Error:', error);
+    console.error("Error:", error);
     console.log(error);
     if (error.message.includes("overloaded")) {
-      return res.status(503).json("The model is overloaded. Please try again later.\n");
+      return res
+        .status(503)
+        .json("The model is overloaded. Please try again later.\n");
     } else {
-      return res.status(500).json({ error: 'An unexpected error occurred.' }); // More generic error message
+      return res.status(500).json({ error: "An unexpected error occurred." }); // More generic error message
     }
   }
 });
 
-
-
 //Express server
 app.listen(port, () => {
-  console.log(`\n\nServer running at http://localhost:${port}\n` + chalk.bgCyan.bold("////////////////////////////////////////\n"));
+  console.log(
+    `\n\nServer running at http://localhost:${port}\n` +
+      chalk.bgCyan.bold("////////////////////////////////////////\n")
+  );
 });

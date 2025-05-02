@@ -44,9 +44,20 @@ const grokModels = [
   "grok-beta",
 ];
 
+const metaModels = [
+  "llama-4-scout-17b-16e-instruct-fp8",
+  "llama-4-maverick-17b-128e-instruct-fp8",
+  "llama-3.3-70b-instruct",
+  "llama-3.3-8b-instruct",
+];
+
 const deepseekModels = [
   "deepseek-chat", //DeepSeek-V3
   "deepseek-reasoner", //DeepSeek-R1
+];
+
+const mcpModels = [
+  "Qwen/Qwen2.5-72B-Instruct"
 ];
 
 const Config = {
@@ -59,7 +70,8 @@ const Config = {
   topp: "1",
   topk: "1",
 
-  sysMsg: "Let's work this out in a step by step way to be sure we have the right answer.",
+  sysMsg:
+    "Let's work this out in a step by step way to be sure we have the right answer.",
 
   defaultChatType: "OpenAI",
   defaultModel: { name: "gpt-4.1-mini" },
@@ -71,65 +83,59 @@ const Config = {
     google: googleModels,
     grok: grokModels,
     deepseek: deepseekModels,
+    meta: metaModels,
   },
 
-  reasoningModels:
-    [
-      "o1",
-      "o1-mini",
-      "o3-mini",
-      "o4-mini",
-    ],
+  reasoningModels: ["o1", "o1-mini", "o3-mini", "o4-mini"],
 
-  visionModels:
-    [
-      "gpt-4.1",
-      "gpt-4.1-mini",
-      "gpt-4.1-nano",
-      "chatgpt-4o-latest",
-      "o1",
-      "o4-mini",
-      "gpt-4o",
-      "gpt-4o-mini",
-      "gpt-4-turbo",
-      "claude-3-7-sonnet-20250219",
-      "claude-3-5-sonnet-20241022",
-      "claude-3-5-haiku-20241022",
-      "claude-3-opus-20240229",
-      "claude-3-sonnet-20240229",
-      "claude-3-haiku-20240307",
-      "gemini-2.5-pro-exp-03-25",
-      "gemini-2.0-flash-exp",
-      "gemini-2.0-flash-lite",
-      "gemini-1.5-pro",
-      "gemini-1.5-flash",
-      "gemini-1.5-flash-8b",
-      "grok-2-vision",
-      "grok-vision-beta",
-      "granite3.2-vision:latest",
-      "llava-phi3:latest",
-      "bakllava:latest",
-      "moondream:latest",
-      "llava-llama3:latest",
-      "minicpm-v:latest",
-      "llama3.2-vision:latest",
-      "llama3.2-vision:11b",
-      "llama3.2-vision:90b",
-      "llava:latest",
-      "llava:7b",
-      "llava:13b",
-      "llava:34b",
-      "gemma3:latest",
-      "gemma3:1b",
-      "gemma3:4b",
-      "gemma3:12b",
-      "gemma3:27b",
-    ],
-  
-    imgOutputModels:
-    [
-      "gpt-image-1",
-    ],
+  visionModels: [
+    "gpt-4.1",
+    "gpt-4.1-mini",
+    "gpt-4.1-nano",
+    "chatgpt-4o-latest",
+    "o1",
+    "o4-mini",
+    "gpt-4o",
+    "gpt-4o-mini",
+    "gpt-4-turbo",
+    "gpt-image-1",
+    "claude-3-7-sonnet-20250219",
+    "claude-3-5-sonnet-20241022",
+    "claude-3-5-haiku-20241022",
+    "claude-3-opus-20240229",
+    "claude-3-sonnet-20240229",
+    "claude-3-haiku-20240307",
+    "gemini-2.5-pro-exp-03-25",
+    "gemini-2.0-flash-exp",
+    "gemini-2.0-flash-lite",
+    "gemini-1.5-pro",
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-8b",
+    "grok-2-vision",
+    "grok-vision-beta",
+    "llama-4-scout-17b-16e-instruct-fp8",
+    "llama-4-maverick-17b-128e-instruct-fp8",
+    "granite3.2-vision:latest",
+    "llava-phi3:latest",
+    "bakllava:latest",
+    "moondream:latest",
+    "llava-llama3:latest",
+    "minicpm-v:latest",
+    "llama3.2-vision:latest",
+    "llama3.2-vision:11b",
+    "llama3.2-vision:90b",
+    "llava:latest",
+    "llava:7b",
+    "llava:13b",
+    "llava:34b",
+    "gemma3:latest",
+    "gemma3:1b",
+    "gemma3:4b",
+    "gemma3:12b",
+    "gemma3:27b",
+  ],
+
+  imgOutputModels: ["gpt-image-1"],
 };
 
 export default Config;

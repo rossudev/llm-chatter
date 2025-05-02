@@ -1,28 +1,28 @@
-import React from 'react';
-import './Button.scss';
+import React from "react";
+import "./Button.scss";
 
-import { Icon } from 'react-feather';
+import { Icon } from "react-feather";
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   label?: string;
   icon?: Icon;
-  iconPosition?: 'start' | 'end';
-  iconColor?: 'red' | 'green' | 'grey';
+  iconPosition?: "start" | "end";
+  iconColor?: "red" | "green" | "grey";
   iconFill?: boolean;
-  buttonStyle?: 'regular' | 'action' | 'alert' | 'flush';
+  buttonStyle?: "regular" | "action" | "alert" | "flush";
 }
 
 export function Button({
-  label = 'Okay',
+  label = "Okay",
   icon = void 0,
-  iconPosition = 'start',
+  iconPosition = "start",
   iconColor = void 0,
   iconFill = false,
-  buttonStyle = 'regular',
+  buttonStyle = "regular",
   ...rest
 }: ButtonProps) {
-  const StartIcon = iconPosition === 'start' ? icon : null;
-  const EndIcon = iconPosition === 'end' ? icon : null;
+  const StartIcon = iconPosition === "start" ? icon : null;
+  const EndIcon = iconPosition === "end" ? icon : null;
   const classList = [];
   if (iconColor) {
     classList.push(`icon-${iconColor}`);
@@ -33,7 +33,7 @@ export function Button({
   classList.push(`button-style-${buttonStyle}`);
 
   return (
-    <button data-component="Button" className={classList.join(' ')} {...rest}>
+    <button data-component="Button" className={classList.join(" ")} {...rest}>
       {StartIcon && (
         <span className="icon icon-start">
           <StartIcon />

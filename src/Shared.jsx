@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { useParams } from 'react-router-dom';
+import { useParams } from "react-router-dom";
 import axios from "axios";
 import debounce from "lodash/debounce";
 import Config from "./Config.jsx";
@@ -13,35 +13,38 @@ function Shared() {
   const [shareChat, setShareChat] = useState({});
   const [showError, setShowError] = useState("");
 
-  const sharedCheckIn = useCallback(debounce(async () => {
-    if (!serverURL || !userName || !uniqueId) {
-      const errMsg = "Missing required parameters.";
-      setShowError(errMsg);
+  const sharedCheckIn = useCallback(
+    debounce(async () => {
+      if (!serverURL || !userName || !uniqueId) {
+        const errMsg = "Missing required parameters.";
+        setShowError(errMsg);
 
-      return;
-    }
-
-    try {
-      const checkinResp = await axios.post(
-        serverURL + "/chkshr",
-        { shareUser: userName, shareChat: uniqueId },
-        {
-          headers: { "Content-Type": "application/json" }
-        },
-      );
-
-      const clientCheck = checkinResp?.data || undefined;
-
-      if (clientCheck) {
-        const data = checkinResp.data;
-
-        //setShareChat(data.shareChatHistory);
-        setShareChat(data);
+        return;
       }
-    } catch (error) {
-      setShowError(JSON.stringify(error));
-    }
-  }, 250), [serverURL, userName, uniqueId]);
+
+      try {
+        const checkinResp = await axios.post(
+          serverURL + "/chkshr",
+          { shareUser: userName, shareChat: uniqueId },
+          {
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+
+        const clientCheck = checkinResp?.data || undefined;
+
+        if (clientCheck) {
+          const data = checkinResp.data;
+
+          //setShareChat(data.shareChatHistory);
+          setShareChat(data);
+        }
+      } catch (error) {
+        setShowError(JSON.stringify(error));
+      }
+    }, 250),
+    [serverURL, userName, uniqueId]
+  );
 
   //Starts the interval on first load
   useEffect(() => {
@@ -53,13 +56,13 @@ function Shared() {
     const selectedText = document.getSelection().toString();
 
     //Remove soft hyphens
-    const textContent = selectedText.replace(/\xAD/g, '');
+    const textContent = selectedText.replace(/\xAD/g, "");
 
     navigator.clipboard.writeText(textContent);
   });
 
   const copyClick = useCallback((value) => {
-    if (typeof value === 'string') {
+    if (typeof value === "string") {
       copy(value);
     }
   });
@@ -88,34 +91,61 @@ function Shared() {
               checkDuplicates = contentText;
             }
 
-            if (!contentText || typeof contentText !== 'string') {
+            if (!contentText || typeof contentText !== "string") {
               return null;
-            };
+            }
 
-            const roleShow = obj.r === "assistant" ? obj.m : obj.r === "system" ? "Starting Prompt" : obj.r === "user" ? "Prompt" : "Unknown Role";
+            const roleShow =
+              obj.r === "assistant"
+                ? obj.m
+                : obj.r === "system"
+                ? "Starting Prompt"
+                : obj.r === "user"
+                ? "Prompt"
+                : "Unknown Role";
 
             return (
               <tr key={key}>
-                <td onCopy={handleCopy} className={obj.r === "user" || obj.r === "system" ?
-                  "py-3 p-3 bg-morbius-300 font-sans rounded-xl text-black-800 text-md whitespace-pre-wrap" :
-                  "py-3 whitespace-pre-wrap p-3 bg-nosferatu-100 font-mono rounded-xl text-black text-sm"}>
-
+                <td
+                  onCopy={handleCopy}
+                  className={
+                    obj.r === "user" || obj.r === "system"
+                      ? "py-3 p-3 bg-morbius-300 font-sans rounded-xl text-black-800 text-md whitespace-pre-wrap"
+                      : "py-3 whitespace-pre-wrap p-3 bg-nosferatu-100 font-mono rounded-xl text-black text-sm"
+                  }
+                >
                   <div className="mb-3 grid grid-cols-3">
-                    <span className="font-bold text-xl text-aro-900">{roleShow}</span>
-                    <span className="text-center text-sm text-aro-900">{obj.d}</span>
+                    <span className="font-bold text-xl text-aro-900">
+                      {roleShow}
+                    </span>
+                    <span className="text-center text-sm text-aro-900">
+                      {obj.d}
+                    </span>
                     <span className="text-right">
-                      <CopyButton contentText={contentText} copyClick={copyClick} />
+                      <CopyButton
+                        contentText={contentText}
+                        copyClick={copyClick}
+                      />
                     </span>
                   </div>
 
                   <ContentText role={obj.r} txt={contentText} />
                 </td>
               </tr>
-            )
+            );
           })}
         </tbody>
       </table>
-      <div className="mx-auto items-center justify-center text-center"><a alt="GitHub" target="_blank" rel="noopener noreferrer" href="https://github.com/rossudev/llm-chatter"><i className="fa-brands fa-github text-4xl mb-2 text-white mt-2"></i></a></div>
+      <div className="mx-auto items-center justify-center text-center">
+        <a
+          alt="GitHub"
+          target="_blank"
+          rel="noopener noreferrer"
+          href="https://github.com/rossudev/llm-chatter"
+        >
+          <i className="fa-brands fa-github text-4xl mb-2 text-white mt-2"></i>
+        </a>
+      </div>
     </div>
   );
 }

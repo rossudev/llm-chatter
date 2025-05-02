@@ -1,5 +1,5 @@
-import { WebSocketServer } from 'ws';
-import { RealtimeClient } from '@openai/realtime-api-beta';
+import { WebSocketServer } from "ws";
+import { RealtimeClient } from "@openai/realtime-api-beta";
 
 export class RealtimeRelay {
   constructor(apiKey) {
@@ -9,20 +9,20 @@ export class RealtimeRelay {
   }
 
   listen(port) {
-    this.wss = new WebSocketServer({ host: '127.0.0.1', port });
-    this.wss.on('connection', this.connectionHandler.bind(this));
+    this.wss = new WebSocketServer({ host: "127.0.0.1", port });
+    this.wss.on("connection", this.connectionHandler.bind(this));
     this.log(`\nListening on ws://localhost:${port}\n`);
   }
 
   async connectionHandler(ws, req) {
     if (!req.url) {
-      this.log('No URL provided, closing connection.');
+      this.log("No URL provided, closing connection.");
       ws.close();
       return;
     }
 
     const url = new URL(req.url, `http://${req.headers.host}`);
-/*     const pathname = url.pathname;
+    /*     const pathname = url.pathname;
 
     if (pathname !== '/') {
       this.log(`Invalid pathname: "${pathname}"`);
@@ -35,11 +35,11 @@ export class RealtimeRelay {
     const client = new RealtimeClient({ apiKey: this.apiKey });
 
     // Relay: OpenAI Realtime API Event -> Browser Event
-    client.realtime.on('server.*', (event) => {
+    client.realtime.on("server.*", (event) => {
       //this.log(`Relaying "${event.type}" to Client`);
       ws.send(JSON.stringify(event));
     });
-    client.realtime.on('close', () => ws.close());
+    client.realtime.on("close", () => ws.close());
 
     // Relay: Browser Event -> OpenAI Realtime API Event
     // We need to queue data waiting for the OpenAI connection
@@ -54,14 +54,14 @@ export class RealtimeRelay {
         this.log(`Error parsing event from client: ${data}`);
       }
     };
-    ws.on('message', (data) => {
+    ws.on("message", (data) => {
       if (!client.isConnected()) {
         messageQueue.push(data);
       } else {
         messageHandler(data);
       }
     });
-    ws.on('close', () => client.disconnect());
+    ws.on("close", () => client.disconnect());
 
     // Connect to OpenAI Realtime API
     try {
