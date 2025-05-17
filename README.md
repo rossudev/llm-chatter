@@ -21,6 +21,7 @@ Large Language Model chat by text, vision and voice. Proprietary models by API r
    - [DEEPSEEK_API_KEY](https://platform.deepseek.com/api_keys)
    - [GOOGLE_API_KEY](https://ai.google.dev/gemini-api/docs/billing)
    - [GROK_API_KEY](https://console.x.ai/)
+   - [META_API_KEY](https://llama.developer.meta.com/)
    - [OPENAI_API_KEY](https://platform.openai.com/account/billing)
 
 # Starting and Stopping
@@ -44,6 +45,7 @@ Built with:
 - [Deepseek](https://api-docs.deepseek.com/)
 - [Google](https://ai.google.dev/gemini-api/docs)
 - [Grok](https://docs.x.ai/docs)
+- [Meta](https://llama.developer.meta.com/docs)
 - [Ollama](https://github.com/jmorganca/ollama/blob/main/docs/api.md)
 - [OpenAI](https://platform.openai.com/docs/overview)
 
