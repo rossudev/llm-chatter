@@ -1,9 +1,0 @@
-- Put in a check to see if the check-in cookie/jwt is expired (after 1 day).
-- WebRTC update (over WebSockets) for OpenAI realtime.
-- Google vision bugfix in server code.
-- Image output models.
-- Non-image file format input (PDF, audio).
-- Model Context Protocol (MCP)?
-- Replace .env storage with secure method.
-- Chat history in a truer database system.
-- Store user sessions with Redis or similar.
