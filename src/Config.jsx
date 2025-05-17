@@ -27,9 +27,10 @@ const anthropicModels = [
 ];
 
 const googleModels = [
+  "gemini-2.5-pro-preview-05-06",
   "gemini-2.5-pro-exp-03-25",
-  "gemini-2.0-flash-exp",
-  "gemini-2.0-flash-lite",
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-preview-image-generation",
   "gemini-1.5-pro",
   "gemini-1.5-flash",
   "gemini-1.5-flash-8b",
@@ -45,10 +46,10 @@ const grokModels = [
 ];
 
 const metaModels = [
-  "llama-4-scout-17b-16e-instruct-fp8",
-  "llama-4-maverick-17b-128e-instruct-fp8",
-  "llama-3.3-70b-instruct",
-  "llama-3.3-8b-instruct",
+  "Llama-4-Scout-17B-16E-Instruct-FP8",
+  "Llama-4-Maverick-17B-128E-Instruct-FP8",
+  "Llama-3.3-70B-Instruct",
+  "Llama-3.3-8B-Instruct",
 ];
 
 const deepseekModels = [
@@ -74,7 +75,7 @@ const Config = {
     "Let's work this out in a step by step way to be sure we have the right answer.",
 
   defaultChatType: "OpenAI",
-  defaultModel: { name: "gpt-4.1-mini" },
+  defaultModel: { name: "o4-mini" },
   defaultModelList: openAIModels,
 
   models: {
@@ -105,16 +106,17 @@ const Config = {
     "claude-3-opus-20240229",
     "claude-3-sonnet-20240229",
     "claude-3-haiku-20240307",
+    "gemini-2.5-pro-preview-05-06",
     "gemini-2.5-pro-exp-03-25",
-    "gemini-2.0-flash-exp",
-    "gemini-2.0-flash-lite",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-preview-image-generation",
     "gemini-1.5-pro",
     "gemini-1.5-flash",
     "gemini-1.5-flash-8b",
     "grok-2-vision",
     "grok-vision-beta",
-    "llama-4-scout-17b-16e-instruct-fp8",
-    "llama-4-maverick-17b-128e-instruct-fp8",
+    "Llama-4-Scout-17B-16E-Instruct-FP8",
+    "Llama-4-Maverick-17B-128E-Instruct-FP8",
     "granite3.2-vision:latest",
     "llava-phi3:latest",
     "bakllava:latest",
@@ -135,7 +137,10 @@ const Config = {
     "gemma3:27b",
   ],
 
-  imgOutputModels: ["gpt-image-1"],
+  imgOutputModels: [
+    "gpt-image-1",
+    "gemini-2.0-flash-preview-image-generation",
+  ],
 };
 
 export default Config;

@@ -60,30 +60,36 @@ const Chat = ({
 
   const setMessagesAndMeta = useCallback((isDefault = true) => {
     const hasMessages = Object.keys(messages).length > 0;
+    const noSystemMeta =
+      Config.reasoningModels.includes(model) ||
+      Config.imgOutputModels.includes(model);
 
     sysMsgs = [];
     firstMeta = [];
 
-    if (isDefault && !hasMessages) {
+    if (isDefault && !hasMessages && !noSystemMeta) {
       sysMsgs = [{ role: "system", content: systemMessage }];
       firstMeta = [["Starting Prompt", ""]];
     }
   });
 
-  const noSystemMeta =
-    Config.reasoningModels.includes(model) ||
-    Config.imgOutputModels.includes(model);
+  // Only run this logic on first render
+  useState(() => {
+    const noSystemMeta =
+      Config.reasoningModels.includes(model) ||
+      Config.imgOutputModels.includes(model);
 
-  if (nonOpenAIChatTypes.includes(chatType)) {
-    setMessagesAndMeta(false);
-  } else {
-    // OpenAI
-    if (noSystemMeta) {
+    if (nonOpenAIChatTypes.includes(chatType)) {
       setMessagesAndMeta(false);
     } else {
-      setMessagesAndMeta(true);
+      // OpenAI
+      if (noSystemMeta) {
+        setMessagesAndMeta(false);
+      } else {
+        setMessagesAndMeta(true);
+      }
     }
-  }
+  });
 
   const convertFormat = useCallback((inputData) => {
     const result = [];
@@ -120,6 +126,14 @@ const Chat = ({
   const makeMetas = useCallback((inputData) => {
     const result = [];
 
+    const noSystemMeta =
+      Config.reasoningModels.includes(model) ||
+      Config.imgOutputModels.includes(model);
+
+    if (noSystemMeta) {
+      return result;
+    }
+
     // Sort by item number to ensure correct order
     const sortedKeys = Object.keys(inputData).sort((a, b) => {
       const numA = parseInt(a.split("_")[1]);
@@ -142,11 +156,11 @@ const Chat = ({
   const [streamInput, setStreamInput] = useState("");
   const [chatInput, setChatInput] = useState("");
   const [base64Image, setBase64Image] = useState("");
-  const [theShareURL, setTheShareURL] = useState("");
   const [textAttachment, setTextAttachment] = useState("");
   const [fileFormat, setFileFormat] = useState("");
   const [imageOutput, setImageOutput] = useState("");
   const [imgQuality, setImgQuality] = useState("medium");
+  const [imgSize, setImgSize] = useState("1024x1024");
   const [messageMetas, setMessageMetas] = useState(
     hasMessages ? makeMetas(messages) : firstMeta
   );
@@ -158,7 +172,6 @@ const Chat = ({
   const [isClicked, setIsClicked] = useState(false);
   const [isError, setIsError] = useState(false);
   const [sentOne, setSentOne] = useState(false);
-  const [isCopied, setIsCopied] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
 
   const [tempOutput, setTempOutput] = useState("");
@@ -253,17 +266,17 @@ const Chat = ({
         };
         break;
 
-        case "Meta":
-          endPath = serverURL + "/meta";
-          sendPacket = {
-            messages: msgs,
-            temperature: parseFloat(temperature),
-            top_p: parseFloat(topp),
-            top_k: parseFloat(topk),
-            stream: !isImgOutput,
-          };
-          break;
-  
+      case "Meta":
+        endPath = serverURL + "/meta";
+        sendPacket = {
+          messages: msgs,
+          temperature: parseFloat(temperature),
+          top_p: parseFloat(topp),
+          top_k: parseFloat(topk),
+          stream: !isImgOutput,
+        };
+        break;
+
       case "Deepseek":
         endPath = serverURL + "/deepseek";
         sendPacket = {
@@ -294,6 +307,7 @@ const Chat = ({
           top_p: parseFloat(topp),
           top_k: parseFloat(topk),
           system: systemMessage,
+          prompt: input,
         };
         break;
 
@@ -324,6 +338,8 @@ const Chat = ({
     sendPacket.serverUsername = serverUsername;
     sendPacket.thread = thread;
     sendPacket.imgOutput = isImgOutput;
+    sendPacket.imgQuality = imgQuality;
+    sendPacket.imgSize = imgSize;
     sendPacket.imgInput = base64Image ? true : false;
 
     const isStreaming =
@@ -337,6 +353,7 @@ const Chat = ({
       let response;
       let output = "";
       if (isStreaming) {
+        setGoing(true);
         response = await fetch(endPath, {
           method: "POST",
           headers: {
@@ -362,6 +379,7 @@ const Chat = ({
               let text = match[1];
               if (text === "[DONE]") {
                 setPending(false);
+                setGoing(false);
                 break;
               }
               try {
@@ -418,7 +436,7 @@ const Chat = ({
       return [theEnd, durTime];
     } catch (error) {
       setIsError(true);
-      console.log(error);
+      console.error(error);
       let errorMessage = "An error occurred.";
 
       if (error.response.status === 503) {
@@ -521,6 +539,14 @@ const Chat = ({
     )
   );
 
+  const handleSizeChange = useCallback((size) => {
+    setImgSize(size.target.value);
+  });
+
+  const handleQualityChange = useCallback((quality) => {
+    setImgQuality(quality.target.value);
+  });
+
   const handleChat = useCallback(() => handleInput(chatInput, false));
 
   const handleAddModel = useCallback((model) => {
@@ -577,6 +603,7 @@ const Chat = ({
 
   const handleCopy = useCallback((e) => {
     e.preventDefault();
+
     const selectedText = document.getSelection().toString();
 
     //Remove soft hyphens
@@ -590,13 +617,6 @@ const Chat = ({
       copy(value);
     }
   });
-
-  /*     const delayColor = useCallback(() => {
-            setIsCopied(true);
-            setTimeout(() => {
-                setIsCopied(false);
-            }, 150);
-        }); */
 
   const getContentText = useCallback((content) => {
     if (Array.isArray(content)) {
@@ -614,11 +634,6 @@ const Chat = ({
 
   const ToggleImageSize = useCallback(() => {
     setIsExpanded((prev) => !prev);
-  });
-
-  const handleShareClick = useCallback(async () => {
-    const setURL = serverURL + "/shared/" + serverUsername + "/" + uniqueChatID;
-    setTheShareURL(setURL);
   });
 
   const makeNewChat = useCallback((chosenType) => {
@@ -880,7 +895,7 @@ const Chat = ({
                   />
                 </td>
               </tr>
-              {!Config.imgOutputModels.includes(model) && (
+              {!Config.imgOutputModels.includes(model) ? (
                 <>
                   <tr className="align-top">
                     {/*  Model info */}
@@ -1086,30 +1101,94 @@ const Chat = ({
                     </td>
                   </tr>
                 </>
-              )}
-
-              {Config.imgOutputModels.includes(model) && (
+              ) : (
+                /* Image Output Models */
                 <>
-                  <div className="w-1/2 bg-blade-200 rounded-xl bg-gradient-to-tl from-blade-400 p-2">
-                    <table className="min-w-[100%]">
-                      <tbody>
-                        <tr>
-                          <td className="min-w-[100%]">
-                            <p className="mb-2">
-                              <i className="fa-solid fa-splotch text-2xl text-dracula-500 ml-1"></i>{" "}
-                              <b>Model:</b>
-                            </p>
-                          </td>
-                        </tr>
-                        <tr>
-                          <td>
-                            <i className="fa-solid ml-4 fa-caret-right text-sm text-dracula-500"></i>{" "}
-                            {model}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
+                  <tr className="align-top">
+                    <td
+                      colSpan={2}
+                      className="w-1/2 bg-blade-200 rounded-xl bg-gradient-to-tl from-blade-400 p-2"
+                    >
+                      <table className="min-w-[100%]">
+                        <tbody>
+                          <tr>
+                            <td className="min-w-[100%]">
+                              <p className="mb-2">
+                                <i className="fa-solid fa-splotch text-2xl text-dracula-500 ml-1"></i>{" "}
+                                <b>Model:</b>
+                              </p>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td>
+                              <i className="fa-solid ml-4 fa-caret-right text-sm text-dracula-500"></i>{" "}
+                              {model}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </td>
+                    <td
+                      colSpan={2}
+                      className="w-1/2 bg-cullen-200 rounded-xl bg-gradient-to-tl from-cullen-500"
+                    >
+                      <table className="min-w-[100%]">
+                        <tbody>
+                          <tr className="align-top">
+                            <td className="w-1/6 items-baseline justify-evenly text-center align-middle">
+                              <i className="ml-2 fa-solid fa-square-poll-horizontal text-2xl text-vanHelsing-900 text-3xl"></i>
+                            </td>
+                            <td className="w-5/6 p-1">
+                              <b>Size:</b>
+                              <br />
+                              <select
+                                name="imgSize"
+                                id="imgSize"
+                                value={imgSize}
+                                onChange={(e) => handleSizeChange(e)}
+                                className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer p-4 min-w-full font-sans rounded-xl text-black"
+                              >
+                                <option value="1536x1024">Landscape</option>
+                                <option value="1024x1536">Portrait</option>
+                                <option value="1024x1024">Square</option>
+                              </select>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </td>
+                  </tr>
+                  <tr className="align-top">
+                    <td
+                      colSpan="2"
+                      className="w-1/2 bg-aro-200 rounded-xl bg-gradient-to-tl from-aro-500"
+                    >
+                      <table className="min-w-[100%]">
+                        <tbody>
+                          <tr className="align-top">
+                            <td className="w-1/6 items-baseline justify-evenly text-center align-middle">
+                              <i className="ml-2 fa-solid fa-square-poll-horizontal text-2xl text-vanHelsing-900 text-3xl"></i>
+                            </td>
+                            <td className="w-5/6 p-1">
+                              <b>Quality:</b>
+                              <br />
+                              <select
+                                name="imgQuality"
+                                id="imgQuality"
+                                value={imgQuality}
+                                onChange={(e) => handleQualityChange(e)}
+                                className="hover:bg-vonCount-300 bg-vonCount-200 cursor-pointer p-4 min-w-full font-sans rounded-xl text-black"
+                              >
+                                <option value="low">Low</option>
+                                <option value="medium">Medium</option>
+                                <option value="high">High</option>
+                              </select>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </td>
+                  </tr>
                 </>
               )}
             </tbody>

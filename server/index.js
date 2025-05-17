@@ -13,11 +13,7 @@ import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import Anthropic from "@anthropic-ai/sdk";
-import {
-  GoogleGenerativeAI,
-  HarmBlockThreshold,
-  HarmCategory,
-} from "@google/generative-ai";
+import { GoogleGenAI, Modality, createPartFromUri, createUserContent } from "@google/genai";
 import OpenAI, { toFile } from "openai";
 import { RealtimeRelay } from "./relay.js";
 import Config from "./config.js";
@@ -31,7 +27,7 @@ const app = express();
 const port = 8080;
 
 // Trust the first proxy (Cloudflare)
-app.set("trust proxy", 1);
+app.set("trust proxy", Config.serverBehindCloudflare);
 
 app.use(cors({ origin: Config.clientDomains }));
 app.use(helmet());
@@ -363,6 +359,8 @@ const validateInput = [
   body("model").optional().isString().trim(),
   body("prompt").optional().isString().trim(),
   body("system").optional().isString().trim(),
+  body("imgSize").optional().isString().trim(),
+  body("imgQuality").optional().isString().trim(),
   body("thread").optional().isArray(),
   body("context").optional().isArray(),
   body("options.temperature").optional().isFloat({ min: 0, max: 1 }),
@@ -479,13 +477,13 @@ app.post("/stream", verifyToken, async (req, res) => {
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders();
-  
-  let numba = 0; 
+
+  let numba = 0;
   try {
-      for (numba = 1; numba <= 20; numba++) {
-        await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for 1 second
-        res.write(`data: ${numba}\n\n`);
-      }
+    for (numba = 1; numba <= 20; numba++) {
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for 1 second
+      res.write(`data: ${numba}\n\n`);
+    }
     res.write("event: end\ndata: [DONE]\n\n");
     res.end();
   } catch (e) {
@@ -618,8 +616,6 @@ app.post("/ollama", validateInput, async (req, res) => {
     ${chalk.red.bold.underline("Top-K")}: ${chalk.red(theData.options.top_k)}
     ${chalk.cyan.bold.underline("Prompt")}:
     ${chalk.cyan(theData.prompt)}
-    ${chalk.white.bold.underline("Response")}:
-    ${chalk.bgBlack.white(response.data.response)}
     ${chalk.bgGreen.bold("////////////////////////////////////////\n")}
     `);
   } catch (error) {
@@ -729,8 +725,6 @@ app.post("/anthropic", validateInput, async (req, res) => {
     ${chalk.red.bold.underline("Top-K")}: ${chalk.red(theData.top_k)}
     ${chalk.cyan.bold.underline("Prompt")}:
     ${chalk.cyan(theMsgs[theMsgs.length - 1].content[0].text)}
-    ${chalk.white.bold.underline("Response")}:
-    ${chalk.bgBlack.white(msg.content[0].text)}
     ${chalk.bgGreen.bold("////////////////////////////////////////\n")}
     `);
   } catch (error) {
@@ -791,13 +785,15 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
     const imgOutput = theData.imgOutput ?? false;
     const username = theData.serverUsername;
     const streaming = theData.stream ?? false;
+    const imgQuality = theData.imgQuality ?? "medium";
+    const imgSize = theData.imgSize ?? "1024x1024";
 
     if (streaming) {
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
       res.flushHeaders();
-    };
+    }
 
     let images;
     if (imgInput) {
@@ -866,16 +862,16 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
             moderation: "low",
             n: 1,
             output_format: "jpeg",
-            quality: "medium",
-            size: "1024x1024",
+            quality: imgQuality,
+            size: imgSize,
           })
         : imgOutput && imgInput
         ? await client.images.edit({
             prompt: promptText,
             model: "gpt-image-1",
             n: 1,
-            quality: "medium",
-            size: "1024x1024",
+            quality: imgQuality,
+            size: imgSize,
             image: images,
           })
         : await client.chat.completions.create({
@@ -903,7 +899,7 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
             fullAssistantText += content;
           }
         }
-        res.write('event: end\ndata: [DONE]\n\n');
+        res.write("event: end\ndata: [DONE]\n\n");
         res.end();
         const timestamp = dayjs().format(Config.timeFormat);
         logChatEvent(
@@ -920,24 +916,24 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
       } else {
         res.status(200).json(response);
         const timestamp = dayjs().format(Config.timeFormat);
-        logChatEvent(
-          username,
-          {
-            ...logData,
-            r: "assistant",
-            d: timestamp,
-            z: response.choices?.[0]?.message?.content ||
-               "No response content available",
-          },
-          [], //Context, Ollama only
-          theData.thread
-        );
+        if (!imgOutput) {
+          logChatEvent(
+            username,
+            {
+              ...logData,
+              r: "assistant",
+              d: timestamp,
+              z:
+                response.choices?.[0]?.message?.content ||
+                "No response content available",
+            },
+            [], //Context, Ollama only
+            theData.thread
+          );
+        }
       }
     }
 
-    const responseContent =
-      response.choices?.[0]?.message?.content ||
-      "No response content available";
     console.log(`
     ${chalk.bgGreen.bold("\n////////////////////////////////////////")}
     ${chalk.underline("Remote IP:")} ${chalk.white(
@@ -951,8 +947,6 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
     ${chalk.red.bold.underline("Top-P")}: ${chalk.red(top_p)}
     ${chalk.cyan.bold.underline("Prompt")}:
     ${chalk.cyan(promptText)}
-    ${chalk.white.bold.underline("Response")}:
-    ${chalk.bgBlack.white(responseContent)}
     ${chalk.bgGreen.bold("////////////////////////////////////////\n")}
     `);
   } catch (error) {
@@ -989,7 +983,7 @@ const convertMessages = (messages) => {
 };
 
 app.post("/google", validateInput, async (req, res) => {
-  //Handle validation errors
+  // Handle validation errors
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     console.log(errors);
@@ -999,7 +993,7 @@ app.post("/google", validateInput, async (req, res) => {
   try {
     const theData = req.body;
     const theMsgs = theData.messages;
-    const convertedMsgs = convertMessages(theMsgs);
+    let convertedMsgs = convertMessages(theMsgs);
 
     if (!theData.model || !theMsgs) {
       return res.status(400).json({ error: "Missing required fields" });
@@ -1007,34 +1001,30 @@ app.post("/google", validateInput, async (req, res) => {
 
     const safetySettings = [
       {
-        category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-        threshold: HarmBlockThreshold.BLOCK_NONE,
+        category: "HARM_CATEGORY_HARASSMENT",
+        threshold: "BLOCK_ONLY_HIGH",
       },
       {
-        category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-        threshold: HarmBlockThreshold.BLOCK_NONE,
+        category: "HARM_CATEGORY_HATE_SPEECH",
+        threshold: "BLOCK_ONLY_HIGH",
       },
       {
-        category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-        threshold: HarmBlockThreshold.BLOCK_NONE,
+        category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+        threshold: "BLOCK_ONLY_HIGH",
       },
       {
-        category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-        threshold: HarmBlockThreshold.BLOCK_NONE,
+        category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+        threshold: "BLOCK_ONLY_HIGH",
       },
     ];
 
-    const genAI = new GoogleGenerativeAI(process.env["GOOGLE_API_KEY"]);
-    const model = genAI.getGenerativeModel({
-      model: theData.model,
-      systemInstruction: theData.system,
-      safetySettings: safetySettings,
-    });
+    const ai = new GoogleGenAI({ apiKey: process.env["GOOGLE_API_KEY"] });
 
     const timeNow = dayjs().format(Config.timeFormat);
     const chatId = req.body.uniqueChatID;
     const sent1 = req.body.sentOne;
     const username = req.body.serverUsername;
+    const promptText = req.body.prompt;
 
     const logData = {
       u: chatId,
@@ -1075,38 +1065,31 @@ app.post("/google", validateInput, async (req, res) => {
       topP: theData.top_p,
       topK: theData.top_k,
       maxOutputTokens: 10000,
+      safetySettings: safetySettings,
     };
+
+    const imgOutput = theData.imgOutput ?? false;
+
+    if (imgOutput) {
+      generationConfig.responseModalities = [Modality.TEXT, Modality.IMAGE];
+    }
 
     const googleImgInput = theData.images;
 
-    let imageParts = [];
     if (googleImgInput && googleImgInput.length > 0) {
       try {
-        imageParts = googleImgInput.map((img) => {
-          if (!img.mimeType || !img.data) {
-            throw new Error(
-              "Invalid image format received. Need mimeType and data."
-            );
-          }
-
-          return {
+        convertedMsgs = [
+          {
             inlineData: {
-              mimeType: img.mimeType,
-              data: img.data, // Ensure this is a Base64 string
+              mimeType: googleImgInput[0].mimeType,
+              data: googleImgInput[0].data,
             },
-          };
-        });
+          },
+          { text: promptText },
+        ];
 
-        // 2. Add the formatted image parts to the *last* message in convertedMsgs
-        if (convertedMsgs.length > 0) {
-          const lastMessage = convertedMsgs[convertedMsgs.length - 1];
-          // Make sure 'parts' exists and is an array
-          if (!Array.isArray(lastMessage.parts)) {
-            lastMessage.parts = [];
-          }
-          // Combine existing parts (like text) with the new image parts
-          lastMessage.parts = [...lastMessage.parts, ...imageParts];
-        } else {
+        // Add the formatted image parts to the *last* message in convertedMsgs
+        if (convertedMsgs.length === 0) {
           // Handle case where there are images but no messages
           console.error("Received images but message history is empty.");
           return res
@@ -1115,37 +1098,47 @@ app.post("/google", validateInput, async (req, res) => {
         }
       } catch (imgError) {
         console.error("Error processing image data:", imgError);
-        return res
-          .status(400)
-          .json({
-            error: `Bad Request: Invalid image data - ${imgError.message}`,
-          });
+        return res.status(400).json({
+          error: `Bad Request: Invalid image data - ${imgError.message}`,
+        });
       }
     }
 
-    const generationPayload = {
+    const response = await ai.models.generateContent({
+      model: theData.model,
       contents: convertedMsgs,
-      generationConfig: generationConfig,
-    };
-    const result = await model.generateContent(generationPayload);
+      config: generationConfig,
+    });
 
-    const response = result.response.text();
-    res.status(200).json(response);
+    if (imgOutput) {
+      const parts = response.candidates[0].content.parts;
+      const imagePart = parts.find((p) => p.inlineData);
+      if (imagePart) {
+        const image_base64 = imagePart.inlineData.data;
+        const image_bytes = Buffer.from(image_base64, "base64");
+        const imgSpecificPath = path.join(imgOutputDir, `${chatId}.jpg`);
+        fs.writeFileSync(imgSpecificPath, image_bytes);
 
-    const timestamp = dayjs().format(Config.timeFormat);
+        res.status(200).json({ base64: image_base64 });
+      };
+    } else {
+      const responseText = response.text;
+      res.status(200).json(responseText);
 
-    logChatEvent(
-      username,
-      {
-        ...logData,
-        r: "assistant",
-        d: timestamp,
-        z: response,
-      },
-      [], //Context, Ollama only
-      theData.thread
-    );
+      const timestamp = dayjs().format(Config.timeFormat);
 
+      logChatEvent(
+        username,
+        {
+          ...logData,
+          r: "assistant",
+          d: timestamp,
+          z: responseText,
+        },
+        [], // Context, Ollama only
+        theData.thread
+      );
+    }
     console.log(`
     ${chalk.bgGreen.bold("\n////////////////////////////////////////")}
     ${chalk.underline("Remote IP:")} ${chalk.white(
@@ -1162,8 +1155,6 @@ app.post("/google", validateInput, async (req, res) => {
     ${chalk.red.bold.underline("Top-K")}: ${chalk.red(theData.top_k)}
     ${chalk.cyan.bold.underline("Prompt")}:
     ${chalk.cyan(theMsgs[theMsgs.length - 1].content[0].text)}
-    ${chalk.white.bold.underline("Response")}:
-    ${chalk.bgBlack.white(response)}
     ${chalk.bgGreen.bold("////////////////////////////////////////\n")}
     `);
   } catch (error) {

@@ -1,4 +1,4 @@
-# LLM Chatter, v0.2.1
+# LLM Chatter, v0.2.2
 
 Large Language Model chat by text, vision and voice. Proprietary models by API request and local Ollama models supported.
 
@@ -65,8 +65,10 @@ Built with:
 - claude-3-haiku*
 - deepseek-chat (DeepSeek-V3)
 - deepseek-reasoner (DeepSeek-R1)
+- gemini-2.5-pro-preview-05-06
 - gemini-2.5-pro-exp-03-25*
-- gemini-2.0-flash-exp*
+- gemini-2.0-flash*
+- gemini-2.0-flash-preview-image-generation†
 - gemini-1.5-pro*
 - gemini-1.5-flash*
 - gemini-1.5-flash-8b
