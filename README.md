@@ -20,13 +20,14 @@ Large Language Model chat by text, vision and voice. Proprietary models by API r
    - [OPENAI_API_KEY](https://platform.openai.com/account/billing)
 
 # Starting and Stopping
-* `cd llm-chatter`
-* To start both server and client: `./start-all.sh`
-* To stop both: `./stop-all.sh`
+
+- `cd llm-chatter`
+- To start both server and client: `./start-all.sh`
+- To stop both: `./stop-all.sh`
 
 # Thanks!
 
-Built with: 
+Built with:
 
 - [Vite](https://vitejs.dev/)
 - [React](https://react.dev/)
@@ -34,6 +35,7 @@ Built with:
 - [FontAwesome](https://fontawesome.com/)
 
 # LLM Documentation
+
 - [Anthropic](https://docs.anthropic.com/)
 - [Deepseek](https://api-docs.deepseek.com/)
 - [Google](https://ai.google.dev/gemini-api/docs)
@@ -42,52 +44,54 @@ Built with:
 - [OpenAI](https://platform.openai.com/docs/overview)
 
 # Models List
-- gpt-4.1*
-- gpt-4.1-mini*
-- gpt-4.1-nano*
+
+- gpt-4.1\*
+- gpt-4.1-mini\*
+- gpt-4.1-nano\*
 - gpt-image-1†
-- chatgpt-4o*
-- o4-mini*
+- chatgpt-4o\*
+- o4-mini\*
 - o3-mini
-- o1*
+- o1\*
 - o1-mini
 - gpt-4o-realtime-preview (Audio In/Out)
-- gpt-4o*
-- gpt-4o-mini*
-- gpt-4-turbo*
+- gpt-4o\*
+- gpt-4o-mini\*
+- gpt-4-turbo\*
 - gpt-4
 - gpt-3.5-turbo
-- claude-3-7-sonnet*
-- claude-3-5-sonnet*
-- claude-3-5-haiku*
-- claude-3-opus*
-- claude-3-sonnet*
-- claude-3-haiku*
+- claude-3-7-sonnet\*
+- claude-3-5-sonnet\*
+- claude-3-5-haiku\*
+- claude-3-opus\*
+- claude-3-sonnet\*
+- claude-3-haiku\*
 - deepseek-chat (DeepSeek-V3)
 - deepseek-reasoner (DeepSeek-R1)
 - gemini-2.5-pro-preview-05-06
-- gemini-2.5-pro-exp-03-25*
-- gemini-2.0-flash*
+- gemini-2.5-pro-exp-03-25\*
+- gemini-2.0-flash\*
 - gemini-2.0-flash-preview-image-generation†
-- gemini-1.5-pro*
-- gemini-1.5-flash*
+- gemini-1.5-pro\*
+- gemini-1.5-flash\*
 - gemini-1.5-flash-8b
 - grok-3-beta
 - grok-3-mini-beta
 - grok-2
-- grok-2-vision*
-- grok-vision-beta*
+- grok-2-vision\*
+- grok-vision-beta\*
 - grok-beta
-- llama-4-scout-17b-16e-instruct-fp8*
-- llama-4-maverick-17b-128e-instruct-fp8*
+- llama-4-scout-17b-16e-instruct-fp8\*
+- llama-4-maverick-17b-128e-instruct-fp8\*
 - llama-3.3-70b-instruct
 - llama-3.3-8b-instruct
 
- *Vision input-image support (img/text in, text out)
- 
- †Output-image support (img/text in, img out)
+  \*Vision input-image support (img/text in, text out)
 
- # Ollama Vision Model List
+†Output-image support (img/text in, img out)
+
+# Ollama Vision Model List
+
 - granite3.2-vision
 - llava-phi3
 - bakllava

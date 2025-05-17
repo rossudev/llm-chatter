@@ -57,9 +57,7 @@ const deepseekModels = [
   "deepseek-reasoner", //DeepSeek-R1
 ];
 
-const mcpModels = [
-  "Qwen/Qwen2.5-72B-Instruct"
-];
+const mcpModels = ["Qwen/Qwen2.5-72B-Instruct"];
 
 const Config = {
   serverURL: "http://localhost:8080",
@@ -137,10 +135,7 @@ const Config = {
     "gemma3:27b",
   ],
 
-  imgOutputModels: [
-    "gpt-image-1",
-    "gemini-2.0-flash-preview-image-generation",
-  ],
+  imgOutputModels: ["gpt-image-1", "gemini-2.0-flash-preview-image-generation"],
 };
 
 export default Config;

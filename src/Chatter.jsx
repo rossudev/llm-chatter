@@ -135,7 +135,7 @@ function Chatter() {
   const useDebouncedCallback = useCallback((callback, delay) => {
     const debouncedFn = useMemo(
       () => debounce(callback, delay),
-      [callback, delay]
+      [callback, delay],
     );
     useEffect(() => {
       return () => debouncedFn.cancel();
@@ -229,7 +229,7 @@ function Chatter() {
         clearStuff(false);
       }
     }, 250),
-    [serverURL, clearStuff] // Add serverURL as a dependency
+    [serverURL, clearStuff], // Add serverURL as a dependency
   );
 
   //Ping the backend server to check in, validate passphrase and acquire the JWT for later API calls
@@ -249,7 +249,7 @@ function Chatter() {
           },
           {
             headers: { "Content-Type": "application/json" },
-          }
+          },
         );
 
         const clientCheck = checkinResp?.data || undefined;
@@ -260,7 +260,7 @@ function Chatter() {
           setChatHistory(data.userChatHistory);
           localStorage.setItem(
             "chatHistory",
-            JSON.stringify(data.userChatHistory)
+            JSON.stringify(data.userChatHistory),
           );
 
           Cookies.set("clientJWT", JSON.stringify(data.token), { expires: 1 });
@@ -283,7 +283,7 @@ function Chatter() {
         clearStuff(true);
       }
     }, 250),
-    [clientJWT, serverUsername, serverPassphrase, sessionHash]
+    [clientJWT, serverUsername, serverPassphrase, sessionHash],
   );
 
   const getRandomModel = useCallback((modelsArray) => {
@@ -310,7 +310,7 @@ function Chatter() {
 
       return;
     }, 250),
-    []
+    [],
   );
 
   //Update the Chat History from the server, for a given username
@@ -325,7 +325,7 @@ function Chatter() {
               "Content-Type": "application/json",
               Authorization: `Bearer ${clientJWT}`,
             },
-          }
+          },
         );
         setChatHistory(newChatData.data);
         localStorage.setItem("chatHistory", JSON.stringify(newChatData.data));
@@ -333,7 +333,7 @@ function Chatter() {
         console.log(error);
       }
     }, 250),
-    [serverURL, clientJWT]
+    [serverURL, clientJWT],
   );
 
   //Ping the backend server for a list of Ollama locally downloaded list of models
@@ -348,7 +348,7 @@ function Chatter() {
               "Content-Type": "application/json",
               Authorization: `Bearer ${bearer}`,
             },
-          }
+          },
         );
 
         const allModels = theModels.data;
@@ -384,7 +384,7 @@ function Chatter() {
         console.log(error);
       }
     }, 250),
-    [serverURL, localModels, chatType]
+    [serverURL, localModels, chatType],
   );
 
   //Event Handlers
@@ -422,7 +422,7 @@ function Chatter() {
       chosenMetaAI,
       chosenOllama,
       localModels,
-    ]
+    ],
   );
 
   const handleModelChange = useCallback(
@@ -442,14 +442,14 @@ function Chatter() {
 
       (setChosenMapping[chatType] || setChosenOllama)(modelObj);
     },
-    [chatType]
+    [chatType],
   );
 
   const handleChange = useCallback(
     (setter) => (e) => {
       setter(e.target.value);
     },
-    []
+    [],
   );
 
   const handleSysMsgChange = handleChange(setSysMsg);
@@ -470,7 +470,7 @@ function Chatter() {
     }
 
     const res = input.match(
-      /(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|www\.[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9]+\.[^\s]{2,}|www\.[a-zA-Z0-9]+\.[^\s]{2,})/gi
+      /(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|www\.[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9]+\.[^\s]{2,}|www\.[a-zA-Z0-9]+\.[^\s]{2,})/gi,
     );
     return res !== null;
   });
@@ -746,7 +746,7 @@ function Chatter() {
                                 handleSysMsgChange(e);
                                 localStorage.setItem(
                                   "sysMsg",
-                                  JSON.stringify("")
+                                  JSON.stringify(""),
                                 );
                               }}
                               value={sysMsg}
@@ -993,7 +993,7 @@ function Chatter() {
                         {/* New Voice button */}
                         {chatType.includes("OpenAI") &&
                         !componentList.some((container) =>
-                          container.chatType.includes("(Voice)")
+                          container.chatType.includes("(Voice)"),
                         ) ? (
                           <>
                             <Spring
@@ -1032,7 +1032,7 @@ function Chatter() {
         </Spring>
       </div>
 
-{/* <ChatStream
+      {/* <ChatStream
   key={container.id}
   serverURL={serverURL}
   closeID={container.id}
@@ -1074,7 +1074,7 @@ function Chatter() {
                 thread={container.thread}
                 restoreID={container.restoreID}
               />
-            )
+            ),
           )}
       </div>
     </dataContext.Provider>

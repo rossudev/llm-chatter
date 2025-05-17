@@ -13,7 +13,12 @@ import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import Anthropic from "@anthropic-ai/sdk";
-import { GoogleGenAI, Modality, createPartFromUri, createUserContent } from "@google/genai";
+import {
+  GoogleGenAI,
+  Modality,
+  createPartFromUri,
+  createUserContent,
+} from "@google/genai";
 import OpenAI, { toFile } from "openai";
 import { RealtimeRelay } from "./relay.js";
 import Config from "./config.js";
@@ -114,7 +119,7 @@ function getChatsByChatId(database, chatId) {
           key.startsWith("i_") &&
           item &&
           typeof item === "object" &&
-          item.u === chatId
+          item.u === chatId,
       )
       .map(([_, item]) => item)
       .sort((a, b) => {
@@ -148,7 +153,7 @@ function logChatEvent(username, data, context = null, thread = null) {
     } catch (error) {
       console.error(
         `Error reading existing chat history for ${username}:`,
-        error
+        error,
       );
     }
   }
@@ -251,7 +256,7 @@ const validateCheckin = [
     .withMessage("Username cannot be empty.")
     .matches(/^[a-zA-Z0-9_-]+$/)
     .withMessage(
-      "Username can only contain letters, numbers, underscores, and hyphens."
+      "Username can only contain letters, numbers, underscores, and hyphens.",
     ),
 
   body("serverPassphrase")
@@ -314,8 +319,8 @@ app.post("/checkin", validateCheckin, async (req, res) => {
           origin +
           "\nConnector's Address (IP): " +
           clientIp +
-          "\n"
-      )
+          "\n",
+      ),
     );
 
     return res.status(400).json({ error: "Authentication Failure" });
@@ -344,8 +349,8 @@ app.post("/checkin", validateCheckin, async (req, res) => {
         clientIp +
         "\nUser-Agent: " +
         agent +
-        "\n"
-    )
+        "\n",
+    ),
   );
 
   const userChatHistory = readChatHistory(userName);
@@ -418,7 +423,7 @@ app.post("/sync", validateInput, async (req, res) => {
         origin +
         "\nConnector IP: " +
         clientIp +
-        "\n"
+        "\n",
     );
 
     res.send(userChatHistory);
@@ -508,7 +513,7 @@ app.post("/getmodels", validateInput, async (req, res) => {
           origin +
           "\nConnector IP: " +
           clientIp +
-          "\n"
+          "\n",
       );
 
       res.send(response.data.models);
@@ -562,7 +567,7 @@ app.post("/ollama", validateInput, async (req, res) => {
           z: theData.system,
         },
         [],
-        thread
+        thread,
       );
     }
 
@@ -575,13 +580,13 @@ app.post("/ollama", validateInput, async (req, res) => {
         z: theData.prompt,
       },
       [],
-      thread
+      thread,
     );
 
     const response = await axios.post(
       "http://localhost:11434/api/generate",
       theData,
-      { headers: { "Content-Type": "application/json" } }
+      { headers: { "Content-Type": "application/json" } },
     );
 
     res.send(response.data);
@@ -597,7 +602,7 @@ app.post("/ollama", validateInput, async (req, res) => {
         z: response.data.response,
       },
       response.data.context,
-      thread
+      thread,
     );
 
     console.log(`
@@ -605,12 +610,12 @@ app.post("/ollama", validateInput, async (req, res) => {
     ${chalk.underline("Remote IP:")} ${chalk.white(
       req.headers["cf-connecting-ip"] ||
         req.headers["x-forwarded-for"] ||
-        req.ip
+        req.ip,
     )}
     ${chalk.underline("User:")} ${chalk.white(username)}
     ${chalk.blue.bold.underline("Model")}: ${chalk.blue(theData.model)}
     ${chalk.yellow.bold.underline("Temperature")}: ${chalk.yellow(
-      theData.options.temperature
+      theData.options.temperature,
     )}
     ${chalk.red.bold.underline("Top-P")}: ${chalk.red(theData.options.top_p)}
     ${chalk.red.bold.underline("Top-K")}: ${chalk.red(theData.options.top_k)}
@@ -667,7 +672,7 @@ app.post("/anthropic", validateInput, async (req, res) => {
           z: theData.system,
         },
         [],
-        theData.thread
+        theData.thread,
       );
     }
 
@@ -680,7 +685,7 @@ app.post("/anthropic", validateInput, async (req, res) => {
         z: theMsgs[theMsgs.length - 1].content[0].text,
       },
       [],
-      theData.thread
+      theData.thread,
     );
 
     const msg = await anthropic.messages.create({
@@ -706,7 +711,7 @@ app.post("/anthropic", validateInput, async (req, res) => {
         z: msg.content[0].text,
       },
       [], //Context, Ollama only
-      theData.thread
+      theData.thread,
     );
 
     console.log(`
@@ -714,12 +719,12 @@ app.post("/anthropic", validateInput, async (req, res) => {
     ${chalk.underline("Remote IP:")} ${chalk.white(
       req.headers["cf-connecting-ip"] ||
         req.headers["x-forwarded-for"] ||
-        req.ip
+        req.ip,
     )}
     ${chalk.underline("User:")} ${chalk.white(theData.serverUsername)}
     ${chalk.blue.bold.underline("Model")}: ${chalk.blue(theData.model)}
     ${chalk.yellow.bold.underline("Temperature")}: ${chalk.yellow(
-      theData.temperature
+      theData.temperature,
     )}
     ${chalk.red.bold.underline("Top-P")}: ${chalk.red(theData.top_p)}
     ${chalk.red.bold.underline("Top-K")}: ${chalk.red(theData.top_k)}
@@ -807,9 +812,9 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
             "upload." + getExtFromMime(img.mimeType),
             {
               type: img.mimeType,
-            }
+            },
           );
-        })
+        }),
       );
     }
 
@@ -831,7 +836,7 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
           z: system,
         },
         [],
-        theData.thread
+        theData.thread,
       );
     }
 
@@ -844,7 +849,7 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
         z: promptText,
       },
       [],
-      theData.thread
+      theData.thread,
     );
 
     // Set up client with the appropriate API key and optional base URL
@@ -866,21 +871,21 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
             size: imgSize,
           })
         : imgOutput && imgInput
-        ? await client.images.edit({
-            prompt: promptText,
-            model: "gpt-image-1",
-            n: 1,
-            quality: imgQuality,
-            size: imgSize,
-            image: images,
-          })
-        : await client.chat.completions.create({
-            model: model,
-            temperature: temperature,
-            top_p: top_p,
-            messages: messages,
-            stream: streaming,
-          });
+          ? await client.images.edit({
+              prompt: promptText,
+              model: "gpt-image-1",
+              n: 1,
+              quality: imgQuality,
+              size: imgSize,
+              image: images,
+            })
+          : await client.chat.completions.create({
+              model: model,
+              temperature: temperature,
+              top_p: top_p,
+              messages: messages,
+              stream: streaming,
+            });
     if (imgOutput) {
       const image_base64 = response.data[0].b64_json;
       const image_bytes = Buffer.from(image_base64, "base64");
@@ -911,7 +916,7 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
             z: fullAssistantText || "No response content available",
           },
           [], //Context, Ollama only
-          theData.thread
+          theData.thread,
         );
       } else {
         res.status(200).json(response);
@@ -928,7 +933,7 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
                 "No response content available",
             },
             [], //Context, Ollama only
-            theData.thread
+            theData.thread,
           );
         }
       }
@@ -939,7 +944,7 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
     ${chalk.underline("Remote IP:")} ${chalk.white(
       req.headers["cf-connecting-ip"] ||
         req.headers["x-forwarded-for"] ||
-        req.ip
+        req.ip,
     )}
     ${chalk.underline("User:")} ${chalk.white(theData.serverUsername)}
     ${chalk.blue.bold.underline("Model")}: ${chalk.blue(model)}
@@ -955,16 +960,16 @@ async function makeAIRequest(req, res, apiKeyEnvVar, baseUrl = null) {
   }
 }
 app.post("/openai", validateInput, (req, res) =>
-  makeAIRequest(req, res, "OPENAI_API_KEY")
+  makeAIRequest(req, res, "OPENAI_API_KEY"),
 );
 app.post("/grok", validateInput, (req, res) =>
-  makeAIRequest(req, res, "GROK_API_KEY", "https://api.x.ai/v1")
+  makeAIRequest(req, res, "GROK_API_KEY", "https://api.x.ai/v1"),
 );
 app.post("/deepseek", validateInput, (req, res) =>
-  makeAIRequest(req, res, "DEEPSEEK_API_KEY", "https://api.deepseek.com")
+  makeAIRequest(req, res, "DEEPSEEK_API_KEY", "https://api.deepseek.com"),
 );
 app.post("/meta", validateInput, (req, res) =>
-  makeAIRequest(req, res, "META_API_KEY", "https://api.llama.com/compat/v1")
+  makeAIRequest(req, res, "META_API_KEY", "https://api.llama.com/compat/v1"),
 );
 
 //Convert function needed here because the Google API handles messages differently than other models
@@ -1044,7 +1049,7 @@ app.post("/google", validateInput, async (req, res) => {
           z: theData.system,
         },
         [],
-        theData.thread
+        theData.thread,
       );
     }
 
@@ -1057,7 +1062,7 @@ app.post("/google", validateInput, async (req, res) => {
         z: theMsgs[theMsgs.length - 1].content[0].text,
       },
       [],
-      theData.thread
+      theData.thread,
     );
 
     const generationConfig = {
@@ -1120,7 +1125,7 @@ app.post("/google", validateInput, async (req, res) => {
         fs.writeFileSync(imgSpecificPath, image_bytes);
 
         res.status(200).json({ base64: image_base64 });
-      };
+      }
     } else {
       const responseText = response.text;
       res.status(200).json(responseText);
@@ -1136,7 +1141,7 @@ app.post("/google", validateInput, async (req, res) => {
           z: responseText,
         },
         [], // Context, Ollama only
-        theData.thread
+        theData.thread,
       );
     }
     console.log(`
@@ -1144,12 +1149,12 @@ app.post("/google", validateInput, async (req, res) => {
     ${chalk.underline("Remote IP:")} ${chalk.white(
       req.headers["cf-connecting-ip"] ||
         req.headers["x-forwarded-for"] ||
-        req.ip
+        req.ip,
     )}
     ${chalk.underline("User:")} ${chalk.white(theData.serverUsername)}
     ${chalk.blue.bold.underline("Model")}: ${chalk.blue(theData.model)}
     ${chalk.yellow.bold.underline("Temperature")}: ${chalk.yellow(
-      theData.temperature
+      theData.temperature,
     )}
     ${chalk.red.bold.underline("Top-P")}: ${chalk.red(theData.top_p)}
     ${chalk.red.bold.underline("Top-K")}: ${chalk.red(theData.top_k)}
@@ -1174,6 +1179,6 @@ app.post("/google", validateInput, async (req, res) => {
 app.listen(port, () => {
   console.log(
     `\n\nServer running at http://localhost:${port}\n` +
-      chalk.bgCyan.bold("////////////////////////////////////////\n")
+      chalk.bgCyan.bold("////////////////////////////////////////\n"),
   );
 });

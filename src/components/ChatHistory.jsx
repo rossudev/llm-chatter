@@ -64,7 +64,7 @@ const ChatHistory = ({
           key.startsWith("i_") &&
           item &&
           typeof item === "object" &&
-          item.u === chatId
+          item.u === chatId,
       )
       .map(([_, item]) => item)
       .sort((a, b) => {
@@ -155,7 +155,7 @@ const ChatHistory = ({
                         const chats = getChatsByChatId(
                           chatHistory,
                           chatId,
-                          thread
+                          thread,
                         );
                         const context = getContextByChatId(chatHistory, chatId);
 
@@ -179,7 +179,7 @@ const ChatHistory = ({
                             serverUsername={serverUsername}
                           />
                         );
-                      }
+                      },
                     )}
                   </td>
                 </tr>

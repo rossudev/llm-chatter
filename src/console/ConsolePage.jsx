@@ -209,7 +209,7 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
               "#0099ff",
               10,
               0,
-              8
+              8,
             );
           }
         }
@@ -231,7 +231,7 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
               "#009900",
               10,
               0,
-              8
+              8,
             );
           }
         }
@@ -296,7 +296,7 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
           return newKv;
         });
         return { ok: true };
-      }
+      },
     );
 
     client.addTool(
@@ -326,7 +326,7 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
       async ({ lat, lng, location }) => {
         setCoords({ lat, lng, location });
         const result = await fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,wind_speed_10m`
+          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,wind_speed_10m`,
         );
         const json = await result.json();
         const temperature = {
@@ -338,7 +338,7 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
           units: json.current_units.wind_speed_10m,
         };
         return json;
-      }
+      },
     );
 
     // handle realtime events from client + server for event logging
@@ -374,7 +374,7 @@ export const ConsolePage = ({ instructions, closeID, numba, relayWS }) => {
         const wavFile = await WavRecorder.decode(
           item.formatted.audio,
           24000,
-          24000
+          24000,
         );
         item.formatted.file = wavFile;
       }

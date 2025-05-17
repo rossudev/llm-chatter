@@ -1,27 +1,26 @@
 import { useState, useCallback } from "react";
 
-function CopyButton({ contentText, copyClick }) {
+const COPY_BUTTON_DELAY = 150;
+
+const CopyButton = ({ contentText, copyClick }) => {
   const [isCopied, setIsCopied] = useState(false);
 
-  const delayColor = useCallback(() => {
-    //For a period of 200 ms, setIsCopied to true
+  const handleCopy = useCallback(() => {
+    copyClick(contentText);
     setIsCopied(true);
     setTimeout(() => {
       setIsCopied(false);
-    }, 150);
-  });
+    }, COPY_BUTTON_DELAY);
+  }, [contentText, copyClick]);
 
   return (
     <i
-      onClick={() => {
-        copyClick(contentText);
-        delayColor();
-      }}
+      onClick={handleCopy}
       className={`text-aro-900 m-2 fa-solid fa-copy fa-2x cursor-pointer ${
         isCopied ? "text-blade-300" : ""
       }`}
-    ></i>
+    />
   );
-}
+};
 
 export default CopyButton;

@@ -83,7 +83,7 @@ export const WavRenderer = {
     pointCount,
     barWidth,
     barSpacing,
-    center
+    center,
   ) {
     if (pointCount === void 0) {
       pointCount = 0;
@@ -100,12 +100,12 @@ export const WavRenderer = {
     pointCount = Math.floor(
       Math.min(
         pointCount,
-        (canvas.width - barSpacing) / (Math.max(barWidth, 1) + barSpacing)
-      )
+        (canvas.width - barSpacing) / (Math.max(barWidth, 1) + barSpacing),
+      ),
     );
     if (!pointCount) {
       pointCount = Math.floor(
-        (canvas.width - barSpacing) / (Math.max(barWidth, 1) + barSpacing)
+        (canvas.width - barSpacing) / (Math.max(barWidth, 1) + barSpacing),
       );
     }
     if (!barWidth) {

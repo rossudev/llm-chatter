@@ -28,7 +28,7 @@ function Shared() {
           { shareUser: userName, shareChat: uniqueId },
           {
             headers: { "Content-Type": "application/json" },
-          }
+          },
         );
 
         const clientCheck = checkinResp?.data || undefined;
@@ -43,13 +43,16 @@ function Shared() {
         setShowError(JSON.stringify(error));
       }
     }, 250),
-    [serverURL, userName, uniqueId]
+    [serverURL, userName, uniqueId],
   );
 
   //Starts the interval on first load
   useEffect(() => {
     sharedCheckIn();
-  }, []);
+    return () => {
+      sharedCheckIn.cancel();
+    };
+  }, [sharedCheckIn]);
 
   const handleCopy = useCallback((e) => {
     e.preventDefault();
@@ -99,10 +102,10 @@ function Shared() {
               obj.r === "assistant"
                 ? obj.m
                 : obj.r === "system"
-                ? "Starting Prompt"
-                : obj.r === "user"
-                ? "Prompt"
-                : "Unknown Role";
+                  ? "Starting Prompt"
+                  : obj.r === "user"
+                    ? "Prompt"
+                    : "Unknown Role";
 
             return (
               <tr key={key}>

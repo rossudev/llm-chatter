@@ -251,7 +251,7 @@ const Chat = ({
           messages: msgs,
           temperature: parseFloat(temperature),
           top_p: parseFloat(topp),
-          stream: !isImgOutput,
+          //stream: !isImgOutput,
         };
         break;
 
@@ -262,7 +262,7 @@ const Chat = ({
           temperature: parseFloat(temperature),
           top_p: parseFloat(topp),
           top_k: parseFloat(topk),
-          stream: !isImgOutput,
+          //stream: !isImgOutput,
         };
         break;
 
@@ -273,7 +273,7 @@ const Chat = ({
           temperature: parseFloat(temperature),
           top_p: parseFloat(topp),
           top_k: parseFloat(topk),
-          stream: !isImgOutput,
+          //stream: !isImgOutput,
         };
         break;
 
@@ -284,7 +284,7 @@ const Chat = ({
           temperature: parseFloat(temperature),
           top_p: parseFloat(topp),
           top_k: parseFloat(topk),
-          stream: !isImgOutput,
+          //stream: !isImgOutput,
         };
         break;
 
@@ -350,9 +350,9 @@ const Chat = ({
       !isImgOutput;
     try {
       const startTime = Date.now();
-      let response;
+      /*      let response;
       let output = "";
-      if (isStreaming) {
+       if (isStreaming) {
         setGoing(true);
         response = await fetch(endPath, {
           method: "POST",
@@ -398,15 +398,16 @@ const Chat = ({
           }
         }
         setPending(false);
-      } else {
-        response = await axios.post(endPath, sendPacket, {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${clientJWT}`,
-          },
-        });
-        output = response.data.response || "";
-      }
+      } else { */
+      const response = await axios.post(endPath, sendPacket, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${clientJWT}`,
+        },
+      });
+      const output = response.data.choices[0].message.content || "";
+      //}
+
       const endTime = Date.now();
       const durTime = ((endTime - startTime) / 1000).toFixed(2);
       const normalizeText = (text) => text.trim().replace(/\n+/g, "\n");
