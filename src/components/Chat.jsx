@@ -405,7 +405,6 @@ const Chat = ({
           Authorization: `Bearer ${clientJWT}`,
         },
       });
-      const output = response.data.choices[0].message.content || "";
       //}
 
       const endTime = Date.now();
@@ -419,7 +418,7 @@ const Chat = ({
         case "Meta":
           theEnd = isImgOutput
             ? [{ type: "text", text: "Image Output." }]
-            : [{ type: "text", text: output }];
+            : [{ type: "text", text: response.data.choices[0].message.content }];
           if (isImgOutput) setImageOutput(response.data.base64);
           break;
         case "Anthropic":
