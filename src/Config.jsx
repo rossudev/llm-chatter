@@ -60,8 +60,8 @@ const deepseekModels = [
 const mcpModels = ["Qwen/Qwen2.5-72B-Instruct"];
 
 const Config = {
-  serverURL: "https://x.rossu.dev",
-  relayURL: "https://x.rossu.dev/relay",
+  serverURL: "http://localhost:8080",
+  relayURL: "http://localhost:8081",
 
   ollamaEnabled: true,
 

@@ -2,6 +2,10 @@
 
 Large Language Model chat by text, vision and voice. Proprietary models by API request and local Ollama models supported.
 
+## Screenshot
+
+![Screenshot of LLM Chatter](screenshot.png)
+
 # Ollama Setup
 
 1. Install Ollama and [add at least one model](https://www.ollama.ai/library).
